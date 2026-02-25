@@ -74,7 +74,7 @@ docs = [
 ]
 docsauto = ["sphinx-autobuild"]
 lint = [
-    "pylint==4.0.4",
+    "pylint>=4.0.4",  # unpinned: pylint 4.0.4 conflicts with isort 8.0.0 in dev_extra
 ]
 tests = [
     "pytest>=7.2.0",
