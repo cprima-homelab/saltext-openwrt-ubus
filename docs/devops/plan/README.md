@@ -18,6 +18,7 @@ Implementation details for each plan item live in [`docs/devops/code/`](../code/
 
 | Code guide | Plan reference | Summary |
 |------------|---------------|---------|
+| [00-uci-runtime-behavior](../code/00-uci-runtime-behavior.md) | All | UCI output formats, netifd schema, captured from live router |
 | [01-execution-module-network](../code/01-execution-module-network.md) | Plan 01 + 05 | Function signatures, test matrix, parsing notes for `network` named sections |
 
 ## Cross-Cutting Considerations

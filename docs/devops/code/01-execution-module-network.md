@@ -73,7 +73,9 @@ Parse into:
  "ipaddr": "10.35.24.1", "netmask": "255.255.255.0"}
 ```
 
-The first line (`network.lan=interface`) gives the section type. Subsequent lines are `key='value'` pairs. List values appear as `network.wan.dns='1.1.1.1' '1.0.0.1'` (space-separated, each quoted).
+The first line (`network.lan=interface`) gives the section type. Subsequent lines are `key='value'` pairs. List values appear as `network.wan.dns='1.1.1.1' '1.0.0.1'` (space-separated, each single-quoted). See [00-uci-runtime-behavior.md](00-uci-runtime-behavior.md) for full format reference.
+
+Note: a multi-word scalar (e.g., `ports='0 1 2 3 5'`) looks identical to a list in `uci show` output. The schema determines which is which.
 
 ### `add_list` idempotency
 
@@ -111,8 +113,8 @@ Mock `cmd.run_all` returns based on captured austru output:
 # uci show network.lan
 {"retcode": 0, "stdout": "network.lan=interface\nnetwork.lan.device='br-lan'\nnetwork.lan.proto='static'\nnetwork.lan.ipaddr='10.35.24.1'\nnetwork.lan.netmask='255.255.255.0'", "stderr": ""}
 
-# uci get for list (dns)
-{"retcode": 0, "stdout": "1.1.1.1\n1.0.0.1", "stderr": ""}
+# uci get for list (dns) -- space-separated, single line
+{"retcode": 0, "stdout": "1.1.1.1 1.0.0.1", "stderr": ""}
 ```
 
 ### Test matrix

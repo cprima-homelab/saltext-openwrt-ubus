@@ -19,7 +19,7 @@ Example in `uci show` format:
 ```
 network.lan=interface           # named section "lan" of type "interface"
 network.lan.proto=static        # scalar option
-network.wan.dns=1.1.1.1 1.0.0.1  # list option (space-separated in show)
+network.wan.dns='1.1.1.1' '1.0.0.1'  # list option (space-separated, each quoted)
 firewall.@rule[0]=rule          # anonymous section (index-based reference)
 firewall.@rule[0].name=Allow-SSH
 ```
@@ -43,7 +43,8 @@ config rule
 - Named sections have stable references: `network.lan`
 - Anonymous sections have **unstable** index-based references: `firewall.@rule[3]`
 - Adding/removing anonymous sections shifts all higher indices
-- `uci show` returns list values space-separated; `uci get` returns them newline-separated
+- `uci show` returns list values space-separated and single-quoted: `dns='1.1.1.1' '1.0.0.1'`
+- `uci get` returns list values space-separated, unquoted, on a single line: `1.1.1.1 1.0.0.1`
 - `uci -q` suppresses errors (useful for `delete` on possibly-missing paths)
 - Changes are staged until `uci commit <package>` writes them to `/etc/config/<package>`
 - `uci revert <package>` discards staged changes
