@@ -24,6 +24,10 @@ MemTotal:         121152 kB
 ---DELIM---
 Filesystem           1K-blocks      Used Available Use% Mounted on
 /dev/mtdblock5            5888       320      5568   5% /overlay
+---DELIM---
+6.6.86 mips
+---DELIM---
+/usr/sbin:/usr/bin:/sbin:/bin
 """
 
 # Output with /tmp/sysinfo/model missing (empty section)
@@ -45,6 +49,10 @@ MemTotal:         121152 kB
 ---DELIM---
 Filesystem           1K-blocks      Used Available Use% Mounted on
 /dev/mtdblock5            5888       320      5568   5% /overlay
+---DELIM---
+6.6.86 mips
+---DELIM---
+/usr/sbin:/usr/bin:/sbin:/bin
 """
 
 
@@ -87,6 +95,9 @@ class TestGetGrains:
         assert grains["mem_total_kb"] == 121152
         assert grains["flash_total_kb"] == 5888
         assert grains["flash_used_kb"] == 320
+        assert grains["kernelrelease"] == "6.6.86"
+        assert grains["cpuarch"] == "mips"
+        assert grains["systempath"] == ["/usr/sbin", "/usr/bin", "/sbin", "/bin"]
 
     def test_caches_in_context(self, proxy_context, monkeypatch):
         monkeypatch.setattr(uci_proxy, "__context__", proxy_context)

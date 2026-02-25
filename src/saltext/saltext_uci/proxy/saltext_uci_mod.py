@@ -135,7 +135,9 @@ _GRAINS_CMD = (
     "cat /tmp/sysinfo/board_name 2>/dev/null; echo '---DELIM---'; "
     "uci get system.@system[0].hostname 2>/dev/null; echo '---DELIM---'; "
     "head -1 /proc/meminfo 2>/dev/null; echo '---DELIM---'; "
-    "df /overlay 2>/dev/null"
+    "df /overlay 2>/dev/null; echo '---DELIM---'; "
+    "uname -r -m 2>/dev/null; echo '---DELIM---'; "
+    "echo $PATH 2>/dev/null"
 )
 
 _RELEASE_KEYS = {
@@ -198,6 +200,20 @@ def _parse_grains(output):
                     grains["flash_used_kb"] = int(cols[2])
                 except (ValueError, IndexError):
                     pass
+
+    # Section 6: uname -r -m  (e.g. "6.6.86 mips")
+    if len(sections) > 6:
+        parts = sections[6].strip().split()
+        if parts:
+            grains["kernelrelease"] = parts[0]
+        if len(parts) > 1:
+            grains["cpuarch"] = parts[1]
+
+    # Section 7: $PATH
+    if len(sections) > 7:
+        val = sections[7].strip()
+        if val:
+            grains["systempath"] = val.split(":")
 
     return grains
 
