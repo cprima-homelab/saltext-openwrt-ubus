@@ -10,7 +10,7 @@ to [Salt's security guide][security].
 ## User Documentation
 
 For setup and usage instructions, please refer to the
-module docstrings (for now, documentation is coming!).
+[User Documentation][docs].
 
 ## Contributing
 
@@ -104,3 +104,4 @@ appreciate every contribution!
 [PRs]: https://github.com/cprima-homelab/saltext-uci/pulls
 [discussions]: https://github.com/cprima-homelab/saltext-uci/discussions
 [comments]: https://conventionalcomments.org/
+[docs]: https://cprima-homelab.github.io/saltext-uci

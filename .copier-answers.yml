@@ -6,8 +6,8 @@ author: Christian Prior-Mamulyan
 author_email: cprior@gmail.com
 coc_contact: ''
 copyright_begin: 2026
-deploy_docs: never
-docs_url: ''
+deploy_docs: rolling
+docs_url: https://cprima-homelab.github.io/saltext-uci
 integration_name: OpenWrt UCI
 license: apache
 loaders:
