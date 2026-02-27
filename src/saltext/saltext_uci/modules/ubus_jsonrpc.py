@@ -13,7 +13,7 @@ import logging
 log = logging.getLogger(__name__)
 
 __virtualname__ = "saltext_uci"
-__proxyenabled__ = ["saltext_uci"]
+__proxyenabled__ = ["saltext_uci_ubus"]
 
 __func_alias__ = {
     "set_": "set",
@@ -22,12 +22,16 @@ __func_alias__ = {
 
 
 def __virtual__():
+    if "proxy" not in __opts__:
+        return False, "Not a proxy minion"
+    if __opts__.get("proxy", {}).get("proxytype") != "saltext_uci_ubus":
+        return False, "proxytype is not saltext_uci_ubus"
     return __virtualname__
 
 
 def _call(ubus_object, ubus_method, params=None):
     """Forward a ubus call through the proxy module."""
-    return __proxy__["saltext_uci.call"](ubus_object, ubus_method, params)
+    return __proxy__["saltext_uci_ubus.call"](ubus_object, ubus_method, params)
 
 
 def _transform_section(data):
@@ -246,6 +250,56 @@ def revert(config):
         salt austru saltext_uci.revert network
     """
     return _call("uci", "revert", {"config": config})
+
+
+def commit(config):
+    """
+    Commit staged changes to /etc/config without reloading daemons.
+
+    Use this to persist changes without triggering a service reload.
+    For commit + reload with rollback safety, use ``apply`` instead.
+
+    Args:
+        config: UCI package name (e.g., 'network').
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt austru saltext_uci.commit network
+    """
+    return _call("uci", "commit", {"config": config})
+
+
+def state(config, section=None):
+    """
+    Return runtime-merged UCI state (defaults + config + overrides).
+
+    Unlike ``get`` which reads /tmp/.uci (staged) or /etc/config (saved),
+    ``state`` returns the merged view that running daemons see.
+
+    Args:
+        config: UCI package name (e.g., 'network').
+        section: Optional section name to narrow the query.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt austru saltext_uci.state network
+        salt austru saltext_uci.state network lan
+    """
+    params = {"config": config}
+    if section is not None:
+        params["section"] = section
+    result = _call("uci", "state", params)
+
+    if section is not None:
+        data = result.get("values", result)
+        return _transform_section(data)
+
+    values = result.get("values", {})
+    return {name: _transform_section(data) for name, data in values.items()}
 
 
 # --- System info ---

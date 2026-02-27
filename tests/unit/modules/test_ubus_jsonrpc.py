@@ -24,7 +24,7 @@ def patch_dunders(monkeypatch):
 def mock_call(patch_dunders):
     """Provide a mock for the proxy's call function."""
     call_fn = MagicMock()
-    patch_dunders["saltext_uci.call"] = call_fn
+    patch_dunders["saltext_uci_ubus.call"] = call_fn
     return call_fn
 
 
@@ -294,6 +294,40 @@ class TestNetworkDump:
         result = uci_mod.network_dump()
         assert len(result["interface"]) == 2
         mock_call.assert_called_once_with("network.interface", "dump", None)
+
+
+# --- commit ---
+
+
+class TestCommit:
+    def test_passes_config(self, mock_call):
+        mock_call.return_value = None
+        uci_mod.commit("network")
+        mock_call.assert_called_once_with("uci", "commit", {"config": "network"})
+
+
+# --- state ---
+
+
+class TestState:
+    def test_full_config(self, mock_call):
+        mock_call.return_value = {
+            "values": {
+                "lan": {".type": "interface", ".name": "lan", "proto": "static"},
+            }
+        }
+        result = uci_mod.state("network")
+        assert result["lan"]["_type"] == "interface"
+        assert result["lan"]["proto"] == "static"
+        mock_call.assert_called_once_with("uci", "state", {"config": "network"})
+
+    def test_single_section(self, mock_call):
+        mock_call.return_value = {
+            "values": {".type": "interface", ".name": "lan", "proto": "static"}
+        }
+        result = uci_mod.state("network", "lan")
+        assert result["_type"] == "interface"
+        mock_call.assert_called_once_with("uci", "state", {"config": "network", "section": "lan"})
 
 
 # --- _transform_section ---

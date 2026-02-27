@@ -10,7 +10,7 @@ NOT YET IMPLEMENTED. This module exists as a stub to define the
 adapter interface. All functions raise ``NotImplementedError``.
 
 The output format must match the JSON-RPC adapter so the state module
-(``states/saltext_uci_mod.py``) works unchanged:
+(``saltext_uci.managed``) works unchanged:
 
 - Section metadata: ``_type``, ``_name``, ``_anonymous``
 - List options: Python lists
@@ -183,6 +183,33 @@ def revert(config):
     .. code-block:: bash
 
         salt router saltext_uci.revert network
+    """
+    raise NotImplementedError("SSH execution module is not yet implemented.")
+
+
+def commit(config):
+    """
+    Commit staged changes via ``uci commit`` over SSH.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt router saltext_uci.commit network
+    """
+    raise NotImplementedError("SSH execution module is not yet implemented.")
+
+
+def state(config, section=None):
+    """
+    Return runtime-merged UCI state via ``uci -P /var/state show`` over SSH.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt router saltext_uci.state network
+        salt router saltext_uci.state network lan
     """
     raise NotImplementedError("SSH execution module is not yet implemented.")
 

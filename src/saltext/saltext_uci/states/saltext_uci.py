@@ -16,7 +16,7 @@ import logging
 log = logging.getLogger(__name__)
 
 __virtualname__ = "saltext_uci"
-__proxyenabled__ = ["saltext_uci"]
+__proxyenabled__ = ["saltext_uci_ubus", "saltext_uci_ssh"]
 
 
 def __virtual__():
@@ -75,6 +75,20 @@ def managed(name, config, sections, apply_rollback=90, revert_pending=False):
     all_changes = {}
     for section_name, desired in resolved.items():
         current_section = current.get(section_name, {})
+
+        # Type mismatch guard: catch it before any changes are staged
+        if current_section:
+            desired_type = desired.get("_type")
+            current_type = current_section.get("_type")
+            if desired_type and current_type and desired_type != current_type:
+                ret["result"] = False
+                ret["comment"] = (
+                    f"Type mismatch on {config}.{section_name}: "
+                    f"desired _type '{desired_type}' != "
+                    f"current _type '{current_type}'"
+                )
+                return ret
+
         section_changes = _diff_section(desired, current_section)
         if section_changes:
             all_changes[section_name] = section_changes

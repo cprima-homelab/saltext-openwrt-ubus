@@ -63,7 +63,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "saltext_uci",
+                "proxytype": "saltext_uci_ubus",
                 "host": "10.35.24.1",
                 "username": "salt",
                 "password": "secret",
@@ -95,7 +95,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "saltext_uci",
+                "proxytype": "saltext_uci_ubus",
                 "host": "10.0.0.1",
                 "username": "u",
                 "password": "p",

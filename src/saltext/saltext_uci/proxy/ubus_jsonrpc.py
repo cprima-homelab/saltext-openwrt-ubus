@@ -8,7 +8,7 @@ UCI configuration management through the ubus API.
 
     # /srv/salt/pillar/router.sls
     proxy:
-      proxytype: saltext_uci
+      proxytype: saltext_uci_ubus
       host: 10.35.24.1
       username: salt
       password: secret
@@ -22,8 +22,8 @@ from saltext.saltext_uci.utils.rpc import UbusRpcClient
 
 log = logging.getLogger(__name__)
 
-__virtualname__ = "saltext_uci"
-__proxyenabled__ = ["saltext_uci"]
+__virtualname__ = "saltext_uci_ubus"
+__proxyenabled__ = ["saltext_uci_ubus"]
 
 DETAILS = {}
 
@@ -47,7 +47,7 @@ def init(opts):
     DETAILS["client"] = client
     DETAILS["grains_cache"] = _fetch_grains(client)
     DETAILS["initialized"] = True
-    log.info("saltext_uci proxy initialized for %s", proxy_conf["host"])
+    log.info("saltext_uci_ubus proxy initialized for %s", proxy_conf["host"])
 
 
 def alive(opts):  # pylint: disable=unused-argument
@@ -67,7 +67,7 @@ def ping():
 def shutdown(opts):  # pylint: disable=unused-argument
     """Clean up proxy state."""
     DETAILS.clear()
-    log.info("saltext_uci proxy shut down")
+    log.info("saltext_uci_ubus proxy shut down")
 
 
 def grains():

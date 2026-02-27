@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import saltext.saltext_uci.states.saltext_uci_mod as state_mod
+import saltext.saltext_uci.states.saltext_uci as state_mod
 
 # --- Sample device state (what uci.get returns after _transform) ---
 
@@ -287,6 +287,22 @@ class TestSectionCreate:
         ret = state_mod.managed("test", "network", {"wan2": {"proto": "dhcp"}})  # No _type
         assert ret["result"] is False
         assert "no _type specified" in ret["comment"]
+
+
+# --- Type mismatch ---
+
+
+class TestTypeMismatch:
+    def test_fails_on_type_mismatch(self, patch_dunders):
+        patch_dunders["saltext_uci.changes"] = MagicMock(return_value=[])
+        patch_dunders["saltext_uci.get"] = MagicMock(return_value=NETWORK_STATE)
+
+        # lan is type "interface", try to set it as "bridge"
+        ret = state_mod.managed("test", "network", {"lan": {"_type": "bridge", "proto": "static"}})
+        assert ret["result"] is False
+        assert "Type mismatch" in ret["comment"]
+        assert "'bridge'" in ret["comment"]
+        assert "'interface'" in ret["comment"]
 
 
 # --- Apply + verify + confirm ---

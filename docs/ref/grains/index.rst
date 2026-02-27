@@ -9,4 +9,4 @@ _____________
 .. autosummary::
     :toctree:
 
-    saltext_uci_mod
+    saltext_uci
