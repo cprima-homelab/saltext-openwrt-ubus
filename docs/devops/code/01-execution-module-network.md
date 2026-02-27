@@ -2,9 +2,16 @@
 
 Implements the minimal scope defined in [plan/05-minimal-scope.md](../plan/05-minimal-scope.md).
 
-## Target File
+## Source Files
 
-`src/saltext/saltext_uci/modules/saltext_uci_mod.py`
+| File | Purpose |
+|------|---------|
+| `src/saltext/saltext_uci/modules/saltext_uci_mod.py` | Execution module (Salt-facing functions) |
+| `src/saltext/saltext_uci/utils/uci_parser.py` | Parser library (`parse_show`, `to_pillar`) |
+| `tests/unit/modules/test_saltext_uci.py` | Execution module tests (22 tests) |
+| `tests/unit/utils/test_uci_parser.py` | Parser tests (10 tests) |
+
+The execution module imports `_unquote` from the parser to avoid duplication.
 
 ## Functions
 
