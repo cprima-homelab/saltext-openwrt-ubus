@@ -1,0 +1,35 @@
+{
+	"saltext-uci": {
+		"description": "Salt extension for OpenWrt UCI management",
+		"read": {
+			"ubus": {
+				"session": ["access", "login"],
+				"system": ["board", "info"],
+				"network": ["get_proto_handlers"],
+				"network.device": ["status"],
+				"network.interface": ["dump"],
+				"network.interface.*": ["status", "dump"],
+				"luci-rpc": [
+					"getBoardJSON",
+					"getNetworkDevices",
+					"getDHCPLeases",
+					"getHostHints",
+					"getWirelessDevices"
+				],
+				"uci": ["configs", "get", "state", "changes"]
+			},
+			"uci": ["*"]
+		},
+		"write": {
+			"ubus": {
+				"uci": [
+					"add", "set", "delete", "rename", "order",
+					"commit", "revert",
+					"apply", "confirm", "rollback",
+					"reload_config"
+				]
+			},
+			"uci": ["*"]
+		}
+	}
+}

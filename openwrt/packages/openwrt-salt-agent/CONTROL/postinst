@@ -1,0 +1,40 @@
+#!/bin/sh
+# Post-install: create salt system user and rpcd login
+
+set -e
+
+# Create system user if it does not exist
+if ! grep -q "^salt:" /etc/passwd; then
+    echo "salt:x:1000:1000:salt:/home/salt:/bin/ash" >> /etc/passwd
+    echo "salt:x:1000:" >> /etc/group
+    echo "salt:!:0:0:99999:7:::" >> /etc/shadow
+    mkdir -p /home/salt
+    echo "openwrt-salt-agent: created system user 'salt'"
+    echo "openwrt-salt-agent: run 'passwd salt' to set a password"
+fi
+
+# Add rpcd login if it does not exist
+FOUND=0
+i=0
+while uci -q get "rpcd.@login[$i].username" >/dev/null 2>&1; do
+    if [ "$(uci -q get "rpcd.@login[$i].username")" = "salt" ]; then
+        FOUND=1
+        break
+    fi
+    i=$((i + 1))
+done
+
+if [ "$FOUND" = "0" ]; then
+    uci add rpcd login >/dev/null
+    uci set "rpcd.@login[-1].username=salt"
+    # $p$salt = verify against /etc/shadow
+    uci set "rpcd.@login[-1].password=$(printf '$p$salt')"
+    uci add_list "rpcd.@login[-1].read=saltext-uci"
+    uci add_list "rpcd.@login[-1].write=saltext-uci"
+    uci commit rpcd
+    echo "openwrt-salt-agent: added rpcd login for 'salt'"
+fi
+
+/etc/init.d/rpcd restart
+
+exit 0

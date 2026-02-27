@@ -1,0 +1,25 @@
+#!/bin/sh
+# Post-remove: remove rpcd login (keep system user for safety)
+
+set -e
+
+# Remove rpcd login for salt
+i=0
+while uci -q get "rpcd.@login[$i].username" >/dev/null 2>&1; do
+    if [ "$(uci -q get "rpcd.@login[$i].username")" = "salt" ]; then
+        uci delete "rpcd.@login[$i]"
+        uci commit rpcd
+        echo "openwrt-salt-agent: removed rpcd login for 'salt'"
+        break
+    fi
+    i=$((i + 1))
+done
+
+/etc/init.d/rpcd restart
+
+# Note: system user 'salt' in /etc/passwd is intentionally NOT removed.
+# Removing users can break file ownership. To fully remove:
+#   sed -i '/^salt:/d' /etc/passwd /etc/shadow /etc/group
+#   rm -rf /home/salt
+
+exit 0

@@ -1,0 +1,44 @@
+# openwrt-salt-agent package tasks
+
+pkg := "openwrt-salt-agent"
+host := "austru"
+
+# Build the .ipk package
+build:
+    bash build.sh {{pkg}}
+
+# Upload and install on target
+install: build
+    scp build/{{pkg}}_$(grep '^Version:' packages/{{pkg}}/CONTROL/control | cut -d' ' -f2)_all.ipk root@{{host}}:/tmp/
+    ssh {{host}} 'opkg install /tmp/{{pkg}}_*_all.ipk'
+
+# Remove package from target
+remove:
+    ssh {{host}} 'opkg remove {{pkg}}'
+
+# Reinstall (remove + install)
+reinstall: remove install
+
+# Set salt user password on target (interactive)
+passwd:
+    ssh {{host}} 'passwd salt'
+
+# Show package status on target
+status:
+    @echo "--- installed ---"
+    ssh {{host}} 'opkg list-installed | grep {{pkg}}' || echo "not installed"
+    @echo "--- ACL file ---"
+    ssh {{host}} 'ls -l /usr/share/rpcd/acl.d/{{pkg}}.json 2>/dev/null' || echo "missing"
+    @echo "--- rpcd login ---"
+    ssh {{host}} 'uci show rpcd | grep salt' || echo "no rpcd login"
+    @echo "--- user ---"
+    ssh {{host}} 'grep "^salt:" /etc/passwd' || echo "no salt user"
+
+# Test JSON-RPC login (requires AUSTRU_PASSWORD env var)
+test-login:
+    @printf '{"jsonrpc":"2.0","id":1,"method":"call","params":["00000000000000000000000000000000","session","login",{"username":"salt","password":"%s"}]}' "$$AUSTRU_PASSWORD" \
+        | curl -s -k -X POST 'https://{{host}}/ubus' -H 'Content-Type: application/json' -d @-
+
+# Clean build artifacts
+clean:
+    rm -rf build/
