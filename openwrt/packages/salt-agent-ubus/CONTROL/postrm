@@ -9,7 +9,7 @@ while uci -q get "rpcd.@login[$i].username" >/dev/null 2>&1; do
     if [ "$(uci -q get "rpcd.@login[$i].username")" = "salt" ]; then
         uci delete "rpcd.@login[$i]"
         uci commit rpcd
-        echo "openwrt-salt-agent: removed rpcd login for 'salt'"
+        echo "salt-agent-ubus: removed rpcd login for 'salt'"
         break
     fi
     i=$((i + 1))

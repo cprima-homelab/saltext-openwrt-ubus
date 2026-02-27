@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import saltext.saltext_uci.modules.saltext_uci_mod as uci_mod
+import saltext.saltext_uci.modules.ubus_jsonrpc as uci_mod
 
 
 @pytest.fixture(autouse=True)

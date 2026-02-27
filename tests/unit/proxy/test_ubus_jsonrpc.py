@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-import saltext.saltext_uci.proxy.saltext_uci_mod as proxy_mod
+import saltext.saltext_uci.proxy.ubus_jsonrpc as proxy_mod
 
 BOARD_RESPONSE = {
     "kernel": "6.6.86",
@@ -52,7 +52,7 @@ def mock_client():
 
 
 class TestInit:
-    @patch("saltext.saltext_uci.proxy.saltext_uci_mod.UbusRpcClient")
+    @patch("saltext.saltext_uci.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_creates_client_and_logs_in(self, mock_client_cls):
         mock_instance = MagicMock()
         mock_instance.call.side_effect = lambda obj, method, params=None: {
@@ -84,7 +84,7 @@ class TestInit:
         mock_instance.login.assert_called_once()
         assert proxy_mod.DETAILS["initialized"] is True
 
-    @patch("saltext.saltext_uci.proxy.saltext_uci_mod.UbusRpcClient")
+    @patch("saltext.saltext_uci.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_fetches_grains_on_init(self, mock_client_cls):
         mock_instance = MagicMock()
         mock_instance.call.side_effect = lambda obj, method, params=None: {

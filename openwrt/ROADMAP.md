@@ -1,4 +1,4 @@
-# openwrt-salt-agent Package Roadmap
+# salt-agent-ubus Package Roadmap
 
 ## v0.1.0 (current)
 
@@ -20,7 +20,7 @@ file. Enough to authenticate via JSON-RPC and explore the ubus API.
 
 ### Uninstall behavior
 
-`opkg remove openwrt-salt-agent` removes the ACL file and the rpcd
+`opkg remove salt-agent-ubus` removes the ACL file and the rpcd
 login entry. The system user `salt` (passwd, shadow, group, home
 directory) is intentionally **not** removed -- deleting users can break
 ownership of files created while the account existed. The README and
@@ -48,7 +48,7 @@ Tighten ACL scope based on saltext-uci module requirements.
   `dhcp`, `firewall`, `system`, `openvpn` (and others as needed)
 - [ ] Scope `uci` write to the same list
 - [ ] Document which UCI packages each saltext-uci Salt state touches
-- [ ] Add `conffiles` to CONTROL so `/usr/share/rpcd/acl.d/openwrt-salt-agent.json`
+- [ ] Add `conffiles` to CONTROL so `/usr/share/rpcd/acl.d/salt-agent-ubus.json`
   survives upgrades if locally modified
 - [ ] Version bump CONTROL/control and Makefile
 
@@ -75,7 +75,7 @@ Production-ready package with stable ACL contract.
   login and a UCI get/set/apply cycle from a Salt master
 - [ ] Published to a package feed or documented `opkg` custom feed setup
 
-## openwrt-salt-baseline (future package)
+## salt-baseline (future package)
 
 Baseline configuration for Salt-managed devices.
 
@@ -83,7 +83,7 @@ Baseline configuration for Salt-managed devices.
 - [ ] DNS upstream configuration
 - [ ] Syslog remote forwarding
 - [ ] SSH hardening (disable password auth for root, key-only)
-- [ ] Depends on `openwrt-salt-agent`
+- [ ] Depends on `salt-agent-ubus`
 
 ## Notes
 

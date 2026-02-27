@@ -11,6 +11,16 @@ docs_by_kind = {}
 changed_something = False
 
 
+def _read_text_lf(path):
+    with open(path, newline="") as f:
+        return f.read()
+
+
+def _write_text_lf(path, content):
+    with open(path, "w", newline="\n") as f:
+        f.write(content)
+
+
 def _find_virtualname(path):
     tree = ast.parse(path.read_text())
     for node in ast.walk(tree):
@@ -45,9 +55,9 @@ def write_module(rst_path, path, use_virtualname=True):
 .. automodule:: {make_import_path(path)}
     :members:
 """
-    if not rst_path.exists() or rst_path.read_text() != module_contents:
+    if not rst_path.exists() or _read_text_lf(rst_path) != module_contents:
         print(rst_path)
-        rst_path.write_text(module_contents)
+        _write_text_lf(rst_path, module_contents)
         return True
     return False
 
@@ -56,7 +66,7 @@ def write_index(index_rst, import_paths, kind):
     if kind == "utils":
         header_text = "Utilities"
         common_path = os.path.commonpath(tuple(x.replace(".", "/") for x in import_paths)).replace(
-            "/", "."
+            os.sep, "."
         )
         if any(x == common_path for x in import_paths):
             common_path = common_path[: common_path.rfind(".")]
@@ -78,9 +88,9 @@ def write_index(index_rst, import_paths, kind):
 
 {chr(10).join(sorted('    '+p[len(common_path)+1:] for p in import_paths))}
 """
-    if not index_rst.exists() or index_rst.read_text() != index_contents:
+    if not index_rst.exists() or _read_text_lf(index_rst) != index_contents:
         print(index_rst)
-        index_rst.write_text(index_contents)
+        _write_text_lf(index_rst, index_contents)
         return True
     return False
 

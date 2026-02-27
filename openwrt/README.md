@@ -1,4 +1,4 @@
-# openwrt-salt-agent
+# salt-agent-ubus
 
 OpenWrt `.ipk` package that prepares a device for Salt management via
 the ubus JSON-RPC API. No cross-compilation or OpenWrt SDK required --
@@ -48,10 +48,10 @@ methods are unavailable; core functionality is unaffected.
 ## Building
 
 ```sh
-./build.sh openwrt-salt-agent
+./build.sh salt-agent-ubus
 ```
 
-Creates `build/openwrt-salt-agent_0.1.0-1_all.ipk`.
+Creates `build/salt-agent-ubus_0.1.0-1_all.ipk`.
 
 Or using [just](https://github.com/casey/just):
 
@@ -65,8 +65,8 @@ The `.ipk` is a gzipped tar archive containing `debian-binary`,
 ## Install
 
 ```sh
-scp build/openwrt-salt-agent_0.1.0-1_all.ipk root@<host>:/tmp/
-ssh root@<host> 'opkg install /tmp/openwrt-salt-agent_0.1.0-1_all.ipk'
+scp build/salt-agent-ubus_0.1.0-1_all.ipk root@<host>:/tmp/
+ssh root@<host> 'opkg install /tmp/salt-agent-ubus_0.1.0-1_all.ipk'
 ssh root@<host> 'passwd salt'
 ```
 
@@ -80,12 +80,12 @@ just passwd
 ## Uninstall
 
 ```sh
-ssh root@<host> 'opkg remove openwrt-salt-agent'
+ssh root@<host> 'opkg remove salt-agent-ubus'
 ```
 
 ### What gets removed
 
-- ACL file `/usr/share/rpcd/acl.d/openwrt-salt-agent.json`
+- ACL file `/usr/share/rpcd/acl.d/salt-agent-ubus.json`
 - rpcd login entry for `salt` (UCI section deleted, rpcd restarted)
 
 ### What is intentionally kept
@@ -122,11 +122,11 @@ Override the target host: `just host=myrouter install`
 
 ```
 ├── packages/
-│   └── openwrt-salt-agent/
+│   └── salt-agent-ubus/
 │       ├── Makefile                        ← OpenWrt SDK Makefile
 │       ├── files/
 │       │   └── usr/share/rpcd/acl.d/
-│       │       └── openwrt-salt-agent.json ← rpcd ACL definitions
+│       │       └── salt-agent-ubus.json    ← rpcd ACL definitions
 │       └── CONTROL/
 │           ├── control                     ← package metadata
 │           ├── postinst                    ← creates user + rpcd login

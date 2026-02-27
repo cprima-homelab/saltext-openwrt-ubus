@@ -1,6 +1,6 @@
-# openwrt-salt-agent package tasks
+# salt-agent-ubus package tasks
 
-pkg := "openwrt-salt-agent"
+pkg := "salt-agent-ubus"
 host := "austru"
 
 # Build the .ipk package

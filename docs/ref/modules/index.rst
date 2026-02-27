@@ -9,4 +9,5 @@ _________________
 .. autosummary::
     :toctree:
 
-    saltext_uci_mod
+    ubus_jsonrpc
+    uci_ssh

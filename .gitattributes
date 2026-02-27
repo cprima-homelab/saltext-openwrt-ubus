@@ -1,0 +1,3 @@
+# Force LF line endings for all text files (prevents CRLF/mixed-ending
+# churn on Windows where core.autocrlf=true)
+* text=auto eol=lf

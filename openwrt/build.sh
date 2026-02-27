@@ -5,7 +5,7 @@
 # that can be installed on OpenWrt via: opkg install <file>.ipk
 #
 # Usage: ./build.sh <package-name>
-# Example: ./build.sh openwrt-salt-agent
+# Example: ./build.sh salt-agent-ubus
 
 set -euo pipefail
 

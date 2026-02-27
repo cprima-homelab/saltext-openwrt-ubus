@@ -1,10 +1,10 @@
-Package: openwrt-salt-agent
+Package: salt-agent-ubus
 Version: 0.1.0-1
 Depends: rpcd, uhttpd-mod-ubus
 Section: admin
 Architecture: all
 Maintainer: Christian Prior-Mamulyan <cprior@gmail.com>
-Description: Salt agent user and ACLs for remote UCI management
+Description: Salt agent for OpenWrt ubus JSON-RPC transport
  Creates an rpcd login for the salt user and installs ACL rules
  granting scoped access to UCI, network, and system ubus objects
  via the JSON-RPC API.

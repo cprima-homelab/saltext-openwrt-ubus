@@ -11,6 +11,7 @@ Requirements and planning documents for saltext-uci.
 | 03 | [LuCI Integration](03-luci-integration.md) | Future | Snapshot history, change logbook, web dashboard |
 | 04 | [LLM Coding Policy](04-llm-coding-policy.md) | Draft | Pair programming instructions and project conventions |
 | 05 | [Minimal Scope](05-minimal-scope.md) | Draft | UCI taxonomy, complexity tiers, first implementation slice |
+| 06 | [UCI Data Layers](06-uci-data-layers.md) | Done | Config file -> ubus JSON-RPC -> execution module transformation chain |
 
 ## Related: Code Guides
 

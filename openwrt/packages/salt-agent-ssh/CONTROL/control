@@ -1,0 +1,9 @@
+Package: salt-agent-ssh
+Version: 0.1.0-1
+Depends: openssh-server
+Section: admin
+Architecture: all
+Maintainer: Christian Prior-Mamulyan <cprior@gmail.com>
+Description: Salt agent for OpenWrt SSH transport
+ Configures an OpenWrt device for Salt management via salt-ssh.
+ Not yet implemented.

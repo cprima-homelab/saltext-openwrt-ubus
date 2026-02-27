@@ -4,8 +4,9 @@ _________
 Utilities
 _________
 
-.. currentmodule:: saltext\saltext_uci\utils\rpc
+.. currentmodule:: saltext.saltext_uci.utils
 
 .. autosummary::
     :toctree:
 
+    rpc
