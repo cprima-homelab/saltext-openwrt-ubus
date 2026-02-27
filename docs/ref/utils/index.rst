@@ -4,10 +4,8 @@ _________
 Utilities
 _________
 
-.. currentmodule:: saltext\saltext_uci\utils
+.. currentmodule:: saltext\saltext_uci\utils\rpc
 
 .. autosummary::
     :toctree:
 
-    packages.netifd
-    uci_parser

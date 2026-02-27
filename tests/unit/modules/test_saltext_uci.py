@@ -1,223 +1,312 @@
+"""
+Unit tests for the saltext_uci execution module.
+
+All tests use mocked proxy calls. No network calls or device writes.
+"""
+
+from unittest.mock import MagicMock
+
 import pytest
 
 import saltext.saltext_uci.modules.saltext_uci_mod as uci_mod
 
-# --- Fixtures ---
 
-
-def _make_run_all(retcode=0, stdout="", stderr=""):
-    """Build a mock return dict for cmd.run_all."""
-    return {"retcode": retcode, "stdout": stdout, "stderr": stderr, "pid": 1234}
-
-
-@pytest.fixture
-def configure_loader_modules():
-    return {
-        uci_mod: {
-            "__salt__": {
-                "cmd.run_all": None,  # replaced per-test via mock_run_all
-            },
-        },
-    }
+@pytest.fixture(autouse=True)
+def patch_dunders(monkeypatch):
+    """Set up Salt dunders for the execution module."""
+    proxy = {}
+    monkeypatch.setattr(uci_mod, "__proxy__", proxy, raising=False)
+    monkeypatch.setattr(uci_mod, "__opts__", {"test": False}, raising=False)
+    return proxy
 
 
 @pytest.fixture
-def mock_run_all(monkeypatch):
-    """Return a helper that sets cmd.run_all to a given side_effect list or callable."""
-
-    def _setup(side_effect):
-        if callable(side_effect) and not isinstance(side_effect, list):
-            monkeypatch.setitem(uci_mod.__salt__, "cmd.run_all", side_effect)
-        else:
-            calls = iter(side_effect)
-            monkeypatch.setitem(uci_mod.__salt__, "cmd.run_all", lambda *a, **kw: next(calls))
-
-    return _setup
+def mock_call(patch_dunders):
+    """Provide a mock for the proxy's call function."""
+    call_fn = MagicMock()
+    patch_dunders["saltext_uci.call"] = call_fn
+    return call_fn
 
 
-# --- uci_mod.get ---
+# --- get ---
 
 
 class TestGet:
-    def test_existing_key(self, mock_run_all):
-        mock_run_all([_make_run_all(stdout="10.35.24.1")])
-        assert uci_mod.get("network.lan.ipaddr") == "10.35.24.1"
-
-    def test_missing_key(self, mock_run_all):
-        mock_run_all([_make_run_all(retcode=1, stderr="uci: Entry not found")])
-        assert uci_mod.get("network.nonexistent") is None
-
-    def test_empty_value(self, mock_run_all):
-        mock_run_all([_make_run_all(stdout="")])
-        assert uci_mod.get("network.globals.ula_prefix") == ""
-
-    def test_list_value(self, mock_run_all):
-        mock_run_all([_make_run_all(stdout="1.1.1.1 1.0.0.1")])
-        result = uci_mod.get("network.wan.dns")
-        assert result == "1.1.1.1 1.0.0.1"
-
-
-# --- uci_mod.get_all ---
-
-
-class TestGetAll:
-    def test_normal_section(self, mock_run_all):
-        stdout = (
-            "network.lan=interface\n"
-            "network.lan.device='br-lan'\n"
-            "network.lan.proto='static'\n"
-            "network.lan.ipaddr='10.35.24.1'\n"
-            "network.lan.netmask='255.255.255.0'"
-        )
-        mock_run_all([_make_run_all(stdout=stdout)])
-        result = uci_mod.get_all("network", "lan")
-        assert result == {
-            "_type": "interface",
-            "device": "br-lan",
-            "proto": "static",
-            "ipaddr": "10.35.24.1",
-            "netmask": "255.255.255.0",
+    def test_full_config(self, mock_call):
+        mock_call.return_value = {
+            "values": {
+                "lan": {
+                    ".type": "interface",
+                    ".name": "lan",
+                    ".anonymous": False,
+                    ".index": 1,
+                    "proto": "static",
+                    "ipaddr": "10.35.24.1",
+                },
+                "wan": {
+                    ".type": "interface",
+                    ".name": "wan",
+                    ".anonymous": False,
+                    ".index": 2,
+                    "proto": "dhcp",
+                },
+            }
         }
+        result = uci_mod.get("network")
+        assert result["lan"]["_type"] == "interface"
+        assert result["lan"]["_name"] == "lan"
+        assert result["lan"]["_anonymous"] is False
+        assert result["lan"]["proto"] == "static"
+        assert result["wan"]["proto"] == "dhcp"
+        mock_call.assert_called_once_with("uci", "get", {"config": "network"})
 
-    def test_section_with_list(self, mock_run_all):
-        stdout = (
-            "network.wan=interface\n"
-            "network.wan.device='eth1'\n"
-            "network.wan.proto='static'\n"
-            "network.wan.dns='1.1.1.1' '1.0.0.1'"
+    def test_single_section(self, mock_call):
+        # ubus wraps single-section results in "values" too
+        mock_call.return_value = {
+            "values": {
+                ".type": "interface",
+                ".name": "lan",
+                ".anonymous": False,
+                ".index": 1,
+                "proto": "static",
+                "device": "br-lan",
+            }
+        }
+        result = uci_mod.get("network", "lan")
+        assert result["_type"] == "interface"
+        assert result["proto"] == "static"
+        assert ".type" not in result
+        mock_call.assert_called_once_with("uci", "get", {"config": "network", "section": "lan"})
+
+    def test_single_option(self, mock_call):
+        mock_call.return_value = {"value": "static"}
+        result = uci_mod.get("network", "lan", "proto")
+        assert result == "static"
+        mock_call.assert_called_once_with(
+            "uci", "get", {"config": "network", "section": "lan", "option": "proto"}
         )
-        mock_run_all([_make_run_all(stdout=stdout)])
-        result = uci_mod.get_all("network", "wan")
-        assert result["dns"] == ["1.1.1.1", "1.0.0.1"]
-        assert result["device"] == "eth1"
 
-    def test_missing_section(self, mock_run_all):
-        mock_run_all([_make_run_all(retcode=1, stderr="uci: Entry not found")])
-        assert uci_mod.get_all("network", "nonexistent") is None
+    def test_anonymous_section_metadata(self, mock_call):
+        mock_call.return_value = {
+            "values": {
+                "cfg01e48a": {
+                    ".type": "system",
+                    ".name": "cfg01e48a",
+                    ".anonymous": True,
+                    ".index": 0,
+                    "hostname": "austru",
+                }
+            }
+        }
+        result = uci_mod.get("system")
+        assert result["cfg01e48a"]["_anonymous"] is True
+        assert result["cfg01e48a"]["_type"] == "system"
+
+    def test_list_option_preserved(self, mock_call):
+        mock_call.return_value = {
+            "values": {
+                "wan": {
+                    ".type": "interface",
+                    ".name": "wan",
+                    ".anonymous": False,
+                    ".index": 0,
+                    "dns": ["1.1.1.1", "1.0.0.1"],
+                    "proto": "static",
+                }
+            }
+        }
+        result = uci_mod.get("network")
+        assert result["wan"]["dns"] == ["1.1.1.1", "1.0.0.1"]
+        assert result["wan"]["proto"] == "static"
 
 
-# --- uci_mod.show ---
+# --- configs ---
 
 
-class TestShow:
-    def test_package(self, mock_run_all):
-        stdout = "network.lan=interface\nnetwork.lan.proto='static'"
-        mock_run_all([_make_run_all(stdout=stdout)])
-        result = uci_mod.show("network")
-        assert "network.lan=interface" in result
-
-    def test_missing_package(self, mock_run_all):
-        mock_run_all([_make_run_all(retcode=1, stderr="uci: Entry not found")])
-        assert uci_mod.show("nonexistent") is None
+class TestConfigs:
+    def test_returns_list(self, mock_call):
+        mock_call.return_value = {"configs": ["network", "system", "dhcp", "firewall"]}
+        result = uci_mod.configs()
+        assert result == ["network", "system", "dhcp", "firewall"]
+        mock_call.assert_called_once_with("uci", "configs", None)
 
 
-# --- uci_mod.set_ ---
+# --- changes ---
+
+
+class TestChanges:
+    def test_no_changes(self, mock_call):
+        mock_call.return_value = {"changes": []}
+        result = uci_mod.changes("network")
+        assert result == []
+
+    def test_with_changes(self, mock_call):
+        mock_call.return_value = {"changes": [["set", "network.wan.proto", "dhcp"]]}
+        result = uci_mod.changes("network")
+        assert len(result) == 1
+        assert result[0] == ["set", "network.wan.proto", "dhcp"]
+
+
+# --- set_ ---
 
 
 class TestSet:
-    def test_new_value(self, mock_run_all):
-        mock_run_all(
-            [
-                _make_run_all(stdout="10.35.24.1"),  # get current
-                _make_run_all(),  # uci set
-            ]
+    def test_passes_correct_params(self, mock_call):
+        mock_call.return_value = None
+        uci_mod.set_("network", "lan", {"proto": "dhcp", "ipaddr": "10.0.0.1"})
+        mock_call.assert_called_once_with(
+            "uci",
+            "set",
+            {
+                "config": "network",
+                "section": "lan",
+                "values": {"proto": "dhcp", "ipaddr": "10.0.0.1"},
+            },
         )
-        assert uci_mod.set_("network.lan.ipaddr", "10.35.24.100") is True
 
-    def test_same_value_noop(self, mock_run_all):
-        mock_run_all([_make_run_all(stdout="10.35.24.1")])
-        assert uci_mod.set_("network.lan.ipaddr", "10.35.24.1") is False
 
-    def test_error(self, mock_run_all):
-        mock_run_all(
-            [
-                _make_run_all(retcode=1, stderr="uci: Entry not found"),  # get
-                _make_run_all(retcode=1, stderr="uci: Entry not found"),  # set fails
-            ]
+# --- add ---
+
+
+class TestAdd:
+    def test_named_section(self, mock_call):
+        mock_call.return_value = {"section": "wan2"}
+        uci_mod.add("network", "interface", name="wan2")
+        mock_call.assert_called_once_with(
+            "uci",
+            "add",
+            {
+                "config": "network",
+                "type": "interface",
+                "name": "wan2",
+            },
         )
-        with pytest.raises(Exception, match="uci set failed"):
-            uci_mod.set_("bad.path", "value")
+
+    def test_anonymous_section(self, mock_call):
+        mock_call.return_value = {"section": "cfg0a1b2c"}
+        uci_mod.add("firewall", "rule")
+        mock_call.assert_called_once_with(
+            "uci",
+            "add",
+            {
+                "config": "firewall",
+                "type": "rule",
+            },
+        )
+
+    def test_with_values(self, mock_call):
+        mock_call.return_value = {"section": "wan2"}
+        uci_mod.add("network", "interface", name="wan2", values={"proto": "dhcp"})
+        call_params = mock_call.call_args[0][2]
+        assert call_params["values"] == {"proto": "dhcp"}
 
 
-# --- uci_mod.delete ---
+# --- delete ---
 
 
 class TestDelete:
-    def test_existing_key(self, mock_run_all):
-        mock_run_all([_make_run_all()])
-        assert uci_mod.delete("network.wan6") is True
-
-    def test_already_absent(self, mock_run_all):
-        mock_run_all([_make_run_all(retcode=1)])
-        assert uci_mod.delete("network.wan6") is True
-
-
-# --- uci_mod.add_list ---
-
-
-class TestAddList:
-    def test_value_not_in_list(self, mock_run_all):
-        mock_run_all(
-            [
-                _make_run_all(stdout="1.1.1.1"),  # get current
-                _make_run_all(),  # add_list
-            ]
+    def test_delete_section(self, mock_call):
+        mock_call.return_value = None
+        uci_mod.delete("network", "wan2")
+        mock_call.assert_called_once_with(
+            "uci",
+            "delete",
+            {
+                "config": "network",
+                "section": "wan2",
+            },
         )
-        assert uci_mod.add_list("network.wan.dns", "8.8.8.8") is True
 
-    def test_value_already_present(self, mock_run_all):
-        mock_run_all([_make_run_all(stdout="1.1.1.1 1.0.0.1")])
-        assert uci_mod.add_list("network.wan.dns", "1.1.1.1") is False
-
-    def test_list_unset(self, mock_run_all):
-        mock_run_all(
-            [
-                _make_run_all(retcode=1, stderr="uci: Entry not found"),  # get
-                _make_run_all(),  # add_list
-            ]
+    def test_delete_option(self, mock_call):
+        mock_call.return_value = None
+        uci_mod.delete("network", "lan", "dns")
+        mock_call.assert_called_once_with(
+            "uci",
+            "delete",
+            {
+                "config": "network",
+                "section": "lan",
+                "option": "dns",
+            },
         )
-        assert uci_mod.add_list("network.wan.dns", "1.1.1.1") is True
 
 
-# --- uci_mod.set_list ---
+# --- apply_ ---
 
 
-class TestSetList:
-    def test_same_list_noop(self, mock_run_all):
-        mock_run_all([_make_run_all(stdout="1.1.1.1 1.0.0.1")])
-        assert uci_mod.set_list("network.wan.dns", ["1.1.1.1", "1.0.0.1"]) is False
+class TestApply:
+    def test_default_rollback(self, mock_call):
+        mock_call.return_value = None
+        uci_mod.apply_()
+        mock_call.assert_called_once_with("uci", "apply", {"rollback": True, "timeout": 90})
 
-    def test_different_list(self, mock_run_all):
-        mock_run_all(
-            [
-                _make_run_all(stdout="1.1.1.1 1.0.0.1"),  # get current
-                _make_run_all(),  # delete
-                _make_run_all(),  # add_list 8.8.8.8
-                _make_run_all(),  # add_list 8.8.4.4
-            ]
-        )
-        assert uci_mod.set_list("network.wan.dns", ["8.8.8.8", "8.8.4.4"]) is True
-
-    def test_empty_target(self, mock_run_all):
-        mock_run_all(
-            [
-                _make_run_all(retcode=1, stderr="uci: Entry not found"),  # get
-                _make_run_all(),  # delete (no-op via -q)
-                _make_run_all(),  # add_list
-            ]
-        )
-        assert uci_mod.set_list("network.wan.dns", ["1.1.1.1"]) is True
+    def test_custom_rollback(self, mock_call):
+        mock_call.return_value = None
+        uci_mod.apply_(rollback=120)
+        mock_call.assert_called_once_with("uci", "apply", {"rollback": True, "timeout": 120})
 
 
-# --- uci_mod.commit ---
+# --- confirm / rollback / revert ---
 
 
-class TestCommit:
-    def test_success(self, mock_run_all):
-        mock_run_all([_make_run_all()])
-        assert uci_mod.commit("network") is True
+class TestConfirm:
+    def test_confirm(self, mock_call):
+        mock_call.return_value = None
+        uci_mod.confirm()
+        mock_call.assert_called_once_with("uci", "confirm", {})
 
-    def test_error(self, mock_run_all):
-        mock_run_all([_make_run_all(retcode=1, stderr="uci: I/O error")])
-        with pytest.raises(Exception, match="uci commit failed"):
-            uci_mod.commit("network")
+
+class TestRollback:
+    def test_rollback(self, mock_call):
+        mock_call.return_value = None
+        uci_mod.rollback()
+        mock_call.assert_called_once_with("uci", "rollback", {})
+
+
+class TestRevert:
+    def test_revert(self, mock_call):
+        mock_call.return_value = None
+        uci_mod.revert("network")
+        mock_call.assert_called_once_with("uci", "revert", {"config": "network"})
+
+
+# --- system_board / system_info / network_dump ---
+
+
+class TestSystemBoard:
+    def test_returns_board_data(self, mock_call):
+        mock_call.return_value = {"model": "WNDR3800", "hostname": "austru"}
+        result = uci_mod.system_board()
+        assert result["model"] == "WNDR3800"
+        mock_call.assert_called_once_with("system", "board", None)
+
+
+class TestSystemInfo:
+    def test_returns_info_data(self, mock_call):
+        mock_call.return_value = {"uptime": 12345, "memory": {"total": 128000000}}
+        result = uci_mod.system_info()
+        assert result["uptime"] == 12345
+
+
+class TestNetworkDump:
+    def test_returns_interface_data(self, mock_call):
+        mock_call.return_value = {"interface": [{"interface": "lan"}, {"interface": "wan"}]}
+        result = uci_mod.network_dump()
+        assert len(result["interface"]) == 2
+        mock_call.assert_called_once_with("network.interface", "dump", None)
+
+
+# --- _transform_section ---
+
+
+class TestTransformSection:
+    def test_dot_to_underscore(self):
+        data = {".type": "interface", ".name": "lan", ".anonymous": False, "proto": "static"}
+        result = uci_mod._transform_section(data)
+        assert result == {
+            "_type": "interface",
+            "_name": "lan",
+            "_anonymous": False,
+            "proto": "static",
+        }
+        assert ".type" not in result

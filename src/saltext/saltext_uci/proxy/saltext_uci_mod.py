@@ -1,0 +1,128 @@
+"""
+Salt proxy module for OpenWrt devices via ubus JSON-RPC.
+
+Connects to the device's uhttpd JSON-RPC endpoint and provides
+UCI configuration management through the ubus API.
+
+.. code-block:: yaml
+
+    # /srv/salt/pillar/router.sls
+    proxy:
+      proxytype: saltext_uci
+      host: 10.35.24.1
+      username: salt
+      password: secret
+      port: 443
+      verify_ssl: false
+"""
+
+import logging
+
+from saltext.saltext_uci.utils.rpc import UbusRpcClient
+
+log = logging.getLogger(__name__)
+
+__virtualname__ = "saltext_uci"
+__proxyenabled__ = ["saltext_uci"]
+
+DETAILS = {}
+
+
+def __virtual__():
+    return __virtualname__
+
+
+def init(opts):
+    """Create JSON-RPC client from proxy pillar and authenticate."""
+    proxy_conf = opts["proxy"]
+    client = UbusRpcClient(
+        host=proxy_conf["host"],
+        username=proxy_conf["username"],
+        password=proxy_conf["password"],
+        port=proxy_conf.get("port", 443),
+        verify_ssl=proxy_conf.get("verify_ssl", False),
+        timeout=proxy_conf.get("timeout", 30),
+    )
+    client.login()
+    DETAILS["client"] = client
+    DETAILS["grains_cache"] = _fetch_grains(client)
+    DETAILS["initialized"] = True
+    log.info("saltext_uci proxy initialized for %s", proxy_conf["host"])
+
+
+def alive(opts):  # pylint: disable=unused-argument
+    """Return True if the proxy has been initialized."""
+    return DETAILS.get("initialized", False)
+
+
+def ping():
+    """Return True if the device responds to a system.board call."""
+    try:
+        DETAILS["client"].call("system", "board")
+        return True
+    except Exception:  # pylint: disable=broad-exception-caught
+        return False
+
+
+def shutdown(opts):  # pylint: disable=unused-argument
+    """Clean up proxy state."""
+    DETAILS.clear()
+    log.info("saltext_uci proxy shut down")
+
+
+def grains():
+    """Return cached device grains."""
+    return DETAILS.get("grains_cache", {})
+
+
+def grains_refresh():
+    """Re-fetch grains from the device."""
+    if "client" in DETAILS:
+        DETAILS["grains_cache"] = _fetch_grains(DETAILS["client"])
+    return grains()
+
+
+def call(ubus_object, ubus_method, params=None):
+    """Forward a ubus call through the proxy's RPC client."""
+    return DETAILS["client"].call(ubus_object, ubus_method, params)
+
+
+def _fetch_grains(client):
+    """Build grains dict from system.board and system.info responses."""
+    grains_data = {}
+
+    try:
+        board = client.call("system", "board")
+        if board:
+            release = board.get("release", {})
+            grains_data["os"] = release.get("distribution", "OpenWrt")
+            grains_data["os_family"] = "OpenWrt"
+            grains_data["osrelease"] = release.get("version", "")
+            grains_data["oscodename"] = release.get("revision", "")
+            grains_data["osfullname"] = release.get("description", "")
+            grains_data["kernel"] = board.get("kernel", "")
+            grains_data["kernelrelease"] = board.get("kernel", "")
+            grains_data["model"] = board.get("model", "")
+            grains_data["board_name"] = board.get("board_name", "")
+            if board.get("system"):
+                grains_data["cpuarch"] = board["system"]
+            hostname = board.get("hostname", "")
+            if hostname:
+                grains_data["host"] = hostname
+                grains_data["nodename"] = hostname
+                grains_data["fqdn"] = hostname
+                if "." in hostname:
+                    parts = hostname.split(".", 1)
+                    grains_data["domain"] = parts[1]
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        log.warning("Failed to fetch system.board grains: %s", exc)
+
+    try:
+        info = client.call("system", "info")
+        if info:
+            grains_data["mem_total"] = info.get("memory", {}).get("total", 0) // 1024
+            grains_data["uptime"] = info.get("uptime", 0)
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        log.warning("Failed to fetch system.info grains: %s", exc)
+
+    return grains_data

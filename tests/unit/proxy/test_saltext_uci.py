@@ -1,117 +1,206 @@
-import subprocess
+"""
+Unit tests for the saltext_uci proxy module.
+
+All tests use a mocked RPC client. No network calls are made.
+"""
+
+from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
 
-import saltext.saltext_uci.proxy.saltext_uci_mod as uci_proxy
+import saltext.saltext_uci.proxy.saltext_uci_mod as proxy_mod
+
+BOARD_RESPONSE = {
+    "kernel": "6.6.86",
+    "hostname": "austru.rss78.ldk35.archam.de",
+    "system": "mips",
+    "model": "Netgear WNDR3800",
+    "board_name": "netgear,wndr3800",
+    "release": {
+        "distribution": "OpenWrt",
+        "version": "24.10.5",
+        "revision": "r29087-d9c5716d1d",
+        "target": "ath79/generic",
+        "description": "OpenWrt 24.10.5 r29087-d9c5716d1d",
+    },
+}
+
+INFO_RESPONSE = {
+    "uptime": 123456,
+    "memory": {"total": 124059648, "free": 45678592, "shared": 1234567, "buffered": 9876543},
+}
+
+
+@pytest.fixture(autouse=True)
+def clean_details():
+    """Ensure DETAILS is clean before and after each test."""
+    proxy_mod.DETAILS.clear()
+    yield
+    proxy_mod.DETAILS.clear()
 
 
 @pytest.fixture
-def proxy_opts():
-    return {
-        "proxy": {
-            "proxytype": "saltext_uci",
-            "host": "10.35.24.1",
-            "user": "root",
-            "port": 22,
-            "ssh_priv": "/root/.ssh/id_ed25519",
-        }
-    }
-
-
-@pytest.fixture
-def proxy_context(monkeypatch, proxy_opts):
-    """Initialize the proxy and provide its context."""
-    ctx = {}
-    monkeypatch.setattr(uci_proxy, "__context__", ctx)
-    uci_proxy.init(proxy_opts)
-    return ctx
+def mock_client():
+    """Create a mock RPC client."""
+    client = MagicMock()
+    client.call.side_effect = lambda obj, method, params=None: {
+        ("system", "board"): BOARD_RESPONSE,
+        ("system", "info"): INFO_RESPONSE,
+    }.get((obj, method))
+    return client
 
 
 class TestInit:
-    def test_stores_config(self, proxy_context):
-        conf = proxy_context["saltext_uci"]
-        assert conf["host"] == "10.35.24.1"
-        assert conf["user"] == "root"
-        assert conf["port"] == 22
-        assert conf["ssh_priv"] == "/root/.ssh/id_ed25519"
-        assert conf["initialized"] is True
+    @patch("saltext.saltext_uci.proxy.saltext_uci_mod.UbusRpcClient")
+    def test_creates_client_and_logs_in(self, mock_client_cls):
+        mock_instance = MagicMock()
+        mock_instance.call.side_effect = lambda obj, method, params=None: {
+            ("system", "board"): BOARD_RESPONSE,
+            ("system", "info"): INFO_RESPONSE,
+        }.get((obj, method))
+        mock_client_cls.return_value = mock_instance
 
-    def test_defaults(self, monkeypatch):
-        ctx = {}
-        monkeypatch.setattr(uci_proxy, "__context__", ctx)
-        opts = {"proxy": {"proxytype": "saltext_uci", "host": "192.168.1.1"}}
-        uci_proxy.init(opts)
-        assert ctx["saltext_uci"]["user"] == "root"
-        assert ctx["saltext_uci"]["port"] == 22
+        opts = {
+            "proxy": {
+                "proxytype": "saltext_uci",
+                "host": "10.35.24.1",
+                "username": "salt",
+                "password": "secret",
+                "port": 443,
+                "verify_ssl": False,
+            }
+        }
+        proxy_mod.init(opts)
+
+        mock_client_cls.assert_called_once_with(
+            host="10.35.24.1",
+            username="salt",
+            password="secret",
+            port=443,
+            verify_ssl=False,
+            timeout=30,
+        )
+        mock_instance.login.assert_called_once()
+        assert proxy_mod.DETAILS["initialized"] is True
+
+    @patch("saltext.saltext_uci.proxy.saltext_uci_mod.UbusRpcClient")
+    def test_fetches_grains_on_init(self, mock_client_cls):
+        mock_instance = MagicMock()
+        mock_instance.call.side_effect = lambda obj, method, params=None: {
+            ("system", "board"): BOARD_RESPONSE,
+            ("system", "info"): INFO_RESPONSE,
+        }.get((obj, method))
+        mock_client_cls.return_value = mock_instance
+
+        opts = {
+            "proxy": {
+                "proxytype": "saltext_uci",
+                "host": "10.0.0.1",
+                "username": "u",
+                "password": "p",
+            }
+        }
+        proxy_mod.init(opts)
+
+        grains = proxy_mod.DETAILS["grains_cache"]
+        assert grains["os"] == "OpenWrt"
+        assert grains["osrelease"] == "24.10.5"
+        assert grains["model"] == "Netgear WNDR3800"
 
 
-class TestInitialized:
-    def test_true_after_init(self, proxy_context, monkeypatch):
-        monkeypatch.setattr(uci_proxy, "__context__", proxy_context)
-        assert uci_proxy.initialized() is True
+class TestAlive:
+    def test_true_after_init(self):
+        proxy_mod.DETAILS["initialized"] = True
+        assert proxy_mod.alive({}) is True
 
-    def test_false_before_init(self, monkeypatch):
-        monkeypatch.setattr(uci_proxy, "__context__", {})
-        assert uci_proxy.initialized() is False
+    def test_false_before_init(self):
+        assert proxy_mod.alive({}) is False
 
 
 class TestPing:
-    def test_success(self, proxy_context, monkeypatch):
-        monkeypatch.setattr(uci_proxy, "__context__", proxy_context)
-        mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="ok\n", stderr="")
-        with patch("subprocess.run", return_value=mock_result):
-            assert uci_proxy.ping() is True
+    def test_success(self, mock_client):
+        proxy_mod.DETAILS["client"] = mock_client
+        assert proxy_mod.ping() is True
 
-    def test_failure(self, proxy_context, monkeypatch):
-        monkeypatch.setattr(uci_proxy, "__context__", proxy_context)
-        mock_result = subprocess.CompletedProcess(
-            args=[], returncode=255, stdout="", stderr="Connection refused"
-        )
-        with patch("subprocess.run", return_value=mock_result):
-            assert uci_proxy.ping() is False
-
-
-class TestCmd:
-    def test_returns_run_all_format(self, proxy_context, monkeypatch):
-        monkeypatch.setattr(uci_proxy, "__context__", proxy_context)
-        mock_result = subprocess.CompletedProcess(
-            args=[], returncode=0, stdout="10.35.24.1\n", stderr=""
-        )
-        with patch("subprocess.run", return_value=mock_result) as mock_run:
-            ret = uci_proxy.cmd("uci get network.lan.ipaddr")
-            assert ret["retcode"] == 0
-            assert ret["stdout"] == "10.35.24.1\n"
-            assert ret["stderr"] == ""
-            # Verify SSH command was constructed correctly
-            call_args = mock_run.call_args[0][0]
-            assert "ssh" == call_args[0]
-            assert "root@10.35.24.1" in call_args
-            assert "uci get network.lan.ipaddr" in call_args
-
-    def test_error_retcode(self, proxy_context, monkeypatch):
-        monkeypatch.setattr(uci_proxy, "__context__", proxy_context)
-        mock_result = subprocess.CompletedProcess(
-            args=[], returncode=1, stdout="", stderr="uci: Entry not found\n"
-        )
-        with patch("subprocess.run", return_value=mock_result):
-            ret = uci_proxy.cmd("uci get network.nonexistent")
-            assert ret["retcode"] == 1
-            assert "Entry not found" in ret["stderr"]
-
-    def test_ssh_priv_key_used(self, proxy_context, monkeypatch):
-        monkeypatch.setattr(uci_proxy, "__context__", proxy_context)
-        mock_result = subprocess.CompletedProcess(args=[], returncode=0, stdout="", stderr="")
-        with patch("subprocess.run", return_value=mock_result) as mock_run:
-            uci_proxy.cmd("uci show network")
-            call_args = mock_run.call_args[0][0]
-            idx = call_args.index("-i")
-            assert call_args[idx + 1] == "/root/.ssh/id_ed25519"
+    def test_failure(self):
+        client = MagicMock()
+        client.call.side_effect = Exception("Connection refused")
+        proxy_mod.DETAILS["client"] = client
+        assert proxy_mod.ping() is False
 
 
 class TestShutdown:
-    def test_clears_context(self, proxy_context, monkeypatch):
-        monkeypatch.setattr(uci_proxy, "__context__", proxy_context)
-        assert "saltext_uci" in proxy_context
-        uci_proxy.shutdown({})
-        assert "saltext_uci" not in proxy_context
+    def test_clears_details(self, mock_client):
+        proxy_mod.DETAILS["client"] = mock_client
+        proxy_mod.DETAILS["initialized"] = True
+        proxy_mod.DETAILS["grains_cache"] = {"os": "OpenWrt"}
+
+        proxy_mod.shutdown({})
+        assert not proxy_mod.DETAILS
+
+
+class TestGrains:
+    def test_returns_cached_grains(self):
+        proxy_mod.DETAILS["grains_cache"] = {"os": "OpenWrt", "model": "WNDR3800"}
+        assert proxy_mod.grains()["os"] == "OpenWrt"
+
+    def test_empty_when_no_cache(self):
+        assert proxy_mod.grains() == {}
+
+
+class TestGrainsRefresh:
+    def test_refetches(self, mock_client):
+        proxy_mod.DETAILS["client"] = mock_client
+        proxy_mod.DETAILS["grains_cache"] = {"os": "old"}
+
+        result = proxy_mod.grains_refresh()
+        assert result["os"] == "OpenWrt"
+        assert result["model"] == "Netgear WNDR3800"
+
+
+class TestCall:
+    def test_delegates_to_client(self, mock_client):
+        proxy_mod.DETAILS["client"] = mock_client
+        result = proxy_mod.call("system", "board")
+        assert result == BOARD_RESPONSE
+        mock_client.call.assert_called_once_with("system", "board", None)
+
+
+class TestFetchGrains:
+    def test_board_grains(self, mock_client):
+        grains = proxy_mod._fetch_grains(mock_client)
+        assert grains["os"] == "OpenWrt"
+        assert grains["os_family"] == "OpenWrt"
+        assert grains["osrelease"] == "24.10.5"
+        assert grains["oscodename"] == "r29087-d9c5716d1d"
+        assert grains["model"] == "Netgear WNDR3800"
+        assert grains["board_name"] == "netgear,wndr3800"
+        assert grains["cpuarch"] == "mips"
+        assert grains["kernel"] == "6.6.86"
+        assert grains["host"] == "austru.rss78.ldk35.archam.de"
+        assert grains["domain"] == "rss78.ldk35.archam.de"
+
+    def test_info_grains(self, mock_client):
+        grains = proxy_mod._fetch_grains(mock_client)
+        assert grains["mem_total"] == 124059648 // 1024
+        assert grains["uptime"] == 123456
+
+    def test_board_failure_returns_partial(self):
+        client = MagicMock()
+        client.call.side_effect = [Exception("board failed"), INFO_RESPONSE]
+        grains = proxy_mod._fetch_grains(client)
+        assert "os" not in grains
+        assert grains["mem_total"] == 124059648 // 1024
+
+    def test_hostname_without_domain(self):
+        board = dict(BOARD_RESPONSE)
+        board["hostname"] = "router"
+        client = MagicMock()
+        client.call.side_effect = lambda obj, method, params=None: {
+            ("system", "board"): board,
+            ("system", "info"): INFO_RESPONSE,
+        }.get((obj, method))
+        grains = proxy_mod._fetch_grains(client)
+        assert grains["host"] == "router"
+        assert "domain" not in grains
