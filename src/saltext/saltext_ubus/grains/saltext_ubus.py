@@ -4,7 +4,7 @@ Grains module for OpenWrt devices managed via saltext_ubus proxies.
 Overrides grains that would otherwise leak from the salt-master host
 with actual device values from the proxy module's grains cache.
 
-Supports both ``saltext_ubus_ubus`` and ``saltext_ubus_ssh`` proxy types.
+Supports both ``saltext_ubus_jsonrpc`` and ``saltext_ubus_ssh`` proxy types.
 
 Salt passes the proxy LazyLoader as a function parameter (not via
 ``__proxy__``), because grains load before the dunder is injected.
@@ -14,17 +14,17 @@ import logging
 
 log = logging.getLogger(__name__)
 
-__proxyenabled__ = ["saltext_ubus_ubus", "saltext_ubus_ssh"]
+__proxyenabled__ = ["saltext_ubus_jsonrpc", "saltext_ubus_ssh"]
 __virtualname__ = "saltext_ubus"
 
-_SUPPORTED_PROXYTYPES = frozenset({"saltext_ubus_ubus", "saltext_ubus_ssh"})
+_SUPPORTED_PROXYTYPES = frozenset({"saltext_ubus_jsonrpc", "saltext_ubus_ssh"})
 
 
 def __virtual__():
     if "proxy" not in __opts__:
         return False, "Not a proxy minion"
     if __opts__.get("proxy", {}).get("proxytype") not in _SUPPORTED_PROXYTYPES:
-        return False, "proxytype is not saltext_ubus_ubus or saltext_ubus_ssh"
+        return False, "proxytype is not saltext_ubus_jsonrpc or saltext_ubus_ssh"
     return __virtualname__
 
 

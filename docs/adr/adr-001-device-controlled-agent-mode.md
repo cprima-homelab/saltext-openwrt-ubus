@@ -79,7 +79,7 @@ on the Salt master:
 ```yaml
 # Conventional: master controls device
 proxy:
-  proxytype: saltext_ubus_ubus
+  proxytype: saltext_ubus_jsonrpc
   mode: audit
 ```
 

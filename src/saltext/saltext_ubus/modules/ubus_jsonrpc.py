@@ -16,7 +16,7 @@ from saltext.saltext_ubus.utils import ubus_ops
 log = logging.getLogger(__name__)
 
 __virtualname__ = "saltext_ubus"
-__proxyenabled__ = ["saltext_ubus_ubus"]
+__proxyenabled__ = ["saltext_ubus_jsonrpc"]
 
 __func_alias__ = {
     "set_": "set",
@@ -27,14 +27,14 @@ __func_alias__ = {
 def __virtual__():
     if "proxy" not in __opts__:
         return False, "Not a proxy minion"
-    if __opts__.get("proxy", {}).get("proxytype") != "saltext_ubus_ubus":
-        return False, "proxytype is not saltext_ubus_ubus"
+    if __opts__.get("proxy", {}).get("proxytype") != "saltext_ubus_jsonrpc":
+        return False, "proxytype is not saltext_ubus_jsonrpc"
     return __virtualname__
 
 
 def _call(ubus_object, ubus_method, params=None):
     """Forward a ubus call through the proxy module."""
-    return __proxy__["saltext_ubus_ubus.call"](ubus_object, ubus_method, params)
+    return __proxy__["saltext_ubus_jsonrpc.call"](ubus_object, ubus_method, params)
 
 
 # --- Read operations ---

@@ -346,7 +346,7 @@ class TestApplyFlow:
         monkeypatch.setattr(
             state_mod,
             "__opts__",
-            {"test": False, "proxy": {"proxytype": "saltext_ubus_ubus"}},
+            {"test": False, "proxy": {"proxytype": "saltext_ubus_jsonrpc"}},
             raising=False,
         )
         patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
@@ -530,7 +530,7 @@ class TestAgentMode:
         monkeypatch.setattr(
             state_mod,
             "__opts__",
-            {"test": False, "proxy": {"proxytype": "saltext_ubus_ubus"}},
+            {"test": False, "proxy": {"proxytype": "saltext_ubus_jsonrpc"}},
             raising=False,
         )
         patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])

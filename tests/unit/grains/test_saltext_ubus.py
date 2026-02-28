@@ -28,10 +28,10 @@ class TestVirtual:
         patch_dunders["proxy"] = {"proxytype": "napalm"}
         result = grains_mod.__virtual__()
         assert result[0] is False
-        assert "not saltext_ubus_ubus or saltext_ubus_ssh" in result[1]
+        assert "not saltext_ubus_jsonrpc or saltext_ubus_ssh" in result[1]
 
     def test_true_for_ubus_proxytype(self, patch_dunders):
-        patch_dunders["proxy"] = {"proxytype": "saltext_ubus_ubus"}
+        patch_dunders["proxy"] = {"proxytype": "saltext_ubus_jsonrpc"}
         result = grains_mod.__virtual__()
         assert result == "saltext_ubus"
 
@@ -43,23 +43,23 @@ class TestVirtual:
 
 class TestSaltextUciGrains:
     def test_returns_empty_when_proxy_none(self, patch_dunders):
-        patch_dunders["proxy"] = {"proxytype": "saltext_ubus_ubus"}
+        patch_dunders["proxy"] = {"proxytype": "saltext_ubus_jsonrpc"}
         result = grains_mod.saltext_ubus(proxy=None)
         assert result == {}
 
     def test_returns_empty_when_grains_fn_missing(self, patch_dunders):
-        patch_dunders["proxy"] = {"proxytype": "saltext_ubus_ubus"}
+        patch_dunders["proxy"] = {"proxytype": "saltext_ubus_jsonrpc"}
         proxy = {}
         result = grains_mod.saltext_ubus(proxy=proxy)
         assert result == {}
 
     def test_returns_grains_from_ubus_proxy(self, patch_dunders):
-        patch_dunders["proxy"] = {"proxytype": "saltext_ubus_ubus"}
+        patch_dunders["proxy"] = {"proxytype": "saltext_ubus_jsonrpc"}
         expected = {"os": "OpenWrt", "model": "WNDR3800"}
-        proxy = {"saltext_ubus_ubus.grains": MagicMock(return_value=expected)}
+        proxy = {"saltext_ubus_jsonrpc.grains": MagicMock(return_value=expected)}
         result = grains_mod.saltext_ubus(proxy=proxy)
         assert result == expected
-        proxy["saltext_ubus_ubus.grains"].assert_called_once()
+        proxy["saltext_ubus_jsonrpc.grains"].assert_called_once()
 
     def test_returns_grains_from_ssh_proxy(self, patch_dunders):
         patch_dunders["proxy"] = {"proxytype": "saltext_ubus_ssh"}

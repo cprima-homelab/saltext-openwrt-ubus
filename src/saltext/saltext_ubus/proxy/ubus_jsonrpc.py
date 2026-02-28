@@ -8,7 +8,7 @@ OpenWrt configuration management through the ubus API.
 
     # /srv/salt/pillar/router.sls
     proxy:
-      proxytype: saltext_ubus_ubus
+      proxytype: saltext_ubus_jsonrpc
       host: 10.35.24.1
       username: salt
       password: secret
@@ -22,8 +22,8 @@ from saltext.saltext_ubus.utils.rpc import UbusRpcClient
 
 log = logging.getLogger(__name__)
 
-__virtualname__ = "saltext_ubus_ubus"
-__proxyenabled__ = ["saltext_ubus_ubus"]
+__virtualname__ = "saltext_ubus_jsonrpc"
+__proxyenabled__ = ["saltext_ubus_jsonrpc"]
 
 DETAILS = {}
 
@@ -47,7 +47,7 @@ def init(opts):
     DETAILS["client"] = client
     DETAILS["grains_cache"] = _fetch_grains(client)
     DETAILS["initialized"] = True
-    log.info("saltext_ubus_ubus proxy initialized for %s", proxy_conf["host"])
+    log.info("saltext_ubus_jsonrpc proxy initialized for %s", proxy_conf["host"])
 
 
 def alive(opts):  # pylint: disable=unused-argument
@@ -67,7 +67,7 @@ def ping():
 def shutdown(opts):  # pylint: disable=unused-argument
     """Clean up proxy state."""
     DETAILS.clear()
-    log.info("saltext_ubus_ubus proxy shut down")
+    log.info("saltext_ubus_jsonrpc proxy shut down")
 
 
 def grains():

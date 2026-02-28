@@ -16,7 +16,7 @@ import logging
 log = logging.getLogger(__name__)
 
 __virtualname__ = "saltext_ubus"
-__proxyenabled__ = ["saltext_ubus_ubus", "saltext_ubus_ssh"]
+__proxyenabled__ = ["saltext_ubus_jsonrpc", "saltext_ubus_ssh"]
 
 
 def __virtual__():
@@ -157,7 +157,7 @@ def _get_agent_mode():
 
 def _is_json_rpc():
     """Check if the current transport is JSON-RPC (session-scoped staging)."""
-    return __opts__.get("proxy", {}).get("proxytype") == "saltext_ubus_ubus"
+    return __opts__.get("proxy", {}).get("proxytype") == "saltext_ubus_jsonrpc"
 
 
 def _check_pending(ret, config, revert_pending):
