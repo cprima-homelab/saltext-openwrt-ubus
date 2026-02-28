@@ -1,0 +1,9 @@
+Package: luci-app-salt-openwrt
+Version: 0.1.0-1
+Depends: luci-base, salt-openwrt
+Section: luci
+Architecture: all
+Maintainer: Christian Prior-Mamulyan <cprior@gmail.com>
+Description: LuCI app for Salt agent configuration
+ Configure Salt agent mode (audit/manual/auto), enable/disable,
+ and view last run status from the LuCI web interface.

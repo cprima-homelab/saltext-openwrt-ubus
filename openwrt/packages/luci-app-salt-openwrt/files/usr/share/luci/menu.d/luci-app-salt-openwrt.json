@@ -1,0 +1,13 @@
+{
+	"admin/services/salt-openwrt": {
+		"title": "Salt Agent",
+		"order": 80,
+		"action": {
+			"type": "view",
+			"path": "salt-openwrt"
+		},
+		"depends": {
+			"acl": ["luci-app-salt-openwrt"]
+		}
+	}
+}

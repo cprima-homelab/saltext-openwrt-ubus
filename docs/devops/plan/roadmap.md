@@ -87,6 +87,32 @@ static leases, and `system`.
 `utils/uci_parser.py` only implements `parse_show()`. Plan 02 also calls
 for `parse_export()` for round-trip config backup/restore.
 
+### LuCI-visible Staging for Manual Mode
+
+Manual mode currently cannot show Salt-staged changes in LuCI's
+"Unsaved Changes" view. Each rpcd JSON-RPC session gets an isolated
+staging directory (`/var/run/rpcd/uci-<session_id>/`), so Salt's
+session and LuCI's session are completely separate -- neither can see
+the other's pending changes.
+
+Explore whether an rpcd/uci session can be initialized or hijacked to
+make Salt-staged changes visible in LuCI:
+
+- Can Salt authenticate with an existing LuCI session token (read from
+  `/tmp/luci-sessions/` or rpcd session store) and stage into that
+  session's directory?
+- Can a new rpcd session be created with a predictable or shared ID
+  that LuCI could be pointed at?
+- Can Salt write directly to `/var/run/rpcd/uci-<luci_sid>/` via SSH,
+  bypassing rpcd, so LuCI picks up the changes on next page load?
+- Does rpcd support any form of shared/global staging outside of
+  per-session directories?
+- Could a LuCI plugin or ucode hook display changes from an external
+  source (e.g. `/tmp/.uci/` or a Salt-specific staging path)?
+
+This would enable a true review workflow where the operator sees
+Salt-proposed changes in the LuCI UI and clicks "Save & Apply".
+
 ### CLI Entry Point
 
 Plan 02 describes a standalone CLI (`uci-reader`) that reads config

@@ -1,0 +1,11 @@
+{
+	"luci-app-salt-openwrt": {
+		"description": "Grant access to Salt agent configuration",
+		"read": {
+			"uci": ["salt-openwrt"]
+		},
+		"write": {
+			"uci": ["salt-openwrt"]
+		}
+	}
+}
