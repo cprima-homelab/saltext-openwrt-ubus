@@ -8,8 +8,9 @@ The JSON output is identical to what the JSON-RPC and SSH adapters
 return, so the state module works unchanged.
 
 UCI metadata fields are returned with underscore prefixes to avoid
-collision with UCI option names:
-  .type -> _type, .name -> _name, .anonymous -> _anonymous, .index -> _index
+collision with UCI option names::
+
+    .type -> _type, .name -> _name, .anonymous -> _anonymous, .index -> _index
 """
 
 import json

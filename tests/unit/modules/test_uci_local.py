@@ -66,6 +66,7 @@ class TestGet:
             ["ubus", "call", "uci", "get", json.dumps({"config": "network"})],
             capture_output=True,
             text=True,
+            check=False,
             timeout=30,
         )
 
@@ -120,6 +121,7 @@ class TestConfigs:
             ["ubus", "call", "uci", "configs"],
             capture_output=True,
             text=True,
+            check=False,
             timeout=30,
         )
 
@@ -293,6 +295,7 @@ class TestSystemBoard:
             ["ubus", "call", "system", "board"],
             capture_output=True,
             text=True,
+            check=False,
             timeout=30,
         )
 

@@ -4,8 +4,9 @@ Salt execution module for OpenWrt UCI configuration via ubus JSON-RPC.
 Requires the saltext_uci proxy module to be configured and running.
 
 UCI metadata fields are returned with underscore prefixes to avoid
-collision with UCI option names:
-  .type -> _type, .name -> _name, .anonymous -> _anonymous, .index -> _index
+collision with UCI option names::
+
+    .type -> _type, .name -> _name, .anonymous -> _anonymous, .index -> _index
 """
 
 import logging

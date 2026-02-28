@@ -88,6 +88,7 @@ class TestRun:
             ],
             capture_output=True,
             text=True,
+            check=False,
             timeout=30,
         )
 

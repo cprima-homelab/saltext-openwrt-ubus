@@ -7,8 +7,9 @@ function, which runs ``ubus call`` over SSH and returns parsed JSON --
 the same structured data as the JSON-RPC adapter.
 
 UCI metadata fields are returned with underscore prefixes to avoid
-collision with UCI option names:
-  .type -> _type, .name -> _name, .anonymous -> _anonymous, .index -> _index
+collision with UCI option names::
+
+    .type -> _type, .name -> _name, .anonymous -> _anonymous, .index -> _index
 """
 
 import logging
