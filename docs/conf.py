@@ -96,6 +96,7 @@ extensions = [
     "sphinxcontrib.towncrier.ext",
     "myst_parser",
     "sphinx_inline_tabs",
+    "sphinxcontrib.mermaid",
 ]
 
 myst_enable_extensions = [

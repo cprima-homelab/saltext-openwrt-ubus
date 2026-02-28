@@ -71,6 +71,7 @@ docs = [
   "myst_parser",
   "furo",
   "sphinx-inline-tabs",
+  "sphinxcontrib-mermaid",
 ]
 docsauto = ["sphinx-autobuild"]
 lint = [

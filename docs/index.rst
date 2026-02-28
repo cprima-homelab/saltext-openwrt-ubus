@@ -26,6 +26,7 @@ Salt extension for OpenWrt configuration management via ubus
   :caption: Reference
   :hidden:
 
+  topics/managed-flow
   changelog
 
 
