@@ -1,0 +1,6 @@
+config salt-openwrt 'global'
+	option enabled '1'
+	option mode 'audit'
+	option require_commit '0'
+	option last_run ''
+	option last_drift ''

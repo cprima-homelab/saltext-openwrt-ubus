@@ -10,6 +10,13 @@ import pytest
 
 import saltext.saltext_ubus.states.saltext_ubus as state_mod
 
+# --- Agent config (what uci.get returns for salt-openwrt) ---
+
+AGENT_AUTO = {"_type": "salt-openwrt", "enabled": "1", "mode": "auto"}
+AGENT_AUDIT = {"_type": "salt-openwrt", "enabled": "1", "mode": "audit"}
+AGENT_MANUAL = {"_type": "salt-openwrt", "enabled": "1", "mode": "manual"}
+AGENT_DISABLED = {"_type": "salt-openwrt", "enabled": "0", "mode": "auto"}
+
 # --- Sample device state (what uci.get returns after _transform) ---
 
 NETWORK_STATE = {
@@ -161,14 +168,15 @@ class TestPartialDiff:
 
     def test_detects_changed_option(self, patch_dunders):
         patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
         patch_dunders["saltext_ubus.set"] = MagicMock()
         patch_dunders["saltext_ubus.apply"] = MagicMock()
         # Return updated state on verify read
         updated = dict(NETWORK_STATE)
         updated["lan"] = dict(NETWORK_STATE["lan"])
         updated["lan"]["ipaddr"] = "10.35.24.2"
-        patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=[NETWORK_STATE, updated])
+        patch_dunders["saltext_ubus.get"] = MagicMock(
+            side_effect=[AGENT_AUTO, NETWORK_STATE, updated]
+        )
         patch_dunders["saltext_ubus.confirm"] = MagicMock()
 
         ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
@@ -179,13 +187,14 @@ class TestPartialDiff:
 
     def test_list_option_diff(self, patch_dunders):
         patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
         patch_dunders["saltext_ubus.set"] = MagicMock()
         patch_dunders["saltext_ubus.apply"] = MagicMock()
         updated = dict(NETWORK_STATE)
         updated["wan"] = dict(NETWORK_STATE["wan"])
         updated["wan"]["dns"] = ["8.8.8.8", "8.8.4.4"]
-        patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=[NETWORK_STATE, updated])
+        patch_dunders["saltext_ubus.get"] = MagicMock(
+            side_effect=[AGENT_AUTO, NETWORK_STATE, updated]
+        )
         patch_dunders["saltext_ubus.confirm"] = MagicMock()
 
         ret = state_mod.managed("test", "network", {"wan": {"dns": ["8.8.8.8", "8.8.4.4"]}})
@@ -216,7 +225,9 @@ class TestSingletonResolution:
         updated = dict(SYSTEM_STATE)
         updated["cfg01e48a"] = dict(SYSTEM_STATE["cfg01e48a"])
         updated["cfg01e48a"]["hostname"] = "newname"
-        patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=[SYSTEM_STATE, updated])
+        patch_dunders["saltext_ubus.get"] = MagicMock(
+            side_effect=[AGENT_AUTO, SYSTEM_STATE, updated]
+        )
         patch_dunders["saltext_ubus.confirm"] = MagicMock()
 
         ret = state_mod.managed(
@@ -257,7 +268,6 @@ class TestSingletonResolution:
 class TestSectionCreate:
     def test_creates_new_section(self, patch_dunders):
         patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
         patch_dunders["saltext_ubus.add"] = MagicMock()
         patch_dunders["saltext_ubus.set"] = MagicMock()
         patch_dunders["saltext_ubus.apply"] = MagicMock()
@@ -269,7 +279,9 @@ class TestSectionCreate:
             "_anonymous": False,
             "proto": "dhcp",
         }
-        patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=[NETWORK_STATE, updated])
+        patch_dunders["saltext_ubus.get"] = MagicMock(
+            side_effect=[AGENT_AUTO, NETWORK_STATE, updated]
+        )
         patch_dunders["saltext_ubus.confirm"] = MagicMock()
 
         ret = state_mod.managed(
@@ -314,7 +326,9 @@ class TestApplyFlow:
         updated = dict(NETWORK_STATE)
         updated["lan"] = dict(NETWORK_STATE["lan"])
         updated["lan"]["ipaddr"] = "10.35.24.2"
-        patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=[NETWORK_STATE, updated])
+        patch_dunders["saltext_ubus.get"] = MagicMock(
+            side_effect=[AGENT_AUTO, NETWORK_STATE, updated]
+        )
         patch_dunders["saltext_ubus.set"] = MagicMock()
         patch_dunders["saltext_ubus.apply"] = MagicMock()
         patch_dunders["saltext_ubus.confirm"] = MagicMock()
@@ -350,7 +364,9 @@ class TestApplyFlow:
         bad_state = dict(NETWORK_STATE)
         bad_state["lan"] = dict(NETWORK_STATE["lan"])
         bad_state["lan"]["ipaddr"] = "10.35.24.1"  # Still old value
-        patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=[NETWORK_STATE, bad_state])
+        patch_dunders["saltext_ubus.get"] = MagicMock(
+            side_effect=[AGENT_AUTO, NETWORK_STATE, bad_state]
+        )
         patch_dunders["saltext_ubus.set"] = MagicMock()
         patch_dunders["saltext_ubus.apply"] = MagicMock()
 
@@ -364,7 +380,9 @@ class TestApplyFlow:
         updated = dict(NETWORK_STATE)
         updated["lan"] = dict(NETWORK_STATE["lan"])
         updated["lan"]["proto"] = "dhcp"
-        patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=[NETWORK_STATE, updated])
+        patch_dunders["saltext_ubus.get"] = MagicMock(
+            side_effect=[AGENT_AUTO, NETWORK_STATE, updated]
+        )
         patch_dunders["saltext_ubus.set"] = MagicMock()
         patch_dunders["saltext_ubus.apply"] = MagicMock()
         patch_dunders["saltext_ubus.confirm"] = MagicMock()
@@ -441,3 +459,80 @@ class TestResolveSections:
         }
         with pytest.raises(ValueError, match="Multiple anonymous sections"):
             state_mod._resolve_sections("firewall", {"_rule": {"_type": "rule"}}, current)
+
+
+# --- Agent mode enforcement ---
+
+
+class TestAgentMode:
+    def test_audit_mode_reports_drift(self, patch_dunders):
+        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=[AGENT_AUDIT, NETWORK_STATE])
+
+        ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
+        assert ret["result"] is True
+        assert "audit mode" in ret["comment"]
+        assert "1 section(s) drifted" in ret["comment"]
+        assert "lan" in ret["changes"]
+        # No write operations should have been called
+        assert "saltext_ubus.set" not in patch_dunders
+        assert "saltext_ubus.apply" not in patch_dunders
+        assert "saltext_ubus.confirm" not in patch_dunders
+
+    def test_audit_mode_no_drift(self, patch_dunders):
+        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=[AGENT_AUDIT, NETWORK_STATE])
+
+        ret = state_mod.managed(
+            "test",
+            "network",
+            {"lan": {"_type": "interface", "proto": "static", "ipaddr": "10.35.24.1"}},
+        )
+        assert ret["result"] is True
+        assert "audit mode -- no drift detected" in ret["comment"]
+        assert not ret["changes"]
+
+    def test_manual_mode_stages_no_apply(self, patch_dunders):
+        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=[AGENT_MANUAL, NETWORK_STATE])
+        patch_dunders["saltext_ubus.set"] = MagicMock()
+
+        ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
+        assert ret["result"] is True
+        assert "staged only" in ret["comment"]
+        patch_dunders["saltext_ubus.set"].assert_called_once()
+        assert "saltext_ubus.apply" not in patch_dunders
+        assert "saltext_ubus.confirm" not in patch_dunders
+
+    def test_disabled_skips_everything(self, patch_dunders):
+        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=AGENT_DISABLED)
+
+        ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
+        assert ret["result"] is True
+        assert "salt-openwrt disabled" in ret["comment"]
+        # Only one get call (agent config), no changes/set/apply
+        patch_dunders["saltext_ubus.get"].assert_called_once_with("salt-openwrt", "global")
+
+    def test_missing_config_defaults_auto(self, patch_dunders):
+        """When salt-openwrt config is absent, default to auto mode."""
+        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
+        call_count = [0]
+        original_state = NETWORK_STATE
+
+        def get_side_effect(*args, **kwargs):  # pylint: disable=unused-argument
+            call_count[0] += 1
+            if call_count[0] == 1:
+                # First call is agent config -- raise to simulate missing config
+                raise KeyError("salt-openwrt")
+            return original_state
+
+        patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=get_side_effect)
+
+        ret = state_mod.managed(
+            "test",
+            "network",
+            {"lan": {"_type": "interface", "proto": "static", "ipaddr": "10.35.24.1"}},
+        )
+        # Should proceed in auto mode, no drift
+        assert ret["result"] is True
+        assert "already in desired state" in ret["comment"]

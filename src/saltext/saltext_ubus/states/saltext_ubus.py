@@ -61,17 +61,23 @@ def managed(name, config, sections, apply_rollback=90, revert_pending=False):
     """
     ret = {"name": name, "changes": {}, "result": True, "comment": ""}
 
-    # 1. Check for pending deltas
+    # 1. Check agent mode
+    enabled, mode = _get_agent_mode()
+    if not enabled:
+        ret["comment"] = f"{config}: salt-openwrt disabled on device, skipping"
+        return ret
+
+    # 2. Check for pending deltas
     pending = _check_pending(ret, config, revert_pending)
     if ret["result"] is False:
         return ret
 
-    # 2. Read current state and resolve sections
+    # 3. Read current state and resolve sections
     current, resolved = _read_and_resolve(ret, config, sections)
     if ret["result"] is False:
         return ret
 
-    # 3. Diff: compare desired against current (partial)
+    # 4. Diff: compare desired against current (partial)
     all_changes = {}
     for section_name, desired in resolved.items():
         current_section = current.get(section_name, {})
@@ -94,10 +100,25 @@ def managed(name, config, sections, apply_rollback=90, revert_pending=False):
             all_changes[section_name] = section_changes
 
     if not all_changes:
-        ret["comment"] = f"{config}: already in desired state"
+        if mode == "audit":
+            ret["comment"] = f"{config}: audit mode -- no drift detected"
+        else:
+            ret["comment"] = f"{config}: already in desired state"
         return ret
 
-    # 4. Test mode
+    # 5. Audit mode -- report drift, never write
+    if mode == "audit":
+        ret["changes"] = all_changes
+        ret["comment"] = (
+            f"{config}: audit mode -- {len(all_changes)} section(s) drifted, " f"no changes applied"
+        )
+        return ret
+
+    # 6. Manual mode -- stage only, do not apply
+    if mode == "manual":
+        apply_rollback = None
+
+    # 7. Test mode
     if __opts__["test"]:
         ret["result"] = None
         ret["changes"] = all_changes
@@ -108,12 +129,12 @@ def managed(name, config, sections, apply_rollback=90, revert_pending=False):
         ret["comment"] = f"{config}: {'; '.join(parts)}"
         return ret
 
-    # 5. Stage uci.set calls
+    # 8. Stage uci.set calls
     _stage_changes(ret, config, all_changes, resolved, current)
     if ret["result"] is False:
         return ret
 
-    # 6. Apply, verify, confirm
+    # 9. Apply, verify, confirm
     if apply_rollback is not None:
         _apply_and_confirm(ret, config, all_changes, apply_rollback)
         if ret["result"] is False:
@@ -127,6 +148,18 @@ def managed(name, config, sections, apply_rollback=90, revert_pending=False):
     else:
         ret["comment"] = f"{config}: {len(all_changes)} section(s) updated, applied, and confirmed"
     return ret
+
+
+def _get_agent_mode():
+    """Read salt-openwrt config from the device. Returns (enabled, mode)."""
+    try:
+        agent = __salt__["saltext_ubus.get"]("salt-openwrt", "global")
+    except Exception:  # pylint: disable=broad-exception-caught
+        log.debug("salt-openwrt config not found, defaulting to auto mode")
+        return True, "auto"
+    enabled = agent.get("enabled", "1") == "1"
+    mode = agent.get("mode", "auto")
+    return enabled, mode
 
 
 def _check_pending(ret, config, revert_pending):
