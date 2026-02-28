@@ -134,19 +134,12 @@ def managed(name, config, sections, apply_rollback=90, revert_pending=False):
     if ret["result"] is False:
         return ret
 
-    # 9. Apply, verify, confirm
-    if apply_rollback is not None:
-        _apply_and_confirm(ret, config, all_changes, apply_rollback)
-        if ret["result"] is False:
-            return ret
+    # 9. Commit or apply
+    _commit_or_apply(ret, config, all_changes, apply_rollback)
+    if ret["result"] is False:
+        return ret
 
     ret["changes"] = all_changes
-    if apply_rollback is None:
-        ret["comment"] = (
-            f"{config}: {len(all_changes)} section(s) updated (staged only, not applied)"
-        )
-    else:
-        ret["comment"] = f"{config}: {len(all_changes)} section(s) updated, applied, and confirmed"
     return ret
 
 
@@ -160,6 +153,11 @@ def _get_agent_mode():
     enabled = agent.get("enabled", "1") == "1"
     mode = agent.get("mode", "auto")
     return enabled, mode
+
+
+def _is_json_rpc():
+    """Check if the current transport is JSON-RPC (session-scoped staging)."""
+    return __opts__.get("proxy", {}).get("proxytype") == "saltext_ubus_ubus"
 
 
 def _check_pending(ret, config, revert_pending):
@@ -226,6 +224,42 @@ def _stage_changes(ret, config, all_changes, resolved, current):
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = f"Failed to set values on {config}: {exc}"
+
+
+def _commit_or_apply(ret, config, all_changes, apply_rollback):
+    """Commit or apply depending on rollback setting and transport type."""
+    if apply_rollback is None:
+        # Manual mode: SSH stages to /tmp/.uci/ (reviewable via 'uci changes'),
+        # JSON-RPC must commit because session-scoped staging is ephemeral.
+        if _is_json_rpc():
+            _commit_only(ret, config)
+            if ret["result"] is False:
+                return
+            ret["comment"] = (
+                f"{config}: {len(all_changes)} section(s) committed "
+                f"(not applied, services not reloaded)"
+            )
+        else:
+            # SSH: changes already staged in /tmp/.uci/, nothing more to do
+            ret["comment"] = (
+                f"{config}: {len(all_changes)} section(s) staged "
+                f"(review with 'uci changes {config}', "
+                f"then 'uci commit {config} && uci apply')"
+            )
+    else:
+        _apply_and_confirm(ret, config, all_changes, apply_rollback)
+        if ret["result"] is False:
+            return
+        ret["comment"] = f"{config}: {len(all_changes)} section(s) updated, applied, and confirmed"
+
+
+def _commit_only(ret, config):
+    """Commit staged changes to /etc/config without reloading services."""
+    try:
+        __salt__["saltext_ubus.commit"](config)
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        ret["result"] = False
+        ret["comment"] = f"Failed to commit {config}: {exc}"
 
 
 def _apply_and_confirm(ret, config, all_changes, apply_rollback):

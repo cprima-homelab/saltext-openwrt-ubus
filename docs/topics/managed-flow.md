@@ -119,15 +119,28 @@ sequenceDiagram
 ## Manual mode
 
 When `mode = manual`, Salt stages UCI changes (`uci set`) but does not
-call `uci apply` or `uci confirm`. A human reviews and commits via
-LuCI or the CLI.
+call `uci apply` or `uci confirm`. The staging behavior differs by
+transport because rpcd routes changes differently depending on whether
+a session ID is present:
+
+- **SSH transport** runs `ubus call uci set` without a session. Changes
+  stage to `/tmp/.uci/`, visible to `uci changes` from CLI and LuCI.
+  The operator can review and activate at their convenience.
+
+- **JSON-RPC transport** passes the rpcd session token with every call.
+  Changes stage to `/var/run/rpcd/uci-<session_id>/`, invisible to
+  standard tooling and auto-cleaned when the session expires (~300s).
+  Salt must `uci commit` to persist changes to `/etc/config/`.
+
+### Manual mode -- SSH transport
 
 ```{mermaid}
 sequenceDiagram
     autonumber
     participant Master as Salt Master
     participant State as state.managed()
-    participant UCI as UCI (ubus/SSH)
+    participant UCI as UCI (SSH)
+    participant Device as /tmp/.uci/
     participant Human as Operator<br/>(LuCI / CLI)
 
     Master->>State: managed(config, sections)
@@ -144,28 +157,78 @@ sequenceDiagram
 
     Note over State: Resolve + Diff
 
-    alt No drift
-        State-->>Master: result=True, "already in desired state"
-    end
-
     rect rgb(230, 245, 230)
-        Note over State,UCI: Stage phase (same as auto)
+        Note over State,Device: Stage phase
         loop Each changed section
             opt New section
                 State->>UCI: add(config, type, name)
             end
             State->>UCI: set(config, section, values)
+            UCI->>Device: staged in /tmp/.uci/
         end
     end
 
-    Note over State: apply_rollback is None<br/>Skip apply/confirm
+    Note over State: SSH transport detected<br/>Skip commit -- changes are<br/>in /tmp/.uci/ for review
 
-    State-->>Master: result=True, changes={...},<br/>"staged only, not applied"
+    State-->>Master: result=True, changes={...},<br/>"staged (review with 'uci changes')"
 
     Note over Human: Later...
-    Human->>UCI: uci changes (review)
-    Human->>UCI: uci commit
-    UCI-->>Human: Applied
+    Human->>Device: uci changes (review staged)
+    Human->>UCI: uci commit && uci apply
+    UCI-->>Human: Applied + services reloaded
+```
+
+### Manual mode -- JSON-RPC transport
+
+```{mermaid}
+sequenceDiagram
+    autonumber
+    participant Master as Salt Master
+    participant State as state.managed()
+    participant UCI as UCI (JSON-RPC)
+    participant Session as /var/run/rpcd/<br/>uci-<session_id>/
+    participant Config as /etc/config/
+    participant Human as Operator<br/>(LuCI / CLI)
+
+    Master->>State: managed(config, sections)
+    State->>UCI: get("salt-openwrt", "global")
+    UCI-->>State: {enabled: "1", mode: "manual"}
+
+    Note over State: Mode = manual<br/>Override: apply_rollback = None
+
+    State->>UCI: changes(config)
+    UCI-->>State: {} (no pending)
+
+    State->>UCI: get(config)
+    UCI-->>State: current config state
+
+    Note over State: Resolve + Diff
+
+    rect rgb(230, 245, 230)
+        Note over State,Session: Stage phase
+        loop Each changed section
+            opt New section
+                State->>UCI: add(config, type, name)
+            end
+            State->>UCI: set(config, section, values)
+            UCI->>Session: staged in session dir<br/>(auto-cleaned ~300s)
+        end
+    end
+
+    rect rgb(250, 240, 230)
+        Note over State,Config: Commit phase (JSON-RPC only)
+        Note over State: Session-scoped staging is ephemeral<br/>Must commit to persist
+        State->>UCI: commit(config)
+        UCI->>Config: written to /etc/config/
+    end
+
+    Note over State: Skip apply -- services NOT reloaded
+
+    State-->>Master: result=True, changes={...},<br/>"committed (not applied)"
+
+    Note over Human: Later...
+    Human->>UCI: uci apply
+    UCI-->>Human: Services reloaded
 ```
 
 ## Disabled device

@@ -342,7 +342,38 @@ class TestApplyFlow:
         patch_dunders["saltext_ubus.confirm"].assert_called_once()
         assert "applied, and confirmed" in ret["comment"]
 
-    def test_staged_only_when_apply_none(self, patch_dunders):
+    def test_commit_only_when_apply_none_jsonrpc(self, patch_dunders, monkeypatch):
+        monkeypatch.setattr(
+            state_mod,
+            "__opts__",
+            {"test": False, "proxy": {"proxytype": "saltext_ubus_ubus"}},
+            raising=False,
+        )
+        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
+        patch_dunders["saltext_ubus.set"] = MagicMock()
+        patch_dunders["saltext_ubus.commit"] = MagicMock()
+
+        ret = state_mod.managed(
+            "test",
+            "network",
+            {"lan": {"ipaddr": "10.35.24.2"}},
+            apply_rollback=None,
+        )
+        assert ret["result"] is True
+        assert "committed" in ret["comment"]
+        assert "not applied" in ret["comment"]
+        patch_dunders["saltext_ubus.commit"].assert_called_once_with("network")
+        assert "saltext_ubus.apply" not in patch_dunders
+        assert "saltext_ubus.confirm" not in patch_dunders
+
+    def test_stage_only_when_apply_none_ssh(self, patch_dunders, monkeypatch):
+        monkeypatch.setattr(
+            state_mod,
+            "__opts__",
+            {"test": False, "proxy": {"proxytype": "saltext_ubus_ssh"}},
+            raising=False,
+        )
         patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
         patch_dunders["saltext_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
         patch_dunders["saltext_ubus.set"] = MagicMock()
@@ -354,7 +385,10 @@ class TestApplyFlow:
             apply_rollback=None,
         )
         assert ret["result"] is True
-        assert "staged only" in ret["comment"]
+        assert "staged" in ret["comment"]
+        assert "uci changes" in ret["comment"]
+        patch_dunders["saltext_ubus.set"].assert_called_once()
+        assert "saltext_ubus.commit" not in patch_dunders
         assert "saltext_ubus.apply" not in patch_dunders
         assert "saltext_ubus.confirm" not in patch_dunders
 
@@ -492,15 +526,44 @@ class TestAgentMode:
         assert "audit mode -- no drift detected" in ret["comment"]
         assert not ret["changes"]
 
-    def test_manual_mode_stages_no_apply(self, patch_dunders):
+    def test_manual_mode_jsonrpc_commits_no_apply(self, patch_dunders, monkeypatch):
+        monkeypatch.setattr(
+            state_mod,
+            "__opts__",
+            {"test": False, "proxy": {"proxytype": "saltext_ubus_ubus"}},
+            raising=False,
+        )
+        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=[AGENT_MANUAL, NETWORK_STATE])
+        patch_dunders["saltext_ubus.set"] = MagicMock()
+        patch_dunders["saltext_ubus.commit"] = MagicMock()
+
+        ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
+        assert ret["result"] is True
+        assert "committed" in ret["comment"]
+        assert "not applied" in ret["comment"]
+        patch_dunders["saltext_ubus.set"].assert_called_once()
+        patch_dunders["saltext_ubus.commit"].assert_called_once_with("network")
+        assert "saltext_ubus.apply" not in patch_dunders
+        assert "saltext_ubus.confirm" not in patch_dunders
+
+    def test_manual_mode_ssh_stages_no_commit(self, patch_dunders, monkeypatch):
+        monkeypatch.setattr(
+            state_mod,
+            "__opts__",
+            {"test": False, "proxy": {"proxytype": "saltext_ubus_ssh"}},
+            raising=False,
+        )
         patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
         patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=[AGENT_MANUAL, NETWORK_STATE])
         patch_dunders["saltext_ubus.set"] = MagicMock()
 
         ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
         assert ret["result"] is True
-        assert "staged only" in ret["comment"]
+        assert "staged" in ret["comment"]
+        assert "uci changes" in ret["comment"]
         patch_dunders["saltext_ubus.set"].assert_called_once()
+        assert "saltext_ubus.commit" not in patch_dunders
         assert "saltext_ubus.apply" not in patch_dunders
         assert "saltext_ubus.confirm" not in patch_dunders
 

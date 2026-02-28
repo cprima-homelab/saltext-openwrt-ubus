@@ -51,8 +51,13 @@ before any write operations.
 - **audit** -- Salt reports what is different between desired and actual
   state. No UCI writes occur. Safe default for newly enrolled devices.
 - **manual** -- Salt stages UCI changes (calls `uci set`) but does not
-  call `uci apply` or `uci confirm`. A human reviews and commits via
-  LuCI or the CLI.
+  call `uci apply` or `uci confirm`. The staging behavior is
+  transport-aware:
+  - *SSH*: changes stage to `/tmp/.uci/`, visible to `uci changes`.
+    The operator reviews and activates with `uci commit && uci apply`.
+  - *JSON-RPC*: changes are session-scoped (`/var/run/rpcd/uci-<sid>/`)
+    and would be lost when the session expires. Salt calls `uci commit`
+    to persist to `/etc/config/`. The operator activates with `uci apply`.
 - **auto** -- Salt applies changes with rollback safety (existing
   behavior). Full automation.
 
@@ -130,6 +135,8 @@ New installs default to `mode audit` rather than `mode auto` because:
 - Drift reporting in audit mode uses the same diff logic as the normal
   path -- no separate code is needed.
 - Manual mode reuses the existing `apply_rollback=None` code path.
+  It is transport-aware: SSH skips commit (true staging), JSON-RPC
+  commits to persist past the ephemeral rpcd session.
 - The mode check adds one extra `uci get` call per `managed()` run.
   On a 128 MB device over JSON-RPC this is sub-millisecond overhead.
 
