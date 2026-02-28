@@ -17,6 +17,9 @@ Salt extension module for OpenWrt UCI configuration management
 
   ref/modules/index
   ref/states/index
+  ref/proxy/index
+  ref/grains/index
+  ref/utils/index
 
 .. toctree::
   :maxdepth: 2
