@@ -1,22 +1,27 @@
 """
-Salt execution module for OpenWrt UCI configuration via SSH.
+Salt execution module for OpenWrt UCI configuration via local ubus.
 
-Requires the ``saltext_uci_ssh`` proxy module to be configured and
-running. Delegates all ubus calls through the proxy's ``call()``
-function, which runs ``ubus call`` over SSH and returns parsed JSON --
-the same structured data as the JSON-RPC adapter.
+For devices with Python3 and ubusd running, managed via salt-ssh.
+Calls ``ubus call`` directly via subprocess -- no proxy module needed.
+
+The JSON output is identical to what the JSON-RPC and SSH adapters
+return, so the state module works unchanged.
 
 UCI metadata fields are returned with underscore prefixes to avoid
 collision with UCI option names:
   .type -> _type, .name -> _name, .anonymous -> _anonymous, .index -> _index
 """
 
+import json
 import logging
+import subprocess
+
+import salt.utils.path
+from salt.exceptions import CommandExecutionError
 
 log = logging.getLogger(__name__)
 
 __virtualname__ = "saltext_uci"
-__proxyenabled__ = ["saltext_uci_ssh"]
 
 __func_alias__ = {
     "set_": "set",
@@ -25,16 +30,37 @@ __func_alias__ = {
 
 
 def __virtual__():
-    if "proxy" not in __opts__:
-        return False, "Not a proxy minion"
-    if __opts__.get("proxy", {}).get("proxytype") != "saltext_uci_ssh":
-        return False, "proxytype is not saltext_uci_ssh"
+    if __opts__.get("proxy"):
+        return False, "Running as proxy minion -- use the proxy execution module instead"
+    if not salt.utils.path.which("ubus"):
+        return False, "ubus binary not found"
     return __virtualname__
 
 
 def _call(ubus_object, ubus_method, params=None):
-    """Forward a ubus call through the proxy module."""
-    return __proxy__["saltext_uci_ssh.call"](ubus_object, ubus_method, params)
+    """Execute a local ubus call and return parsed JSON."""
+    args = ["ubus", "call", ubus_object, ubus_method]
+    if params is not None:
+        args.append(json.dumps(params))
+
+    result = subprocess.run(
+        args,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+
+    if result.returncode != 0:
+        raise CommandExecutionError(
+            f"ubus call {ubus_object} {ubus_method} failed "
+            f"(rc={result.returncode}): {result.stderr.strip()}"
+        )
+
+    output = result.stdout.strip()
+    if not output:
+        return None
+    return json.loads(output)
 
 
 def _transform_section(data):
@@ -53,7 +79,7 @@ def _transform_section(data):
 
 def get(config, section=None, option=None):
     """
-    Read UCI configuration via ``ubus call uci get`` over SSH.
+    Read UCI configuration via local ``ubus call uci get``.
 
     Returns the full config, a single section, or a single option value.
     UCI metadata fields (.type, .name, .anonymous, .index) are returned
@@ -63,9 +89,9 @@ def get(config, section=None, option=None):
 
     .. code-block:: bash
 
-        salt router saltext_uci.get network
-        salt router saltext_uci.get network lan
-        salt router saltext_uci.get network lan proto
+        salt device saltext_uci.get network
+        salt device saltext_uci.get network lan
+        salt device saltext_uci.get network lan proto
     """
     params = {"config": config}
     if section is not None:
@@ -94,7 +120,7 @@ def configs():
 
     .. code-block:: bash
 
-        salt router saltext_uci.configs
+        salt device saltext_uci.configs
     """
     result = _call("uci", "configs")
     return result.get("configs", [])
@@ -108,7 +134,7 @@ def changes(config):
 
     .. code-block:: bash
 
-        salt router saltext_uci.changes network
+        salt device saltext_uci.changes network
     """
     result = _call("uci", "changes", {"config": config})
     return result.get("changes", [])
@@ -125,7 +151,7 @@ def set_(config, section, values):
 
     .. code-block:: bash
 
-        salt router saltext_uci.set network lan '{"proto": "static"}'
+        salt device saltext_uci.set network lan '{"proto": "static"}'
     """
     return _call(
         "uci",
@@ -146,7 +172,7 @@ def add(config, type_, name=None, values=None):
 
     .. code-block:: bash
 
-        salt router saltext_uci.add network interface name=wan2
+        salt device saltext_uci.add network interface name=wan2
     """
     params = {"config": config, "type": type_}
     if name is not None:
@@ -164,8 +190,8 @@ def delete(config, section, option=None):
 
     .. code-block:: bash
 
-        salt router saltext_uci.delete network wan2
-        salt router saltext_uci.delete network lan dns
+        salt device saltext_uci.delete network wan2
+        salt device saltext_uci.delete network lan dns
     """
     params = {"config": config, "section": section}
     if option is not None:
@@ -184,8 +210,8 @@ def apply_(rollback=90):  # pylint: disable=redefined-outer-name
 
     .. code-block:: bash
 
-        salt router saltext_uci.apply
-        salt router saltext_uci.apply rollback=120
+        salt device saltext_uci.apply
+        salt device saltext_uci.apply rollback=120
     """
     return _call("uci", "apply", {"rollback": True, "timeout": rollback})
 
@@ -198,7 +224,7 @@ def confirm():
 
     .. code-block:: bash
 
-        salt router saltext_uci.confirm
+        salt device saltext_uci.confirm
     """
     return _call("uci", "confirm", {})
 
@@ -211,7 +237,7 @@ def rollback():
 
     .. code-block:: bash
 
-        salt router saltext_uci.rollback
+        salt device saltext_uci.rollback
     """
     return _call("uci", "rollback", {})
 
@@ -224,7 +250,7 @@ def revert(config):
 
     .. code-block:: bash
 
-        salt router saltext_uci.revert network
+        salt device saltext_uci.revert network
     """
     return _call("uci", "revert", {"config": config})
 
@@ -237,7 +263,7 @@ def commit(config):
 
     .. code-block:: bash
 
-        salt router saltext_uci.commit network
+        salt device saltext_uci.commit network
     """
     return _call("uci", "commit", {"config": config})
 
@@ -250,8 +276,8 @@ def state(config, section=None):
 
     .. code-block:: bash
 
-        salt router saltext_uci.state network
-        salt router saltext_uci.state network lan
+        salt device saltext_uci.state network
+        salt device saltext_uci.state network lan
     """
     params = {"config": config}
     if section is not None:
@@ -277,7 +303,7 @@ def system_board():
 
     .. code-block:: bash
 
-        salt router saltext_uci.system_board
+        salt device saltext_uci.system_board
     """
     return _call("system", "board")
 
@@ -290,7 +316,7 @@ def system_info():
 
     .. code-block:: bash
 
-        salt router saltext_uci.system_info
+        salt device saltext_uci.system_info
     """
     return _call("system", "info")
 
@@ -303,6 +329,6 @@ def network_dump():
 
     .. code-block:: bash
 
-        salt router saltext_uci.network_dump
+        salt device saltext_uci.network_dump
     """
     return _call("network.interface", "dump")

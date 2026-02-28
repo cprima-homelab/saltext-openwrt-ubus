@@ -10,3 +10,4 @@ _________
     :toctree:
 
     rpc
+    ssh

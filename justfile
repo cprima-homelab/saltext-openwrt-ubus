@@ -15,18 +15,34 @@ install:
 reinstall:
     wsl -d {{wsl_dist}} -- {{pip}} install -e {{pkg}} --force-reinstall --no-deps
 
-# Start salt-proxy (foreground, ctrl-c to stop)
-proxy-start:
-    wsl -d {{wsl_dist}} -- salt-proxy --proxyid=austru -l info
+# Start salt-proxy for a device (foreground, ctrl-c to stop)
+proxy-start device="austru":
+    wsl -d {{wsl_dist}} -- salt-proxy --proxyid={{device}} -l info
 
-# Stop salt-proxy and clean up stale state
+# Start salt-proxy for a device (background daemon)
+proxy-start-bg device="austru":
+    wsl -d {{wsl_dist}} -- salt-proxy --proxyid={{device}} -l info -d
+
+# Stop all salt-proxy processes
 proxy-stop:
     -wsl -d {{wsl_dist}} -- pkill -f salt-proxy
-    wsl -d {{wsl_dist}} -- bash -c 'rm -f /run/salt/proxy/minion_event_*.ipc /var/run/salt/austru/salt-minion.pid'
+    wsl -d {{wsl_dist}} -- bash -c 'rm -f /run/salt/proxy/minion_event_*.ipc'
+
+# Stop a specific salt-proxy
+proxy-stop-one device:
+    -wsl -d {{wsl_dist}} -- pkill -f "salt-proxy --proxyid={{device}}"
 
 # Quick connectivity test
-ping:
-    wsl -d {{wsl_dist}} -- salt austru test.ping
+ping device="austru":
+    wsl -d {{wsl_dist}} -- salt {{device}} test.ping
+
+# List accepted/pending minion keys
+keys:
+    wsl -d {{wsl_dist}} -- salt-key -L
+
+# Accept a minion key
+accept device:
+    wsl -d {{wsl_dist}} -- salt-key -a {{device}} -y
 
 # Run unit tests locally
 test:

@@ -10,4 +10,5 @@ _________________
     :toctree:
 
     ubus_jsonrpc
+    uci_local
     uci_ssh

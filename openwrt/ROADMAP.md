@@ -1,6 +1,6 @@
 # salt-agent-ubus Package Roadmap
 
-## v0.1.0 (current)
+## v0.1.0
 
 First installable package. Creates the salt user, rpcd login, and ACL
 file. Enough to authenticate via JSON-RPC and explore the ubus API.
