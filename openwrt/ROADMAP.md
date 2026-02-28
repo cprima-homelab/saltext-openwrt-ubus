@@ -21,11 +21,10 @@ file. Enough to authenticate via JSON-RPC and explore the ubus API.
 ### Uninstall behavior
 
 `opkg remove salt-agent-ubus` removes the ACL file and the rpcd
-login entry. The system user `salt` (passwd, shadow, group, home
-directory) is intentionally **not** removed -- deleting users can break
-ownership of files created while the account existed. The README and
-postrm output should clearly state what is and is not cleaned up, and
-provide manual removal instructions.
+login entry. The system user is intentionally **not** removed --
+deleting users can break ownership of files created while the account
+existed. The README and postrm output should clearly state what is and
+is not cleaned up, and provide manual removal instructions.
 
 - [ ] Document uninstall residuals in README (user, home dir, password)
 - [ ] Document manual full-cleanup commands in README
@@ -36,13 +35,24 @@ provide manual removal instructions.
 - `uci: ["*"]` grants read/write to all UCI packages including
   security-sensitive ones (rpcd, dropbear, openvpn). Acceptable during
   exploration, must be tightened before production use.
-- Password must be set manually after install (`passwd salt`).
+- Password must be set manually after install (`passwd salt-agent`).
 - No TLS certificate validation guidance -- relies on uhttpd's
   self-signed cert by default.
 
 ## v0.2.0
 
-Tighten ACL scope based on saltext-ubus module requirements.
+Rename system user from `salt` to `salt-agent` with dynamic uid
+allocation in the system range (100-999).
+
+- [x] System user renamed to `salt-agent`
+- [x] Dynamic uid allocation (scan 999 down to 100, Debian-style)
+- [x] Shell set to `/bin/false` (service account, no login needed)
+- [x] rpcd login username changed to `salt-agent`
+- [x] rpcd password changed to `$p$salt-agent`
+- [x] postrm updated for `salt-agent` username
+- [x] Version bump CONTROL/control and Makefile
+
+### Next: Tighten ACL scope
 
 - [ ] Scope `uci` read to packages actually used: `network`, `wireless`,
   `dhcp`, `firewall`, `system`, `openvpn` (and others as needed)
@@ -50,7 +60,6 @@ Tighten ACL scope based on saltext-ubus module requirements.
 - [ ] Document which UCI packages each saltext-ubus Salt state touches
 - [ ] Add `conffiles` to CONTROL so `/usr/share/rpcd/acl.d/salt-agent-ubus.json`
   survives upgrades if locally modified
-- [ ] Version bump CONTROL/control and Makefile
 
 ## v0.3.0
 

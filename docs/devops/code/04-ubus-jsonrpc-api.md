@@ -18,7 +18,7 @@ Content-Type: application/json
   "params": [
     "00000000000000000000000000000000",   // null session (for login only)
     "session", "login",
-    {"username": "salt", "password": "<password>"}
+    {"username": "salt-agent", "password": "<password>"}
   ]
 }
 ```
@@ -34,7 +34,7 @@ Response (success):
       "timeout": 300,
       "expires": 299,
       "acls": { ... },
-      "data": {"username": "salt"}
+      "data": {"username": "salt-agent"}
     }
   ]
 }

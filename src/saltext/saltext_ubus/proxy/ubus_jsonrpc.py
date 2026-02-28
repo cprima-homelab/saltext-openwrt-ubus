@@ -10,7 +10,7 @@ OpenWrt configuration management through the ubus API.
     proxy:
       proxytype: saltext_ubus_jsonrpc
       host: 10.35.24.1
-      username: salt
+      username: salt-agent
       password: secret
       port: 443
       verify_ssl: false

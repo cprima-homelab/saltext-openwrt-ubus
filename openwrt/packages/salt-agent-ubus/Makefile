@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=salt-agent-ubus
-PKG_VERSION:=0.1.0
+PKG_VERSION:=0.2.0
 PKG_RELEASE:=1
 
 PKG_MAINTAINER:=Christian Prior-Mamulyan <cprior@gmail.com>
@@ -19,10 +19,10 @@ define Package/salt-agent-ubus
 endef
 
 define Package/salt-agent-ubus/description
-  Creates an rpcd login for the salt user and installs ACL rules
-  granting scoped access to UCI, network, and system ubus objects
-  via the JSON-RPC API. Used by the saltext-uci Salt extension to
-  manage OpenWrt devices over HTTPS instead of SSH.
+  Creates a salt-agent system user with rpcd login and installs ACL
+  rules granting scoped access to UCI, network, and system ubus
+  objects via the JSON-RPC API. Used by the saltext-uci Salt extension
+  to manage OpenWrt devices over HTTPS instead of SSH.
 endef
 
 define Package/salt-agent-ubus/conffiles

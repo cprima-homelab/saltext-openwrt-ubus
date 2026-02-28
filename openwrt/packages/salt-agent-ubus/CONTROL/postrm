@@ -3,13 +3,13 @@
 
 set -e
 
-# Remove rpcd login for salt
+# Remove rpcd login for salt-agent
 i=0
 while uci -q get "rpcd.@login[$i].username" >/dev/null 2>&1; do
-    if [ "$(uci -q get "rpcd.@login[$i].username")" = "salt" ]; then
+    if [ "$(uci -q get "rpcd.@login[$i].username")" = "salt-agent" ]; then
         uci delete "rpcd.@login[$i]"
         uci commit rpcd
-        echo "salt-agent-ubus: removed rpcd login for 'salt'"
+        echo "salt-agent-ubus: removed rpcd login for 'salt-agent'"
         break
     fi
     i=$((i + 1))
@@ -17,9 +17,9 @@ done
 
 /etc/init.d/rpcd restart
 
-# Note: system user 'salt' in /etc/passwd is intentionally NOT removed.
+# Note: system user 'salt-agent' in /etc/passwd is intentionally NOT removed.
 # Removing users can break file ownership. To fully remove:
-#   sed -i '/^salt:/d' /etc/passwd /etc/shadow /etc/group
-#   rm -rf /home/salt
+#   sed -i '/^salt-agent:/d' /etc/passwd /etc/shadow /etc/group
+#   rm -rf /home/salt-agent
 
 exit 0

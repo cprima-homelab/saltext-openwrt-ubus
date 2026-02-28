@@ -19,9 +19,9 @@ remove:
 # Reinstall (remove + install)
 reinstall: remove install
 
-# Set salt user password on target (interactive)
+# Set salt-agent user password on target (interactive)
 passwd:
-    ssh {{host}} 'passwd salt'
+    ssh {{host}} 'passwd salt-agent'
 
 # Show package status on target
 status:
@@ -30,13 +30,13 @@ status:
     @echo "--- ACL file ---"
     ssh {{host}} 'ls -l /usr/share/rpcd/acl.d/{{pkg}}.json 2>/dev/null' || echo "missing"
     @echo "--- rpcd login ---"
-    ssh {{host}} 'uci show rpcd | grep salt' || echo "no rpcd login"
+    ssh {{host}} 'uci show rpcd | grep salt-agent' || echo "no rpcd login"
     @echo "--- user ---"
-    ssh {{host}} 'grep "^salt:" /etc/passwd' || echo "no salt user"
+    ssh {{host}} 'grep "^salt-agent:" /etc/passwd' || echo "no salt-agent user"
 
 # Test JSON-RPC login (requires AUSTRU_PASSWORD env var)
 test-login:
-    @printf '{"jsonrpc":"2.0","id":1,"method":"call","params":["00000000000000000000000000000000","session","login",{"username":"salt","password":"%s"}]}' "$$AUSTRU_PASSWORD" \
+    @printf '{"jsonrpc":"2.0","id":1,"method":"call","params":["00000000000000000000000000000000","session","login",{"username":"salt-agent","password":"%s"}]}' "$$AUSTRU_PASSWORD" \
         | curl -s -k -X POST 'https://{{host}}/ubus' -H 'Content-Type: application/json' -d @-
 
 # Clean build artifacts

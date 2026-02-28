@@ -83,7 +83,7 @@ The corresponding pillar SLS on the master:
 proxy:
   proxytype: saltext_ubus
   host: 10.35.24.1
-  username: salt
+  username: salt-agent
   password: secret
   verify_ssl: false
 ```

@@ -65,7 +65,7 @@ class TestInit:
             "proxy": {
                 "proxytype": "saltext_ubus_jsonrpc",
                 "host": "10.35.24.1",
-                "username": "salt",
+                "username": "salt-agent",
                 "password": "secret",
                 "port": 443,
                 "verify_ssl": False,
@@ -75,7 +75,7 @@ class TestInit:
 
         mock_client_cls.assert_called_once_with(
             host="10.35.24.1",
-            username="salt",
+            username="salt-agent",
             password="secret",
             port=443,
             verify_ssl=False,

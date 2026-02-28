@@ -31,8 +31,8 @@ rpcd manages authentication and authorization.
 
 ```
 config login
-    option username 'salt'
-    option password '$p$salt'
+    option username 'salt-agent'
+    option password '$p$salt-agent'
     list read '*'
     list write '*'
 ```

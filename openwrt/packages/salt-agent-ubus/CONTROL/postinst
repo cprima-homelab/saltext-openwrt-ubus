@@ -1,23 +1,39 @@
 #!/bin/sh
-# Post-install: create salt system user and rpcd login
+# Post-install: create salt-agent system user and rpcd login
 
 set -e
 
 # Create system user if it does not exist
-if ! grep -q "^salt:" /etc/passwd; then
-    echo "salt:x:1000:1000:salt:/home/salt:/bin/ash" >> /etc/passwd
-    echo "salt:x:1000:" >> /etc/group
-    echo "salt:!:0:0:99999:7:::" >> /etc/shadow
-    mkdir -p /home/salt
-    echo "salt-agent-ubus: created system user 'salt'"
-    echo "salt-agent-ubus: run 'passwd salt' to set a password"
+if ! grep -q "^salt-agent:" /etc/passwd; then
+    # Find next free system uid (scan 999 down to 100)
+    NEW_UID=""
+    uid=999
+    while [ "$uid" -ge 100 ]; do
+        if ! grep -q "^[^:]*:[^:]*:${uid}:" /etc/passwd; then
+            NEW_UID=$uid
+            break
+        fi
+        uid=$((uid - 1))
+    done
+
+    if [ -z "$NEW_UID" ]; then
+        echo "salt-agent-ubus: ERROR no free uid in 100-999" >&2
+        exit 1
+    fi
+
+    echo "salt-agent:x:${NEW_UID}:${NEW_UID}:salt-agent:/home/salt-agent:/bin/false" >> /etc/passwd
+    echo "salt-agent:x:${NEW_UID}:" >> /etc/group
+    echo "salt-agent:!:0:0:99999:7:::" >> /etc/shadow
+    mkdir -p /home/salt-agent
+    echo "salt-agent-ubus: created system user 'salt-agent' (uid ${NEW_UID})"
+    echo "salt-agent-ubus: run 'passwd salt-agent' to set a password"
 fi
 
 # Add rpcd login if it does not exist
 FOUND=0
 i=0
 while uci -q get "rpcd.@login[$i].username" >/dev/null 2>&1; do
-    if [ "$(uci -q get "rpcd.@login[$i].username")" = "salt" ]; then
+    if [ "$(uci -q get "rpcd.@login[$i].username")" = "salt-agent" ]; then
         FOUND=1
         break
     fi
@@ -26,13 +42,13 @@ done
 
 if [ "$FOUND" = "0" ]; then
     uci add rpcd login >/dev/null
-    uci set "rpcd.@login[-1].username=salt"
-    # $p$salt = verify against /etc/shadow
-    uci set "rpcd.@login[-1].password=$(printf '$p$salt')"
+    uci set "rpcd.@login[-1].username=salt-agent"
+    # $p$salt-agent = verify against /etc/shadow
+    uci set "rpcd.@login[-1].password=$(printf '$p$salt-agent')"
     uci add_list "rpcd.@login[-1].read=saltext-uci"
     uci add_list "rpcd.@login[-1].write=saltext-uci"
     uci commit rpcd
-    echo "salt-agent-ubus: added rpcd login for 'salt'"
+    echo "salt-agent-ubus: added rpcd login for 'salt-agent'"
 fi
 
 /etc/init.d/rpcd restart

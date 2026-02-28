@@ -8,17 +8,18 @@ the package contains only config files and shell scripts.
 
 On install the package:
 
-1. Creates a system user `salt` (uid 1000) with a locked password
-2. Adds an rpcd login entry using `$p$salt` (verify against `/etc/shadow`)
+1. Creates a system user `salt-agent` with a dynamically allocated uid
+   in the system range (100-999) and a locked password
+2. Adds an rpcd login entry using `$p$salt-agent` (verify against `/etc/shadow`)
 3. Installs an rpcd ACL file granting scoped access to ubus objects
 
-After install you must set a password for the salt user:
+After install you must set a password for the salt-agent user:
 
 ```sh
-ssh root@<host> 'passwd salt'
+ssh root@<host> 'passwd salt-agent'
 ```
 
-The salt user can then authenticate via JSON-RPC at `https://<host>/ubus`
+The salt-agent user can then authenticate via JSON-RPC at `https://<host>/ubus`
 and call ubus methods within the granted ACL scope.
 
 ## ACL scope
@@ -51,7 +52,7 @@ methods are unavailable; core functionality is unaffected.
 ./build.sh salt-agent-ubus
 ```
 
-Creates `build/salt-agent-ubus_0.1.0-1_all.ipk`.
+Creates `build/salt-agent-ubus_0.2.0-1_all.ipk`.
 
 Or using [just](https://github.com/casey/just):
 
@@ -65,9 +66,9 @@ The `.ipk` is a gzipped tar archive containing `debian-binary`,
 ## Install
 
 ```sh
-scp build/salt-agent-ubus_0.1.0-1_all.ipk root@<host>:/tmp/
-ssh root@<host> 'opkg install /tmp/salt-agent-ubus_0.1.0-1_all.ipk'
-ssh root@<host> 'passwd salt'
+scp build/salt-agent-ubus_0.2.0-1_all.ipk root@<host>:/tmp/
+ssh root@<host> 'opkg install /tmp/salt-agent-ubus_0.2.0-1_all.ipk'
+ssh root@<host> 'passwd salt-agent'
 ```
 
 Or with just:
@@ -86,21 +87,21 @@ ssh root@<host> 'opkg remove salt-agent-ubus'
 ### What gets removed
 
 - ACL file `/usr/share/rpcd/acl.d/salt-agent-ubus.json`
-- rpcd login entry for `salt` (UCI section deleted, rpcd restarted)
+- rpcd login entry for `salt-agent` (UCI section deleted, rpcd restarted)
 
 ### What is intentionally kept
 
-- System user `salt` in `/etc/passwd`, `/etc/shadow`, `/etc/group`
-- Home directory `/home/salt`
-- The password set via `passwd salt`
-- Any UCI changes the salt user made via the API
+- System user `salt-agent` in `/etc/passwd`, `/etc/shadow`, `/etc/group`
+- Home directory `/home/salt-agent`
+- The password set via `passwd salt-agent`
+- Any UCI changes the salt-agent user made via the API
 
 Removing system users can break file ownership. To fully clean up
 manually after uninstall:
 
 ```sh
-sed -i '/^salt:/d' /etc/passwd /etc/shadow /etc/group
-rm -rf /home/salt
+sed -i '/^salt-agent:/d' /etc/passwd /etc/shadow /etc/group
+rm -rf /home/salt-agent
 ```
 
 ## Justfile recipes
@@ -111,7 +112,7 @@ rm -rf /home/salt
 | `just install` | Build, upload, and install on target |
 | `just remove` | Remove package from target |
 | `just reinstall` | Remove and reinstall |
-| `just passwd` | Set salt user password (interactive) |
+| `just passwd` | Set salt-agent user password (interactive) |
 | `just status` | Show package, ACL, rpcd login, and user state |
 | `just test-login` | Test JSON-RPC login (needs `AUSTRU_PASSWORD` env var) |
 | `just clean` | Remove build artifacts |
@@ -149,8 +150,9 @@ Override the target host: `just host=myrouter install`
 - The `files/` directory mirrors the target filesystem layout
   (`files/usr/share/rpcd/acl.d/` installs to `/usr/share/rpcd/acl.d/`).
   Both build paths use this directly -- no path remapping.
-- The rpcd password `$p$salt` tells rpcd to verify the salt user's
-  credentials against `/etc/shadow`. The password must be set separately.
+- The rpcd password `$p$salt-agent` tells rpcd to verify the salt-agent
+  user's credentials against `/etc/shadow`. The password must be set
+  separately.
 - `network.interface.*` wildcard ACL matching confirmed working on
   OpenWrt 24.10.5. Older versions may require explicit interface names.
 - Tested on OpenWrt 24.10.5 (ath79, Netgear WNDR3800).
