@@ -1,5 +1,5 @@
 """
-Unit tests for the saltext_uci proxy module.
+Unit tests for the saltext_ubus proxy module.
 
 All tests use a mocked RPC client. No network calls are made.
 """
@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-import saltext.saltext_uci.proxy.ubus_jsonrpc as proxy_mod
+import saltext.saltext_ubus.proxy.ubus_jsonrpc as proxy_mod
 
 BOARD_RESPONSE = {
     "kernel": "6.6.86",
@@ -52,7 +52,7 @@ def mock_client():
 
 
 class TestInit:
-    @patch("saltext.saltext_uci.proxy.ubus_jsonrpc.UbusRpcClient")
+    @patch("saltext.saltext_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_creates_client_and_logs_in(self, mock_client_cls):
         mock_instance = MagicMock()
         mock_instance.call.side_effect = lambda obj, method, params=None: {
@@ -63,7 +63,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "saltext_uci_ubus",
+                "proxytype": "saltext_ubus_ubus",
                 "host": "10.35.24.1",
                 "username": "salt",
                 "password": "secret",
@@ -84,7 +84,7 @@ class TestInit:
         mock_instance.login.assert_called_once()
         assert proxy_mod.DETAILS["initialized"] is True
 
-    @patch("saltext.saltext_uci.proxy.ubus_jsonrpc.UbusRpcClient")
+    @patch("saltext.saltext_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_fetches_grains_on_init(self, mock_client_cls):
         mock_instance = MagicMock()
         mock_instance.call.side_effect = lambda obj, method, params=None: {
@@ -95,7 +95,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "saltext_uci_ubus",
+                "proxytype": "saltext_ubus_ubus",
                 "host": "10.0.0.1",
                 "username": "u",
                 "password": "p",

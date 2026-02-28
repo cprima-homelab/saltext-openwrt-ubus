@@ -140,7 +140,7 @@ Calls that returned "Access denied" even with `read: *, write: *`:
 | `uci revert`                    | Not in luci-base write ACLs              |
 
 These require either:
-- Custom ACL file in `/usr/share/rpcd/acl.d/saltext-uci.json`
+- Custom ACL file in `/usr/share/rpcd/acl.d/saltext-ubus.json`
 - Or use the `luci-base` group which covers `uci.get`, `uci.set`,
   `uci.commit`, `uci.apply`, `uci.confirm`
 

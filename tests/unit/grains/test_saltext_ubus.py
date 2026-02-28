@@ -1,12 +1,12 @@
 """
-Unit tests for the saltext_uci grains module.
+Unit tests for the saltext_ubus grains module.
 """
 
 from unittest.mock import MagicMock
 
 import pytest
 
-import saltext.saltext_uci.grains.saltext_uci as grains_mod
+import saltext.saltext_ubus.grains.saltext_ubus as grains_mod
 
 
 @pytest.fixture(autouse=True)
@@ -28,43 +28,43 @@ class TestVirtual:
         patch_dunders["proxy"] = {"proxytype": "napalm"}
         result = grains_mod.__virtual__()
         assert result[0] is False
-        assert "not saltext_uci_ubus or saltext_uci_ssh" in result[1]
+        assert "not saltext_ubus_ubus or saltext_ubus_ssh" in result[1]
 
     def test_true_for_ubus_proxytype(self, patch_dunders):
-        patch_dunders["proxy"] = {"proxytype": "saltext_uci_ubus"}
+        patch_dunders["proxy"] = {"proxytype": "saltext_ubus_ubus"}
         result = grains_mod.__virtual__()
-        assert result == "saltext_uci"
+        assert result == "saltext_ubus"
 
     def test_true_for_ssh_proxytype(self, patch_dunders):
-        patch_dunders["proxy"] = {"proxytype": "saltext_uci_ssh"}
+        patch_dunders["proxy"] = {"proxytype": "saltext_ubus_ssh"}
         result = grains_mod.__virtual__()
-        assert result == "saltext_uci"
+        assert result == "saltext_ubus"
 
 
 class TestSaltextUciGrains:
     def test_returns_empty_when_proxy_none(self, patch_dunders):
-        patch_dunders["proxy"] = {"proxytype": "saltext_uci_ubus"}
-        result = grains_mod.saltext_uci(proxy=None)
+        patch_dunders["proxy"] = {"proxytype": "saltext_ubus_ubus"}
+        result = grains_mod.saltext_ubus(proxy=None)
         assert result == {}
 
     def test_returns_empty_when_grains_fn_missing(self, patch_dunders):
-        patch_dunders["proxy"] = {"proxytype": "saltext_uci_ubus"}
+        patch_dunders["proxy"] = {"proxytype": "saltext_ubus_ubus"}
         proxy = {}
-        result = grains_mod.saltext_uci(proxy=proxy)
+        result = grains_mod.saltext_ubus(proxy=proxy)
         assert result == {}
 
     def test_returns_grains_from_ubus_proxy(self, patch_dunders):
-        patch_dunders["proxy"] = {"proxytype": "saltext_uci_ubus"}
+        patch_dunders["proxy"] = {"proxytype": "saltext_ubus_ubus"}
         expected = {"os": "OpenWrt", "model": "WNDR3800"}
-        proxy = {"saltext_uci_ubus.grains": MagicMock(return_value=expected)}
-        result = grains_mod.saltext_uci(proxy=proxy)
+        proxy = {"saltext_ubus_ubus.grains": MagicMock(return_value=expected)}
+        result = grains_mod.saltext_ubus(proxy=proxy)
         assert result == expected
-        proxy["saltext_uci_ubus.grains"].assert_called_once()
+        proxy["saltext_ubus_ubus.grains"].assert_called_once()
 
     def test_returns_grains_from_ssh_proxy(self, patch_dunders):
-        patch_dunders["proxy"] = {"proxytype": "saltext_uci_ssh"}
+        patch_dunders["proxy"] = {"proxytype": "saltext_ubus_ssh"}
         expected = {"os": "OpenWrt", "model": "GL-MT3000"}
-        proxy = {"saltext_uci_ssh.grains": MagicMock(return_value=expected)}
-        result = grains_mod.saltext_uci(proxy=proxy)
+        proxy = {"saltext_ubus_ssh.grains": MagicMock(return_value=expected)}
+        result = grains_mod.saltext_ubus(proxy=proxy)
         assert result == expected
-        proxy["saltext_uci_ssh.grains"].assert_called_once()
+        proxy["saltext_ubus_ssh.grains"].assert_called_once()

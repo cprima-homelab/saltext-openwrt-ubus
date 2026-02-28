@@ -23,7 +23,7 @@ and call ubus methods within the granted ACL scope.
 
 ## ACL scope
 
-The ACL group `saltext-uci` grants access to:
+The ACL group `saltext-ubus` grants access to:
 
 | Category | Objects | Methods |
 |----------|---------|---------|

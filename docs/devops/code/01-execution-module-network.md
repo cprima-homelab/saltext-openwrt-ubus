@@ -6,9 +6,9 @@ Implements the minimal scope defined in [plan/05-minimal-scope.md](../plan/05-mi
 
 | File | Purpose |
 |------|---------|
-| `src/saltext/saltext_uci/modules/saltext_uci_mod.py` | Execution module (Salt-facing functions) |
-| `src/saltext/saltext_uci/utils/uci_parser.py` | Parser library (`parse_show`, `to_pillar`) |
-| `tests/unit/modules/test_saltext_uci.py` | Execution module tests (22 tests) |
+| `src/saltext/saltext_ubus/modules/saltext_ubus_mod.py` | Execution module (Salt-facing functions) |
+| `src/saltext/saltext_ubus/utils/uci_parser.py` | Parser library (`parse_show`, `to_pillar`) |
+| `tests/unit/modules/test_saltext_ubus.py` | Execution module tests (22 tests) |
 | `tests/unit/utils/test_uci_parser.py` | Parser tests (10 tests) |
 
 The execution module imports `_unquote` from the parser to avoid duplication.
@@ -50,7 +50,7 @@ def __virtual__():
 __func_alias__ = {"set_": "set"}
 ```
 
-This lets Salt expose it as `saltext_uci.set` while the Python function is `set_()`.
+This lets Salt expose it as `saltext_ubus.set` while the Python function is `set_()`.
 
 ### Shell command API
 
@@ -104,7 +104,7 @@ Note: a multi-word scalar (e.g., `ports='0 1 2 3 5'`) looks identical to a list 
 
 ## Test File
 
-`tests/unit/modules/test_saltext_uci.py`
+`tests/unit/modules/test_saltext_ubus.py`
 
 ### Test fixtures
 

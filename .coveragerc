@@ -38,7 +38,7 @@ ignore_errors = True
 
 [paths]
 source =
-  saltext/saltext_uci
-  src/saltext/saltext_uci
+  saltext/saltext_ubus
+  src/saltext/saltext_ubus
 testsuite =
   tests/

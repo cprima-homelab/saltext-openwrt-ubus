@@ -7,7 +7,7 @@ file. Enough to authenticate via JSON-RPC and explore the ubus API.
 
 - [x] System user `salt` (uid 1000) created in postinst
 - [x] rpcd login with `$p$salt` shadow-based authentication
-- [x] ACL group `saltext-uci` with scoped ubus method access
+- [x] ACL group `saltext-ubus` with scoped ubus method access
 - [x] ACL covers UCI CRUD, system board/info, network interface state
 - [x] ACL covers luci-rpc convenience methods (requires `rpcd-mod-luci`)
 - [x] `uci` package scope set to `*` (all packages, intentionally broad for exploration)
@@ -42,12 +42,12 @@ provide manual removal instructions.
 
 ## v0.2.0
 
-Tighten ACL scope based on saltext-uci module requirements.
+Tighten ACL scope based on saltext-ubus module requirements.
 
 - [ ] Scope `uci` read to packages actually used: `network`, `wireless`,
   `dhcp`, `firewall`, `system`, `openvpn` (and others as needed)
 - [ ] Scope `uci` write to the same list
-- [ ] Document which UCI packages each saltext-uci Salt state touches
+- [ ] Document which UCI packages each saltext-ubus Salt state touches
 - [ ] Add `conffiles` to CONTROL so `/usr/share/rpcd/acl.d/salt-agent-ubus.json`
   survives upgrades if locally modified
 - [ ] Version bump CONTROL/control and Makefile

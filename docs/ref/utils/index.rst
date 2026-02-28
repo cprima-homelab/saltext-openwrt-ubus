@@ -1,10 +1,10 @@
-.. all-saltext.saltext-uci.utils:
+.. all-saltext.saltext-ubus.utils:
 
 _________
 Utilities
 _________
 
-.. currentmodule:: saltext.saltext_uci.utils
+.. currentmodule:: saltext.saltext_ubus.utils
 
 .. autosummary::
     :toctree:

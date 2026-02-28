@@ -1,6 +1,6 @@
 # Development Plan
 
-Requirements and planning documents for saltext-uci.
+Requirements and planning documents for saltext-ubus.
 
 ## Documents
 

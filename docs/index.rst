@@ -1,7 +1,7 @@
-``saltext-uci``: Integrate Salt with OpenWrt UCI
-========================================================
+``saltext-ubus``: Integrate Salt with OpenWrt via ubus
+==========================================================
 
-Salt extension module for OpenWrt UCI configuration management
+Salt extension for OpenWrt configuration management via ubus
 
 .. toctree::
   :maxdepth: 2

@@ -1,10 +1,10 @@
-.. all-saltext.saltext-uci.proxy:
+.. all-saltext.saltext-ubus.proxy:
 
 _____________
 Proxy Modules
 _____________
 
-.. currentmodule:: saltext.saltext_uci.proxy
+.. currentmodule:: saltext.saltext_ubus.proxy
 
 .. autosummary::
     :toctree:

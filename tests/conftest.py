@@ -7,7 +7,7 @@ import pytest
 import salt.utils.platform
 from saltfactories.utils import random_string
 
-from saltext.saltext_uci import PACKAGE_ROOT
+from saltext.saltext_ubus import PACKAGE_ROOT
 
 try:
     import pwd

@@ -1,12 +1,12 @@
-.. all-saltext.saltext-uci.states:
+.. all-saltext.saltext-ubus.states:
 
 _____________
 State Modules
 _____________
 
-.. currentmodule:: saltext.saltext_uci.states
+.. currentmodule:: saltext.saltext_ubus.states
 
 .. autosummary::
     :toctree:
 
-    saltext_uci
+    saltext_ubus

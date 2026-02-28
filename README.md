@@ -1,6 +1,6 @@
-# Salt Extension for OpenWrt UCI
+# Salt Extension for OpenWrt via ubus
 
-Salt extension module for OpenWrt UCI configuration management
+Salt extension for OpenWrt configuration management via ubus
 
 ## Security
 
@@ -14,7 +14,7 @@ For setup and usage instructions, please refer to the
 
 ## Contributing
 
-The saltext-uci project welcomes contributions from anyone!
+The saltext-ubus project welcomes contributions from anyone!
 
 The [Salt Extensions guide][salt-extensions-guide] provides comprehensive instructions on all aspects
 of Salt extension development, including [writing tests][writing-tests], [running tests][running-tests],
@@ -26,10 +26,10 @@ To get started contributing, first clone this repository (or your fork):
 
 ```bash
 # Clone the repo
-git clone --origin upstream git@github.com:cprima-homelab/saltext-uci.git
+git clone --origin upstream git@github.com:cprima-homelab/saltext-ubus.git
 
 # Change to the repo dir
-cd saltext-uci
+cd saltext-ubus
 ```
 
 #### Automatic
@@ -82,7 +82,7 @@ without writing code:
 You can also contribute by:
 
 * Writing blog posts
-* Sharing your experiences using Salt + OpenWrt UCI
+* Sharing your experiences using Salt + OpenWrt via ubus
   on social media
 * Giving talks at conferences
 * Publishing videos
@@ -100,8 +100,8 @@ appreciate every contribution!
 [first-steps]: https://salt-extensions.github.io/salt-extension-copier/topics/creation.html#initialize-the-python-virtual-environment
 [submitting-pr]: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork
 [direnv]: https://direnv.net
-[issues]: https://github.com/cprima-homelab/saltext-uci/issues
-[PRs]: https://github.com/cprima-homelab/saltext-uci/pulls
-[discussions]: https://github.com/cprima-homelab/saltext-uci/discussions
+[issues]: https://github.com/cprima-homelab/saltext-ubus/issues
+[PRs]: https://github.com/cprima-homelab/saltext-ubus/pulls
+[discussions]: https://github.com/cprima-homelab/saltext-ubus/discussions
 [comments]: https://conventionalcomments.org/
-[docs]: https://cprima-homelab.github.io/saltext-uci
+[docs]: https://cprima-homelab.github.io/saltext-ubus

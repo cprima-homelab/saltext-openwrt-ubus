@@ -1,5 +1,5 @@
 """
-Salt state module for OpenWrt UCI configuration management.
+Salt state module for OpenWrt configuration management via ubus.
 
 Ensures named UCI sections match a desired state using partial
 semantics: only options present in pillar are managed, unmanaged
@@ -15,13 +15,13 @@ import logging
 
 log = logging.getLogger(__name__)
 
-__virtualname__ = "saltext_uci"
-__proxyenabled__ = ["saltext_uci_ubus", "saltext_uci_ssh"]
+__virtualname__ = "saltext_ubus"
+__proxyenabled__ = ["saltext_ubus_ubus", "saltext_ubus_ssh"]
 
 
 def __virtual__():
-    if "saltext_uci.get" not in __salt__:
-        return False, "The 'saltext_uci' execution module is not available"
+    if "saltext_ubus.get" not in __salt__:
+        return False, "The 'saltext_ubus' execution module is not available"
     return __virtualname__
 
 
@@ -51,7 +51,7 @@ def managed(name, config, sections, apply_rollback=90, revert_pending=False):
     .. code-block:: yaml
 
         network_config:
-          saltext_uci.managed:
+          saltext_ubus.managed:
             - config: network
             - sections:
                 lan:
@@ -132,7 +132,7 @@ def managed(name, config, sections, apply_rollback=90, revert_pending=False):
 def _check_pending(ret, config, revert_pending):
     """Check for pending deltas, optionally reverting them."""
     try:
-        pending = __salt__["saltext_uci.changes"](config)
+        pending = __salt__["saltext_ubus.changes"](config)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = f"Failed to check pending changes for {config}: {exc}"
@@ -144,19 +144,19 @@ def _check_pending(ret, config, revert_pending):
             ret["comment"] = (
                 f"Uncommitted changes exist for {config}. "
                 f"Set revert_pending=True to discard them, or "
-                f"revert manually with saltext_uci.revert. "
+                f"revert manually with saltext_ubus.revert. "
                 f"Pending: {pending}"
             )
             return pending
         if not __opts__["test"]:
-            __salt__["saltext_uci.revert"](config)
+            __salt__["saltext_ubus.revert"](config)
     return pending
 
 
 def _read_and_resolve(ret, config, sections):
     """Read current config and resolve singleton anonymous sections."""
     try:
-        current = __salt__["saltext_uci.get"](config)
+        current = __salt__["saltext_ubus.get"](config)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = f"Failed to read {config}: {exc}"
@@ -186,10 +186,10 @@ def _stage_changes(ret, config, all_changes, resolved, current):
                         f"and no _type specified for creation"
                     )
                     return
-                __salt__["saltext_uci.add"](config, type_, name=section_name)
+                __salt__["saltext_ubus.add"](config, type_, name=section_name)
 
             values = {opt: change["new"] for opt, change in section_changes.items()}
-            __salt__["saltext_uci.set"](config, section_name, values)
+            __salt__["saltext_ubus.set"](config, section_name, values)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = f"Failed to set values on {config}: {exc}"
@@ -198,14 +198,14 @@ def _stage_changes(ret, config, all_changes, resolved, current):
 def _apply_and_confirm(ret, config, all_changes, apply_rollback):
     """Apply changes, verify, and confirm."""
     try:
-        __salt__["saltext_uci.apply"](rollback=apply_rollback)
+        __salt__["saltext_ubus.apply"](rollback=apply_rollback)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = f"Failed to apply {config}: {exc}"
         return
 
     try:
-        new_state = __salt__["saltext_uci.get"](config)
+        new_state = __salt__["saltext_ubus.get"](config)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = (
@@ -228,7 +228,7 @@ def _apply_and_confirm(ret, config, all_changes, apply_rollback):
                 return
 
     try:
-        __salt__["saltext_uci.confirm"]()
+        __salt__["saltext_ubus.confirm"]()
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = (

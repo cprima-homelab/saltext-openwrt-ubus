@@ -139,9 +139,9 @@ Calls that fail even with `read: *, write: *`:
 To grant full access for Salt operations, deploy a custom ACL file:
 
 ```json
-// /usr/share/rpcd/acl.d/saltext-uci.json
+// /usr/share/rpcd/acl.d/saltext-ubus.json
 {
-  "saltext-uci": {
+  "saltext-ubus": {
     "description": "Salt extension for UCI management",
     "read": {
       "ubus": {
@@ -167,8 +167,8 @@ To grant full access for Salt operations, deploy a custom ACL file:
 }
 ```
 
-Then configure the salt rpcd login with `list read 'saltext-uci'` and
-`list write 'saltext-uci'` instead of `*`.
+Then configure the salt rpcd login with `list read 'saltext-ubus'` and
+`list write 'saltext-ubus'` instead of `*`.
 
 ## Session Lifecycle
 

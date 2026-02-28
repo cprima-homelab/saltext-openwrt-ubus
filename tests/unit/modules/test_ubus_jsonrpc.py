@@ -1,5 +1,5 @@
 """
-Unit tests for the saltext_uci execution module.
+Unit tests for the saltext_ubus execution module.
 
 All tests use mocked proxy calls. No network calls or device writes.
 """
@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import saltext.saltext_uci.modules.ubus_jsonrpc as uci_mod
+import saltext.saltext_ubus.modules.ubus_jsonrpc as uci_mod
 
 
 @pytest.fixture(autouse=True)
@@ -24,7 +24,7 @@ def patch_dunders(monkeypatch):
 def mock_call(patch_dunders):
     """Provide a mock for the proxy's call function."""
     call_fn = MagicMock()
-    patch_dunders["saltext_uci_ubus.call"] = call_fn
+    patch_dunders["saltext_ubus_ubus.call"] = call_fn
     return call_fn
 
 

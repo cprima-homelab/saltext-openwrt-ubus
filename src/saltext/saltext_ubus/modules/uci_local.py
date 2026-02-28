@@ -1,5 +1,5 @@
 """
-Salt execution module for OpenWrt UCI configuration via local ubus.
+Salt execution module for OpenWrt configuration via local ubus.
 
 For devices with Python3 and ubusd running, managed via salt-ssh.
 Calls ``ubus call`` directly via subprocess -- no proxy module needed.
@@ -22,7 +22,7 @@ from salt.exceptions import CommandExecutionError
 
 log = logging.getLogger(__name__)
 
-__virtualname__ = "saltext_uci"
+__virtualname__ = "saltext_ubus"
 
 __func_alias__ = {
     "set_": "set",
@@ -90,9 +90,9 @@ def get(config, section=None, option=None):
 
     .. code-block:: bash
 
-        salt device saltext_uci.get network
-        salt device saltext_uci.get network lan
-        salt device saltext_uci.get network lan proto
+        salt device saltext_ubus.get network
+        salt device saltext_ubus.get network lan
+        salt device saltext_ubus.get network lan proto
     """
     params = {"config": config}
     if section is not None:
@@ -121,7 +121,7 @@ def configs():
 
     .. code-block:: bash
 
-        salt device saltext_uci.configs
+        salt device saltext_ubus.configs
     """
     result = _call("uci", "configs")
     return result.get("configs", [])
@@ -135,7 +135,7 @@ def changes(config):
 
     .. code-block:: bash
 
-        salt device saltext_uci.changes network
+        salt device saltext_ubus.changes network
     """
     result = _call("uci", "changes", {"config": config})
     return result.get("changes", [])
@@ -152,7 +152,7 @@ def set_(config, section, values):
 
     .. code-block:: bash
 
-        salt device saltext_uci.set network lan '{"proto": "static"}'
+        salt device saltext_ubus.set network lan '{"proto": "static"}'
     """
     return _call(
         "uci",
@@ -173,7 +173,7 @@ def add(config, type_, name=None, values=None):
 
     .. code-block:: bash
 
-        salt device saltext_uci.add network interface name=wan2
+        salt device saltext_ubus.add network interface name=wan2
     """
     params = {"config": config, "type": type_}
     if name is not None:
@@ -191,8 +191,8 @@ def delete(config, section, option=None):
 
     .. code-block:: bash
 
-        salt device saltext_uci.delete network wan2
-        salt device saltext_uci.delete network lan dns
+        salt device saltext_ubus.delete network wan2
+        salt device saltext_ubus.delete network lan dns
     """
     params = {"config": config, "section": section}
     if option is not None:
@@ -211,8 +211,8 @@ def apply_(rollback=90):  # pylint: disable=redefined-outer-name
 
     .. code-block:: bash
 
-        salt device saltext_uci.apply
-        salt device saltext_uci.apply rollback=120
+        salt device saltext_ubus.apply
+        salt device saltext_ubus.apply rollback=120
     """
     return _call("uci", "apply", {"rollback": True, "timeout": rollback})
 
@@ -225,7 +225,7 @@ def confirm():
 
     .. code-block:: bash
 
-        salt device saltext_uci.confirm
+        salt device saltext_ubus.confirm
     """
     return _call("uci", "confirm", {})
 
@@ -238,7 +238,7 @@ def rollback():
 
     .. code-block:: bash
 
-        salt device saltext_uci.rollback
+        salt device saltext_ubus.rollback
     """
     return _call("uci", "rollback", {})
 
@@ -251,7 +251,7 @@ def revert(config):
 
     .. code-block:: bash
 
-        salt device saltext_uci.revert network
+        salt device saltext_ubus.revert network
     """
     return _call("uci", "revert", {"config": config})
 
@@ -264,7 +264,7 @@ def commit(config):
 
     .. code-block:: bash
 
-        salt device saltext_uci.commit network
+        salt device saltext_ubus.commit network
     """
     return _call("uci", "commit", {"config": config})
 
@@ -277,8 +277,8 @@ def state(config, section=None):
 
     .. code-block:: bash
 
-        salt device saltext_uci.state network
-        salt device saltext_uci.state network lan
+        salt device saltext_ubus.state network
+        salt device saltext_ubus.state network lan
     """
     params = {"config": config}
     if section is not None:
@@ -304,7 +304,7 @@ def system_board():
 
     .. code-block:: bash
 
-        salt device saltext_uci.system_board
+        salt device saltext_ubus.system_board
     """
     return _call("system", "board")
 
@@ -317,7 +317,7 @@ def system_info():
 
     .. code-block:: bash
 
-        salt device saltext_uci.system_info
+        salt device saltext_ubus.system_info
     """
     return _call("system", "info")
 
@@ -330,6 +330,6 @@ def network_dump():
 
     .. code-block:: bash
 
-        salt device saltext_uci.network_dump
+        salt device saltext_ubus.network_dump
     """
     return _call("network.interface", "dump")

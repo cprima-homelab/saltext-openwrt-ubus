@@ -10,12 +10,12 @@ from unittest.mock import patch
 
 import pytest
 
-from saltext.saltext_uci.utils.rpc import NULL_SESSION
-from saltext.saltext_uci.utils.rpc import UBUS_STATUS_OK
-from saltext.saltext_uci.utils.rpc import UBUS_STATUS_PERMISSION_DENIED
-from saltext.saltext_uci.utils.rpc import JsonRpcError
-from saltext.saltext_uci.utils.rpc import UbusError
-from saltext.saltext_uci.utils.rpc import UbusRpcClient
+from saltext.saltext_ubus.utils.rpc import NULL_SESSION
+from saltext.saltext_ubus.utils.rpc import UBUS_STATUS_OK
+from saltext.saltext_ubus.utils.rpc import UBUS_STATUS_PERMISSION_DENIED
+from saltext.saltext_ubus.utils.rpc import JsonRpcError
+from saltext.saltext_ubus.utils.rpc import UbusError
+from saltext.saltext_ubus.utils.rpc import UbusRpcClient
 
 
 def _jsonrpc_response(result=None, error=None, req_id=1):

@@ -54,7 +54,7 @@ Not all of these produce UCI config (kernel modules, libraries). The UCI-relevan
 
 ## Execution Module Functions
 
-Module name: `saltext_uci` (called as `salt-ssh '*' saltext_uci.<function>`)
+Module name: `saltext_ubus` (called as `salt-ssh '*' saltext_ubus.<function>`)
 
 ### Common Plumbing
 
@@ -147,7 +147,7 @@ For `set_list` (replace entire list):
 
 ## State Module Functions
 
-Module name: `saltext_uci` (called in state files as `saltext_uci.<state>`)
+Module name: `saltext_ubus` (called in state files as `saltext_ubus.<state>`)
 
 | State | Purpose | Example |
 |-------|---------|---------|
@@ -199,7 +199,7 @@ When these requirements are not met, salt-ssh will fail to deploy the thin tarba
 For constrained devices (128 MB RAM, no Python). The execution module provides a helper to generate shell scripts:
 
 ```python
-saltext_uci.render_script(desired_state) -> str
+saltext_ubus.render_script(desired_state) -> str
 ```
 
 This produces a self-contained shell script that:
@@ -247,11 +247,11 @@ The script is sent via `salt-ssh '*' -r 'sh -s' < script.sh`.
 ## File Locations
 
 ```
-src/saltext/saltext_uci/
+src/saltext/saltext_ubus/
   modules/
-    saltext_uci_mod.py    # Execution module
+    saltext_ubus_mod.py    # Execution module
   states/
-    saltext_uci_mod.py    # State module
+    saltext_ubus_mod.py    # State module
 tests/
   unit/modules/           # Unit tests for execution module
   unit/states/            # Unit tests for state module

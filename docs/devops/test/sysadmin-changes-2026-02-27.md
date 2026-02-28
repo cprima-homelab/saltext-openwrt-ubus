@@ -29,7 +29,7 @@ salt:$5$E3pBNJZWPqNCrCqL$eGcw/pyaCeucuWzN/m6yzXZWhqWtGC5sPC87b1dtYg0:19864:0:999
 /home/salt/   (owned by root:root, empty)
 ```
 
-The password is `bntTSs5oczGOjLVEZyYe` (stored in `saltext-uci/.env`,
+The password is `bntTSs5oczGOjLVEZyYe` (stored in `saltext-ubus/.env`,
 gitignored). The hash uses SHA-256 (`$5$` prefix).
 
 Note: BusyBox `passwd` on OpenWrt wrote the hash directly into
@@ -241,5 +241,5 @@ ssh autan '
 '
 
 # 4. Delete .env file
-rm D:/github.com/cprima-homelab/saltext-uci/.env
+rm D:/github.com/cprima-homelab/saltext-ubus/.env
 ```

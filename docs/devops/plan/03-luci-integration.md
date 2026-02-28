@@ -141,7 +141,7 @@ A **read-only** LuCI page that shows:
 LuCI (browser) -> uhttpd -> rpcd -> ubus -> script reads logbook
 ```
 
-The LuCI app would be a separate opkg package (`luci-app-saltext-uci`) that:
+The LuCI app would be a separate opkg package (`luci-app-saltext-ubus`) that:
 - Reads a JSON status file written by Salt or cron
 - Displays it in a LuCI page
 - Does NOT write config (Salt is the source of truth)

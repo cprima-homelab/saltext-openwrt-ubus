@@ -24,8 +24,8 @@ This project uses [Semantic Versioning](https://semver.org/) - MAJOR.MINOR.PATCH
 
 ### Changed
 
-- Renamed proxy virtualname from `saltext_uci` to `saltext_uci_ubus` for
-  symmetry with `saltext_uci_ssh`.
+- Renamed proxy virtualname from `saltext_ubus` to `saltext_ubus_ubus` for
+  symmetry with `saltext_ubus_ssh`.
 - Renamed module files from `*_mod.py` to match Salt conventions.
 - Added `__virtual__` proxytype guard to execution modules.
 

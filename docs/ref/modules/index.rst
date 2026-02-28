@@ -1,10 +1,10 @@
-.. all-saltext.saltext-uci.modules:
+.. all-saltext.saltext-ubus.modules:
 
 _________________
 Execution Modules
 _________________
 
-.. currentmodule:: saltext.saltext_uci.modules
+.. currentmodule:: saltext.saltext_ubus.modules
 
 .. autosummary::
     :toctree:

@@ -4,7 +4,7 @@ How the source tree grows as we add support for more opkg packages.
 
 ## What stays generic
 
-The execution module (`modules/saltext_uci_mod.py`) provides generic UCI
+The execution module (`modules/saltext_ubus_mod.py`) provides generic UCI
 operations: `get`, `set_`, `delete`, `add_list`, `set_list`, `commit`.
 These work for any UCI package unchanged and do not grow per-package.
 
@@ -34,7 +34,7 @@ Each schema file declares:
 
 ## States: one file for now, may split later
 
-State functions live in `states/saltext_uci_mod.py`. For Tier 1 (named
+State functions live in `states/saltext_ubus_mod.py`. For Tier 1 (named
 sections only), a single `managed` state using `set_`/`delete` is
 straightforward.
 
@@ -44,8 +44,8 @@ deferred until the complexity justifies it.
 
 ## Filename convention
 
-The `saltext_uci_mod.py` naming comes from the `salt-extension-copier`
+The `saltext_ubus_mod.py` naming comes from the `salt-extension-copier`
 template (`{project_name}_mod.py`). Salt does not use the filename for
 dispatch -- it uses `__virtualname__`. The repetitive path
-`saltext/saltext_uci/modules/saltext_uci_mod.py` is a copier convention,
+`saltext/saltext_ubus/modules/saltext_ubus_mod.py` is a copier convention,
 not a design choice.

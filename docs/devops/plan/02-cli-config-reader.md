@@ -171,7 +171,7 @@ The parser operates on `uci show` or `uci export` **output**, not raw config fil
 
 ### Phase 1: Parser Library
 
-Internal module `saltext.saltext_uci.utils.uci_parser`:
+Internal module `saltext.saltext_ubus.utils.uci_parser`:
 - `parse_show(text: str) -> dict` -- parse `uci show` output
 - `parse_export(text: str) -> dict` -- parse `uci export` output
 - `to_pillar(config: dict) -> dict` -- convert to pillar-ready YAML structure
@@ -181,15 +181,15 @@ Internal module `saltext.saltext_uci.utils.uci_parser`:
 ### Phase 2: Execution Module Integration
 
 Add to the execution module:
-- `saltext_uci.dump(package=None, format="pillar")` -- read live config, return formatted output
-- `saltext_uci.diff_pillar(pillar_data)` -- compare live config against pillar, return changes
+- `saltext_ubus.dump(package=None, format="pillar")` -- read live config, return formatted output
+- `saltext_ubus.diff_pillar(pillar_data)` -- compare live config against pillar, return changes
 
 ### Phase 3: CLI Entry Point (optional)
 
 Entry point in `pyproject.toml`:
 ```toml
 [project.scripts]
-uci-reader = "saltext.saltext_uci.cli:main"
+uci-reader = "saltext.saltext_ubus.cli:main"
 ```
 
 Standalone CLI that doesn't require Salt:

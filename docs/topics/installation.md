@@ -6,19 +6,19 @@ Generally, extensions need to be installed into the same Python environment Salt
 ```yaml
 Install Salt Saltext-uci extension:
   pip.installed:
-    - name: saltext-uci
+    - name: saltext-ubus
 ```
 :::
 
 :::{tab} Onedir installation
 ```bash
-salt-pip install saltext-uci
+salt-pip install saltext-ubus
 ```
 :::
 
 :::{tab} Regular installation
 ```bash
-pip install saltext-uci
+pip install saltext-ubus
 ```
 :::
 

@@ -1,5 +1,5 @@
 """
-Unit tests for the saltext_uci local execution module.
+Unit tests for the saltext_ubus local execution module.
 
 All tests mock subprocess.run. No ubus calls are made.
 """
@@ -12,7 +12,7 @@ from unittest.mock import patch
 import pytest
 from salt.exceptions import CommandExecutionError
 
-import saltext.saltext_uci.modules.uci_local as uci_mod
+import saltext.saltext_ubus.modules.uci_local as uci_mod
 
 
 @pytest.fixture(autouse=True)
@@ -24,7 +24,7 @@ def patch_dunders(monkeypatch):
 @pytest.fixture
 def mock_subprocess():
     """Provide a mock for subprocess.run."""
-    with patch("saltext.saltext_uci.modules.uci_local.subprocess.run") as mock_run:
+    with patch("saltext.saltext_ubus.modules.uci_local.subprocess.run") as mock_run:
         yield mock_run
 
 

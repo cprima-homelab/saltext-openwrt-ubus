@@ -1,5 +1,5 @@
 """
-Unit tests for the saltext_uci SSH proxy module.
+Unit tests for the saltext_ubus SSH proxy module.
 
 All tests mock the SshRunner. No SSH connections are made.
 """
@@ -10,7 +10,7 @@ from unittest.mock import patch
 
 import pytest
 
-import saltext.saltext_uci.proxy.uci_ssh as proxy_mod
+import saltext.saltext_ubus.proxy.uci_ssh as proxy_mod
 
 BOARD_RESPONSE = {
     "kernel": "6.6.86",
@@ -64,7 +64,7 @@ def mock_runner():
 
 
 class TestInit:
-    @patch("saltext.saltext_uci.proxy.uci_ssh.SshRunner")
+    @patch("saltext.saltext_ubus.proxy.uci_ssh.SshRunner")
     def test_creates_runner_and_verifies(self, mock_runner_cls):
         mock_instance = MagicMock()
         mock_instance.run.side_effect = _mock_runner_run
@@ -73,7 +73,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "saltext_uci_ssh",
+                "proxytype": "saltext_ubus_ssh",
                 "host": "10.38.20.1",
                 "username": "root",
                 "port": 2222,
@@ -92,7 +92,7 @@ class TestInit:
         mock_instance.test_connection.assert_called_once()
         assert proxy_mod.DETAILS["initialized"] is True
 
-    @patch("saltext.saltext_uci.proxy.uci_ssh.SshRunner")
+    @patch("saltext.saltext_ubus.proxy.uci_ssh.SshRunner")
     def test_connection_failure_raises(self, mock_runner_cls):
         mock_instance = MagicMock()
         mock_instance.test_connection.return_value = False
@@ -100,14 +100,14 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "saltext_uci_ssh",
+                "proxytype": "saltext_ubus_ssh",
                 "host": "10.38.20.1",
             }
         }
         with pytest.raises(ConnectionError, match="Cannot connect"):
             proxy_mod.init(opts)
 
-    @patch("saltext.saltext_uci.proxy.uci_ssh.SshRunner")
+    @patch("saltext.saltext_ubus.proxy.uci_ssh.SshRunner")
     def test_fetches_grains_on_init(self, mock_runner_cls):
         mock_instance = MagicMock()
         mock_instance.run.side_effect = _mock_runner_run
@@ -116,7 +116,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "saltext_uci_ssh",
+                "proxytype": "saltext_ubus_ssh",
                 "host": "10.38.20.1",
             }
         }

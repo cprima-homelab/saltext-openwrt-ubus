@@ -76,7 +76,7 @@ Response:
 
 ### 3. Salt execution module output
 
-`saltext_uci.get system ntp` returns:
+`saltext_ubus.get system ntp` returns:
 
 ```yaml
 _anonymous: False
@@ -110,7 +110,7 @@ could theoretically be named `type`; the metadata `.type` is distinct).
 
 ## Full config vs single section
 
-When fetching a full package (`saltext_uci.get system` with no section
+When fetching a full package (`saltext_ubus.get system` with no section
 argument), ubus returns all sections keyed by name:
 
 ```json
@@ -127,7 +127,7 @@ execution module transforms each section independently.
 
 ## Implications for the state module
 
-- The state module (`states/saltext_uci_mod.py`) compares pillar values
+- The state module (`states/saltext_ubus_mod.py`) compares pillar values
   against the execution module output (layer 3)
 - `_type` is used to decide create-vs-modify: if a section doesn't
   exist, `_type` tells `uci.add` what type to create

@@ -34,7 +34,7 @@ Improvement: Use the schema declarations in `utils/packages/*.py`
 NAPALM proxy implements `get_grains()` and `grains_refresh()` to expose
 device facts (vendor, model, OS version, serial, interfaces) as Salt
 grains. This enables targeting by device characteristics:
-`salt -G 'os:OpenWrt' saltext_uci.show network`.
+`salt -G 'os:OpenWrt' saltext_ubus.show network`.
 
 OpenWrt grains could include:
 
@@ -71,7 +71,7 @@ be considered if connection pooling is added.
 
 ### State Module
 
-`states/saltext_uci_mod.py` is a stub. Next step: implement `managed`
+`states/saltext_ubus_mod.py` is a stub. Next step: implement `managed`
 state for named sections (Tier 1), using the existing execution module
 functions.
 

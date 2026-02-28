@@ -14,7 +14,7 @@ Salt's standard pattern for managing devices without Python is the
 minion process runs on the salt-master and SSHes into the device.
 
 ```
-salt 'austru' saltext_uci.get network.lan.ipaddr
+salt 'austru' saltext_ubus.get network.lan.ipaddr
     | (ZMQ)
 proxy minion process (on salt-master)
     | (SSH via subprocess)
@@ -28,12 +28,12 @@ The execution module supports both modes via `_run()`:
 | Mode | When | Transport | Python on target? |
 |------|------|-----------|-------------------|
 | **Direct** | salt-ssh thin client | `cmd.run_all` | Yes |
-| **Proxy** | proxy minion | `__proxy__["saltext_uci.cmd"]` | No |
+| **Proxy** | proxy minion | `__proxy__["saltext_ubus.cmd"]` | No |
 
 ```python
 def _run(cmd, ignore_retcode=True):
-    if "__proxy__" in globals() and "saltext_uci.cmd" in __proxy__:
-        return __proxy__["saltext_uci.cmd"](cmd)
+    if "__proxy__" in globals() and "saltext_ubus.cmd" in __proxy__:
+        return __proxy__["saltext_ubus.cmd"](cmd)
     return __salt__["cmd.run_all"](cmd, ignore_retcode=ignore_retcode)
 ```
 
@@ -42,7 +42,7 @@ call `_run()` and don't know which transport is in use.
 
 ## Proxy Module Interface
 
-`src/saltext/saltext_uci/proxy/saltext_uci_mod.py` implements:
+`src/saltext/saltext_ubus/proxy/saltext_ubus_mod.py` implements:
 
 | Function | Purpose |
 |----------|---------|
@@ -61,7 +61,7 @@ OpenWrt SSH is fast enough for UCI commands.
 
 ```yaml
 proxy:
-  proxytype: saltext_uci
+  proxytype: saltext_ubus
   host: 10.35.24.1
   user: root
   port: 22
@@ -75,7 +75,7 @@ proxy:
 salt-proxy --proxyid=austru -d
 
 # Then use regular salt commands:
-salt austru saltext_uci.get network.lan.ipaddr
+salt austru saltext_ubus.get network.lan.ipaddr
 ```
 
 ## Why Not These Alternatives
@@ -91,6 +91,6 @@ salt austru saltext_uci.get network.lan.ipaddr
 
 | File | Purpose |
 |------|---------|
-| `src/saltext/saltext_uci/proxy/saltext_uci_mod.py` | Proxy module |
-| `src/saltext/saltext_uci/modules/saltext_uci_mod.py` | Execution module (dual-mode `_run`) |
-| `tests/unit/proxy/test_saltext_uci.py` | Proxy tests (10 tests) |
+| `src/saltext/saltext_ubus/proxy/saltext_ubus_mod.py` | Proxy module |
+| `src/saltext/saltext_ubus/modules/saltext_ubus_mod.py` | Execution module (dual-mode `_run`) |
+| `tests/unit/proxy/test_saltext_ubus.py` | Proxy tests (10 tests) |

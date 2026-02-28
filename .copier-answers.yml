@@ -7,7 +7,7 @@ author_email: cprior@gmail.com
 coc_contact: ''
 copyright_begin: 2026
 deploy_docs: rolling
-docs_url: https://cprima-homelab.github.io/saltext-uci
+docs_url: https://cprima-homelab.github.io/saltext-ubus
 integration_name: OpenWrt UCI
 license: apache
 loaders:
@@ -17,14 +17,14 @@ max_salt_version: '3007'
 no_saltext_namespace: false
 os_support:
   - Linux
-package_name: saltext_uci
-project_name: saltext-uci
+package_name: saltext_ubus
+project_name: saltext-ubus
 python_requires: '3.10'
 relax_pylint: false
 salt_version: '3006'
-source_url: https://github.com/cprima-homelab/saltext-uci
+source_url: https://github.com/cprima-homelab/saltext-ubus
 ssh_fixtures: true
 summary: Salt extension module for OpenWrt UCI configuration management
 test_containers: false
-tracker_url: https://github.com/cprima-homelab/saltext-uci/issues
-url: https://github.com/cprima-homelab/saltext-uci
+tracker_url: https://github.com/cprima-homelab/saltext-ubus/issues
+url: https://github.com/cprima-homelab/saltext-ubus

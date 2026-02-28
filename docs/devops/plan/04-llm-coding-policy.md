@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document defines conventions for AI-assisted development on saltext-uci. It is the source material for generating CLAUDE.md, .cursorrules, and similar instruction files.
+This document defines conventions for AI-assisted development on saltext-ubus. It is the source material for generating CLAUDE.md, .cursorrules, and similar instruction files.
 
 ## UCI Domain Knowledge
 
@@ -54,9 +54,9 @@ config rule
 ### Module Structure
 
 ```python
-# Execution module: src/saltext/saltext_uci/modules/saltext_uci_mod.py
+# Execution module: src/saltext/saltext_ubus/modules/saltext_ubus_mod.py
 
-__virtualname__ = "saltext_uci"
+__virtualname__ = "saltext_ubus"
 
 def __virtual__():
     """Only load if we can run uci commands."""
@@ -97,13 +97,13 @@ Every state function must return:
 State functions must support `test=True` (dry run):
 ```python
 def option_present(name, key, value):
-    current = __salt__["saltext_uci.get"](key)
+    current = __salt__["saltext_ubus.get"](key)
     if current == value:
         return {"name": name, "changes": {}, "result": True, "comment": "Already set"}
     if __opts__["test"]:
         return {"name": name, "changes": {key: {"old": current, "new": value}},
                 "result": None, "comment": f"Would set {key}={value}"}
-    __salt__["saltext_uci.set"](key, value)
+    __salt__["saltext_ubus.set"](key, value)
     return {"name": name, "changes": {key: {"old": current, "new": value}},
             "result": True, "comment": f"Set {key}={value}"}
 ```
@@ -142,7 +142,7 @@ def set(key, value):
 
     .. code-block:: bash
 
-        salt '*' saltext_uci.set network.lan.ipaddr 10.35.24.1
+        salt '*' saltext_ubus.set network.lan.ipaddr 10.35.24.1
     """
 ```
 
@@ -176,8 +176,8 @@ All execution module functions must work when called via salt-ssh:
 
 | File | Location | Purpose |
 |------|----------|---------|
-| `CLAUDE.md` | saltext-uci repo root | Claude Code instructions (gitignored) |
-| `.cursorrules` | saltext-uci repo root | Cursor AI instructions (optional, committed) |
+| `CLAUDE.md` | saltext-ubus repo root | Claude Code instructions (gitignored) |
+| `.cursorrules` | saltext-ubus repo root | Cursor AI instructions (optional, committed) |
 
 These files should be generated from this document and updated when policy changes.
 
