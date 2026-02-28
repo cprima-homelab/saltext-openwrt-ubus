@@ -328,19 +328,3 @@ class TestState:
         result = uci_mod.state("network", "lan")
         assert result["_type"] == "interface"
         mock_call.assert_called_once_with("uci", "state", {"config": "network", "section": "lan"})
-
-
-# --- _transform_section ---
-
-
-class TestTransformSection:
-    def test_dot_to_underscore(self):
-        data = {".type": "interface", ".name": "lan", ".anonymous": False, "proto": "static"}
-        result = uci_mod._transform_section(data)
-        assert result == {
-            "_type": "interface",
-            "_name": "lan",
-            "_anonymous": False,
-            "proto": "static",
-        }
-        assert ".type" not in result

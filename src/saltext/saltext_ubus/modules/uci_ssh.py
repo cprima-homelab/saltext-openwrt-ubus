@@ -14,6 +14,8 @@ collision with UCI option names::
 
 import logging
 
+from saltext.saltext_ubus.utils import ubus_ops
+
 log = logging.getLogger(__name__)
 
 __virtualname__ = "saltext_ubus"
@@ -38,17 +40,6 @@ def _call(ubus_object, ubus_method, params=None):
     return __proxy__["saltext_ubus_ssh.call"](ubus_object, ubus_method, params)
 
 
-def _transform_section(data):
-    """Transform UCI dot-prefixed metadata to underscore-prefixed."""
-    result = {}
-    for key, value in data.items():
-        if key.startswith("."):
-            result["_" + key[1:]] = value
-        else:
-            result[key] = value
-    return result
-
-
 # --- Read operations ---
 
 
@@ -68,23 +59,7 @@ def get(config, section=None, option=None):
         salt router saltext_ubus.get network lan
         salt router saltext_ubus.get network lan proto
     """
-    params = {"config": config}
-    if section is not None:
-        params["section"] = section
-    if option is not None:
-        params["option"] = option
-
-    result = _call("uci", "get", params)
-
-    if option is not None:
-        return result.get("value")
-
-    if section is not None:
-        data = result.get("values", result)
-        return _transform_section(data)
-
-    values = result.get("values", {})
-    return {name: _transform_section(data) for name, data in values.items()}
+    return ubus_ops.get(_call, config, section, option)
 
 
 def configs():
@@ -97,8 +72,7 @@ def configs():
 
         salt router saltext_ubus.configs
     """
-    result = _call("uci", "configs")
-    return result.get("configs", [])
+    return ubus_ops.configs(_call)
 
 
 def changes(config):
@@ -111,8 +85,7 @@ def changes(config):
 
         salt router saltext_ubus.changes network
     """
-    result = _call("uci", "changes", {"config": config})
-    return result.get("changes", [])
+    return ubus_ops.changes(_call, config)
 
 
 # --- Write operations ---
@@ -128,15 +101,7 @@ def set_(config, section, values):
 
         salt router saltext_ubus.set network lan '{"proto": "static"}'
     """
-    return _call(
-        "uci",
-        "set",
-        {
-            "config": config,
-            "section": section,
-            "values": values,
-        },
-    )
+    return ubus_ops.set_(_call, config, section, values)
 
 
 def add(config, type_, name=None, values=None):
@@ -149,12 +114,7 @@ def add(config, type_, name=None, values=None):
 
         salt router saltext_ubus.add network interface name=wan2
     """
-    params = {"config": config, "type": type_}
-    if name is not None:
-        params["name"] = name
-    if values is not None:
-        params["values"] = values
-    return _call("uci", "add", params)
+    return ubus_ops.add(_call, config, type_, name, values)
 
 
 def delete(config, section, option=None):
@@ -168,10 +128,7 @@ def delete(config, section, option=None):
         salt router saltext_ubus.delete network wan2
         salt router saltext_ubus.delete network lan dns
     """
-    params = {"config": config, "section": section}
-    if option is not None:
-        params["option"] = option
-    return _call("uci", "delete", params)
+    return ubus_ops.delete(_call, config, section, option)
 
 
 # --- Apply operations ---
@@ -188,7 +145,7 @@ def apply_(rollback=90):  # pylint: disable=redefined-outer-name
         salt router saltext_ubus.apply
         salt router saltext_ubus.apply rollback=120
     """
-    return _call("uci", "apply", {"rollback": True, "timeout": rollback})
+    return ubus_ops.apply_(_call, rollback)
 
 
 def confirm():
@@ -201,7 +158,7 @@ def confirm():
 
         salt router saltext_ubus.confirm
     """
-    return _call("uci", "confirm", {})
+    return ubus_ops.confirm(_call)
 
 
 def rollback():
@@ -214,7 +171,7 @@ def rollback():
 
         salt router saltext_ubus.rollback
     """
-    return _call("uci", "rollback", {})
+    return ubus_ops.rollback(_call)
 
 
 def revert(config):
@@ -227,7 +184,7 @@ def revert(config):
 
         salt router saltext_ubus.revert network
     """
-    return _call("uci", "revert", {"config": config})
+    return ubus_ops.revert(_call, config)
 
 
 def commit(config):
@@ -240,7 +197,7 @@ def commit(config):
 
         salt router saltext_ubus.commit network
     """
-    return _call("uci", "commit", {"config": config})
+    return ubus_ops.commit(_call, config)
 
 
 def state(config, section=None):
@@ -254,17 +211,7 @@ def state(config, section=None):
         salt router saltext_ubus.state network
         salt router saltext_ubus.state network lan
     """
-    params = {"config": config}
-    if section is not None:
-        params["section"] = section
-    result = _call("uci", "state", params)
-
-    if section is not None:
-        data = result.get("values", result)
-        return _transform_section(data)
-
-    values = result.get("values", {})
-    return {name: _transform_section(data) for name, data in values.items()}
+    return ubus_ops.state(_call, config, section)
 
 
 # --- System info ---
@@ -280,7 +227,7 @@ def system_board():
 
         salt router saltext_ubus.system_board
     """
-    return _call("system", "board")
+    return ubus_ops.system_board(_call)
 
 
 def system_info():
@@ -293,7 +240,7 @@ def system_info():
 
         salt router saltext_ubus.system_info
     """
-    return _call("system", "info")
+    return ubus_ops.system_info(_call)
 
 
 def network_dump():
@@ -306,4 +253,4 @@ def network_dump():
 
         salt router saltext_ubus.network_dump
     """
-    return _call("network.interface", "dump")
+    return ubus_ops.network_dump(_call)

@@ -331,19 +331,3 @@ class TestErrorHandling:
         mock_subprocess.side_effect = subprocess.TimeoutExpired(cmd="ubus", timeout=30)
         with pytest.raises(subprocess.TimeoutExpired):
             uci_mod.get("network")
-
-
-# --- _transform_section ---
-
-
-class TestTransformSection:
-    def test_dot_to_underscore(self):
-        data = {".type": "interface", ".name": "lan", ".anonymous": False, "proto": "static"}
-        result = uci_mod._transform_section(data)
-        assert result == {
-            "_type": "interface",
-            "_name": "lan",
-            "_anonymous": False,
-            "proto": "static",
-        }
-        assert ".type" not in result

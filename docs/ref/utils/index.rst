@@ -11,3 +11,4 @@ _________
 
     rpc
     ssh
+    ubus_ops

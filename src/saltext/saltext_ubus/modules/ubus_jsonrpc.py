@@ -11,6 +11,8 @@ collision with UCI option names::
 
 import logging
 
+from saltext.saltext_ubus.utils import ubus_ops
+
 log = logging.getLogger(__name__)
 
 __virtualname__ = "saltext_ubus"
@@ -35,17 +37,6 @@ def _call(ubus_object, ubus_method, params=None):
     return __proxy__["saltext_ubus_ubus.call"](ubus_object, ubus_method, params)
 
 
-def _transform_section(data):
-    """Transform UCI dot-prefixed metadata to underscore-prefixed."""
-    result = {}
-    for key, value in data.items():
-        if key.startswith("."):
-            result["_" + key[1:]] = value
-        else:
-            result[key] = value
-    return result
-
-
 # --- Read operations ---
 
 
@@ -65,25 +56,7 @@ def get(config, section=None, option=None):
         salt austru saltext_ubus.get network lan
         salt austru saltext_ubus.get network lan proto
     """
-    params = {"config": config}
-    if section is not None:
-        params["section"] = section
-    if option is not None:
-        params["option"] = option
-
-    result = _call("uci", "get", params)
-
-    if option is not None:
-        return result.get("value")
-
-    if section is not None:
-        # ubus wraps single-section results in "values" too
-        data = result.get("values", result)
-        return _transform_section(data)
-
-    # Full config: transform each section
-    values = result.get("values", {})
-    return {name: _transform_section(data) for name, data in values.items()}
+    return ubus_ops.get(_call, config, section, option)
 
 
 def configs():
@@ -96,16 +69,12 @@ def configs():
 
         salt austru saltext_ubus.configs
     """
-    result = _call("uci", "configs")
-    return result.get("configs", [])
+    return ubus_ops.configs(_call)
 
 
 def changes(config):
     """
     Show uncommitted changes for a UCI package.
-
-    Returns a list of pending change tuples, or an empty list if no
-    changes are staged.
 
     CLI Example:
 
@@ -113,8 +82,7 @@ def changes(config):
 
         salt austru saltext_ubus.changes network
     """
-    result = _call("uci", "changes", {"config": config})
-    return result.get("changes", [])
+    return ubus_ops.changes(_call, config)
 
 
 # --- Write operations ---
@@ -124,37 +92,18 @@ def set_(config, section, values):
     """
     Set UCI option values on an existing section.
 
-    Args:
-        config: UCI package name (e.g., 'network').
-        section: Section name (e.g., 'lan').
-        values: Dict of option names to values.
-
     CLI Example:
 
     .. code-block:: bash
 
         salt austru saltext_ubus.set network lan '{"proto": "static"}'
     """
-    return _call(
-        "uci",
-        "set",
-        {
-            "config": config,
-            "section": section,
-            "values": values,
-        },
-    )
+    return ubus_ops.set_(_call, config, section, values)
 
 
 def add(config, type_, name=None, values=None):
     """
     Add a new UCI section.
-
-    Args:
-        config: UCI package name.
-        type_: UCI section type (e.g., 'interface').
-        name: Optional section name. If omitted, creates anonymous section.
-        values: Optional dict of initial option values.
 
     CLI Example:
 
@@ -162,12 +111,7 @@ def add(config, type_, name=None, values=None):
 
         salt austru saltext_ubus.add network interface name=wan2
     """
-    params = {"config": config, "type": type_}
-    if name is not None:
-        params["name"] = name
-    if values is not None:
-        params["values"] = values
-    return _call("uci", "add", params)
+    return ubus_ops.add(_call, config, type_, name, values)
 
 
 def delete(config, section, option=None):
@@ -181,10 +125,7 @@ def delete(config, section, option=None):
         salt austru saltext_ubus.delete network wan2
         salt austru saltext_ubus.delete network lan dns
     """
-    params = {"config": config, "section": section}
-    if option is not None:
-        params["option"] = option
-    return _call("uci", "delete", params)
+    return ubus_ops.delete(_call, config, section, option)
 
 
 # --- Apply operations ---
@@ -194,13 +135,6 @@ def apply_(rollback=90):  # pylint: disable=redefined-outer-name
     """
     Commit and apply UCI changes with rollback safety.
 
-    Changes are committed to /etc/config and daemons are reloaded.
-    If confirm() is not called within the rollback timeout, changes
-    are automatically reverted.
-
-    Args:
-        rollback: Rollback timeout in seconds (default 90).
-
     CLI Example:
 
     .. code-block:: bash
@@ -208,15 +142,12 @@ def apply_(rollback=90):  # pylint: disable=redefined-outer-name
         salt austru saltext_ubus.apply
         salt austru saltext_ubus.apply rollback=120
     """
-    return _call("uci", "apply", {"rollback": True, "timeout": rollback})
+    return ubus_ops.apply_(_call, rollback)
 
 
 def confirm():
     """
     Confirm a pending apply, locking in the changes.
-
-    Must be called after apply() within the rollback timeout,
-    otherwise changes are automatically reverted.
 
     CLI Example:
 
@@ -224,7 +155,7 @@ def confirm():
 
         salt austru saltext_ubus.confirm
     """
-    return _call("uci", "confirm", {})
+    return ubus_ops.confirm(_call)
 
 
 def rollback():
@@ -237,7 +168,7 @@ def rollback():
 
         salt austru saltext_ubus.rollback
     """
-    return _call("uci", "rollback", {})
+    return ubus_ops.rollback(_call)
 
 
 def revert(config):
@@ -250,18 +181,12 @@ def revert(config):
 
         salt austru saltext_ubus.revert network
     """
-    return _call("uci", "revert", {"config": config})
+    return ubus_ops.revert(_call, config)
 
 
 def commit(config):
     """
     Commit staged changes to /etc/config without reloading daemons.
-
-    Use this to persist changes without triggering a service reload.
-    For commit + reload with rollback safety, use ``apply`` instead.
-
-    Args:
-        config: UCI package name (e.g., 'network').
 
     CLI Example:
 
@@ -269,19 +194,12 @@ def commit(config):
 
         salt austru saltext_ubus.commit network
     """
-    return _call("uci", "commit", {"config": config})
+    return ubus_ops.commit(_call, config)
 
 
 def state(config, section=None):
     """
     Return runtime-merged UCI state (defaults + config + overrides).
-
-    Unlike ``get`` which reads /tmp/.uci (staged) or /etc/config (saved),
-    ``state`` returns the merged view that running daemons see.
-
-    Args:
-        config: UCI package name (e.g., 'network').
-        section: Optional section name to narrow the query.
 
     CLI Example:
 
@@ -290,17 +208,7 @@ def state(config, section=None):
         salt austru saltext_ubus.state network
         salt austru saltext_ubus.state network lan
     """
-    params = {"config": config}
-    if section is not None:
-        params["section"] = section
-    result = _call("uci", "state", params)
-
-    if section is not None:
-        data = result.get("values", result)
-        return _transform_section(data)
-
-    values = result.get("values", {})
-    return {name: _transform_section(data) for name, data in values.items()}
+    return ubus_ops.state(_call, config, section)
 
 
 # --- System info ---
@@ -316,7 +224,7 @@ def system_board():
 
         salt austru saltext_ubus.system_board
     """
-    return _call("system", "board")
+    return ubus_ops.system_board(_call)
 
 
 def system_info():
@@ -329,7 +237,7 @@ def system_info():
 
         salt austru saltext_ubus.system_info
     """
-    return _call("system", "info")
+    return ubus_ops.system_info(_call)
 
 
 def network_dump():
@@ -342,4 +250,4 @@ def network_dump():
 
         salt austru saltext_ubus.network_dump
     """
-    return _call("network.interface", "dump")
+    return ubus_ops.network_dump(_call)
