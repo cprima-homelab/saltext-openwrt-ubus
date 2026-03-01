@@ -53,6 +53,13 @@ sequenceDiagram
         end
     end
 
+    rect rgb(245, 240, 250)
+        Note over State,Device: Service snapshot
+        State->>UCI: service_list()
+        UCI-->>State: {svc: {inst: pid}, ...}
+        Note over State: Record running services + PIDs
+    end
+
     rect rgb(230, 235, 250)
         Note over State,Device: Apply phase (rollback=90s)
         State->>UCI: apply(rollback=90)
@@ -61,13 +68,25 @@ sequenceDiagram
     end
 
     rect rgb(250, 245, 230)
-        Note over State,Device: Verify phase
+        Note over State,Device: Verify phase -- UCI values
         State->>UCI: get(config)
         UCI-->>State: new config state
         Note over State: Compare each changed option<br/>against expected value
         alt Verification failed
             Note over State: Rollback will revert<br/>in 90 seconds
             State-->>Master: result=False, verification error
+        end
+    end
+
+    rect rgb(250, 240, 245)
+        Note over State,Device: Verify phase -- service health
+        loop Poll until all services running or deadline
+            State->>UCI: service_list()
+            UCI-->>State: {svc: {inst: running, pid}, ...}
+        end
+        alt Services not recovered
+            Note over State: Do NOT confirm<br/>Rollback reverts automatically
+            State-->>Master: result=False, "services not recovered"
         end
     end
 
@@ -78,7 +97,7 @@ sequenceDiagram
         Device-->>UCI: OK
     end
 
-    State-->>Master: result=True, "applied and confirmed"
+    State-->>Master: result=True, "applied and confirmed<br/>(N service(s) verified running)"
 ```
 
 ## Audit mode
@@ -131,8 +150,9 @@ a session ID is present:
   Changes stage in the rpcd session, kept alive by the proxy minion.
 
 The `applied()` state applies all staged changes globally with rollback
-protection, verifies connectivity, and confirms. It can be called without
-a `config` parameter for session-global apply.
+protection, verifies that all previously-running services are healthy, and
+confirms. It can be called without a `config` parameter for session-global
+apply.
 
 ### Autoverified mode -- SSH transport
 
@@ -180,8 +200,8 @@ sequenceDiagram
     rect rgb(230, 235, 250)
         Note over Human,Device: applied() state
         Human->>UCI: saltext_ubus.applied()
-        Note over UCI: apply(rollback) + verify + confirm
-        UCI-->>Human: Applied and confirmed
+        Note over UCI: snapshot services<br/>→ apply(rollback)<br/>→ poll services until healthy<br/>→ confirm
+        UCI-->>Human: Applied and confirmed<br/>(N service(s) verified running)
     end
 ```
 
@@ -194,7 +214,6 @@ sequenceDiagram
     participant State as state.managed()
     participant UCI as UCI (JSON-RPC)
     participant Session as /var/run/rpcd/<br/>uci-<session_id>/
-    participant Config as /etc/config/
     participant Human as Operator<br/>(LuCI / CLI)
 
     Master->>State: managed(config, sections)
@@ -218,28 +237,21 @@ sequenceDiagram
                 State->>UCI: add(config, type, name)
             end
             State->>UCI: set(config, section, values)
-            UCI->>Session: staged in session dir<br/>(auto-cleaned ~300s)
+            UCI->>Session: staged in rpcd session<br/>(kept alive by proxy minion)
         end
     end
 
-    rect rgb(250, 240, 230)
-        Note over State,Config: Commit phase (JSON-RPC only)
-        Note over State: Session-scoped staging is ephemeral<br/>Must commit to persist
-        State->>UCI: commit(config)
-        UCI->>Config: written to /etc/config/
-    end
-
-    Note over State: Skip apply -- services NOT reloaded
+    Note over State: No commit, no apply<br/>Changes live in rpcd session
 
     State-->>Master: result=True, changes={...},<br/>"staged in rpcd session"
 
     Note over Human: Later...
 
     rect rgb(230, 235, 250)
-        Note over Human,Config: applied() state
+        Note over Human,Session: applied() state
         Human->>UCI: saltext_ubus.applied()
-        Note over UCI: apply(rollback) + verify + confirm
-        UCI-->>Human: Applied and confirmed
+        Note over UCI: snapshot services<br/>→ apply(rollback)<br/>→ poll services until healthy<br/>→ confirm
+        UCI-->>Human: Applied and confirmed<br/>(N service(s) verified running)
     end
 ```
 
