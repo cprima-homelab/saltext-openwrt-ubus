@@ -116,8 +116,8 @@ def patch_dunders(monkeypatch):
 
 class TestAlreadyDesired:
     def test_no_changes_needed(self, patch_dunders):
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
 
         ret = state_mod.managed(
             "test",
@@ -134,7 +134,7 @@ class TestAlreadyDesired:
 
 class TestPendingDeltas:
     def test_fails_when_pending_and_no_revert(self, patch_dunders):
-        patch_dunders["saltext_ubus.changes"] = MagicMock(
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(
             return_value=[["set", "network.wan.proto", "dhcp"]]
         )
         ret = state_mod.managed("test", "network", {"lan": {"proto": "static"}})
@@ -142,11 +142,11 @@ class TestPendingDeltas:
         assert "Uncommitted changes exist" in ret["comment"]
 
     def test_reverts_when_revert_pending_true(self, patch_dunders):
-        patch_dunders["saltext_ubus.changes"] = MagicMock(
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(
             return_value=[["set", "network.wan.proto", "dhcp"]]
         )
-        patch_dunders["saltext_ubus.revert"] = MagicMock()
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
+        patch_dunders["openwrt_ubus.revert"] = MagicMock()
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
 
         ret = state_mod.managed(
             "test",
@@ -154,7 +154,7 @@ class TestPendingDeltas:
             {"lan": {"_type": "interface", "proto": "static", "ipaddr": "10.35.24.1"}},
             revert_pending=True,
         )
-        patch_dunders["saltext_ubus.revert"].assert_called_once_with("network")
+        patch_dunders["openwrt_ubus.revert"].assert_called_once_with("network")
         assert ret["result"] is True
 
 
@@ -164,8 +164,8 @@ class TestPendingDeltas:
 class TestTestMode:
     def test_reports_would_change(self, patch_dunders, monkeypatch):
         monkeypatch.setattr(state_mod, "__opts__", {"test": True}, raising=False)
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
 
         ret = state_mod.managed(
             "test", "network", {"lan": {"_type": "interface", "ipaddr": "10.35.24.2"}}
@@ -178,11 +178,11 @@ class TestTestMode:
 
     def test_no_revert_in_test_mode(self, patch_dunders, monkeypatch):
         monkeypatch.setattr(state_mod, "__opts__", {"test": True}, raising=False)
-        patch_dunders["saltext_ubus.changes"] = MagicMock(
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(
             return_value=[["set", "network.wan.proto", "dhcp"]]
         )
-        patch_dunders["saltext_ubus.revert"] = MagicMock()
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
+        patch_dunders["openwrt_ubus.revert"] = MagicMock()
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
 
         ret = state_mod.managed(
             "test",
@@ -191,7 +191,7 @@ class TestTestMode:
             revert_pending=True,
         )
         assert ret["result"] is None
-        patch_dunders["saltext_ubus.revert"].assert_not_called()
+        patch_dunders["openwrt_ubus.revert"].assert_not_called()
 
 
 # --- Partial diff ---
@@ -199,8 +199,8 @@ class TestTestMode:
 
 class TestPartialDiff:
     def test_unmanaged_options_ignored(self, patch_dunders):
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
 
         # Only manage proto, not device/ipaddr/netmask
         ret = state_mod.managed("test", "network", {"lan": {"proto": "static"}})
@@ -211,18 +211,18 @@ class TestPartialDiff:
     def test_detects_changed_option(self, mock_time, patch_dunders):
         mock_time.monotonic.side_effect = [0, 3]
         mock_time.sleep = MagicMock()
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.set"] = MagicMock()
-        patch_dunders["saltext_ubus.apply"] = MagicMock()
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.set"] = MagicMock()
+        patch_dunders["openwrt_ubus.apply"] = MagicMock()
         # Return updated state on verify read
         updated = dict(NETWORK_STATE)
         updated["lan"] = dict(NETWORK_STATE["lan"])
         updated["lan"]["ipaddr"] = "10.35.24.2"
-        patch_dunders["saltext_ubus.get"] = MagicMock(
+        patch_dunders["openwrt_ubus.get"] = MagicMock(
             side_effect=[AGENT_ONESHOT, NETWORK_STATE, updated]
         )
-        patch_dunders["saltext_ubus.confirm"] = MagicMock()
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(
+        patch_dunders["openwrt_ubus.confirm"] = MagicMock()
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(
             side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
         )
 
@@ -236,17 +236,17 @@ class TestPartialDiff:
     def test_list_option_diff(self, mock_time, patch_dunders):
         mock_time.monotonic.side_effect = [0, 3]
         mock_time.sleep = MagicMock()
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.set"] = MagicMock()
-        patch_dunders["saltext_ubus.apply"] = MagicMock()
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.set"] = MagicMock()
+        patch_dunders["openwrt_ubus.apply"] = MagicMock()
         updated = dict(NETWORK_STATE)
         updated["wan"] = dict(NETWORK_STATE["wan"])
         updated["wan"]["dns"] = ["8.8.8.8", "8.8.4.4"]
-        patch_dunders["saltext_ubus.get"] = MagicMock(
+        patch_dunders["openwrt_ubus.get"] = MagicMock(
             side_effect=[AGENT_ONESHOT, NETWORK_STATE, updated]
         )
-        patch_dunders["saltext_ubus.confirm"] = MagicMock()
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(
+        patch_dunders["openwrt_ubus.confirm"] = MagicMock()
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(
             side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
         )
 
@@ -261,8 +261,8 @@ class TestPartialDiff:
 
 class TestSingletonResolution:
     def test_resolves_singleton(self, patch_dunders):
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=SYSTEM_STATE)
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=SYSTEM_STATE)
 
         # _system with _type=system should resolve to cfg01e48a
         ret = state_mod.managed(
@@ -275,17 +275,17 @@ class TestSingletonResolution:
     def test_singleton_with_change(self, mock_time, patch_dunders):
         mock_time.monotonic.side_effect = [0, 3]
         mock_time.sleep = MagicMock()
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.set"] = MagicMock()
-        patch_dunders["saltext_ubus.apply"] = MagicMock()
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.set"] = MagicMock()
+        patch_dunders["openwrt_ubus.apply"] = MagicMock()
         updated = dict(SYSTEM_STATE)
         updated["cfg01e48a"] = dict(SYSTEM_STATE["cfg01e48a"])
         updated["cfg01e48a"]["hostname"] = "newname"
-        patch_dunders["saltext_ubus.get"] = MagicMock(
+        patch_dunders["openwrt_ubus.get"] = MagicMock(
             side_effect=[AGENT_ONESHOT, SYSTEM_STATE, updated]
         )
-        patch_dunders["saltext_ubus.confirm"] = MagicMock()
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(
+        patch_dunders["openwrt_ubus.confirm"] = MagicMock()
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(
             side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
         )
 
@@ -299,8 +299,8 @@ class TestSingletonResolution:
         assert ret["changes"]["cfg01e48a"]["hostname"]["new"] == "newname"
 
     def test_fails_no_match(self, patch_dunders):
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=SYSTEM_STATE)
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=SYSTEM_STATE)
 
         ret = state_mod.managed(
             "test", "system", {"_dnsmasq": {"_type": "dnsmasq", "option": "value"}}
@@ -313,8 +313,8 @@ class TestSingletonResolution:
             "cfg01": {"_type": "rule", "_anonymous": True, "name": "r1"},
             "cfg02": {"_type": "rule", "_anonymous": True, "name": "r2"},
         }
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=state_with_dupes)
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=state_with_dupes)
 
         ret = state_mod.managed("test", "firewall", {"_rule": {"_type": "rule", "name": "r1"}})
         assert ret["result"] is False
@@ -329,10 +329,10 @@ class TestSectionCreate:
     def test_creates_new_section(self, mock_time, patch_dunders):
         mock_time.monotonic.side_effect = [0, 3]
         mock_time.sleep = MagicMock()
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.add"] = MagicMock()
-        patch_dunders["saltext_ubus.set"] = MagicMock()
-        patch_dunders["saltext_ubus.apply"] = MagicMock()
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.add"] = MagicMock()
+        patch_dunders["openwrt_ubus.set"] = MagicMock()
+        patch_dunders["openwrt_ubus.apply"] = MagicMock()
         # After apply, wan2 exists
         updated = dict(NETWORK_STATE)
         updated["wan2"] = {
@@ -341,11 +341,11 @@ class TestSectionCreate:
             "_anonymous": False,
             "proto": "dhcp",
         }
-        patch_dunders["saltext_ubus.get"] = MagicMock(
+        patch_dunders["openwrt_ubus.get"] = MagicMock(
             side_effect=[AGENT_ONESHOT, NETWORK_STATE, updated]
         )
-        patch_dunders["saltext_ubus.confirm"] = MagicMock()
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(
+        patch_dunders["openwrt_ubus.confirm"] = MagicMock()
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(
             side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
         )
 
@@ -353,13 +353,13 @@ class TestSectionCreate:
             "test", "network", {"wan2": {"_type": "interface", "proto": "dhcp"}}
         )
         assert ret["result"] is True
-        patch_dunders["saltext_ubus.add"].assert_called_once_with(
+        patch_dunders["openwrt_ubus.add"].assert_called_once_with(
             "network", "interface", name="wan2"
         )
 
     def test_fails_without_type(self, patch_dunders):
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
 
         ret = state_mod.managed("test", "network", {"wan2": {"proto": "dhcp"}})  # No _type
         assert ret["result"] is False
@@ -371,8 +371,8 @@ class TestSectionCreate:
 
 class TestTypeMismatch:
     def test_fails_on_type_mismatch(self, patch_dunders):
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
 
         # lan is type "interface", try to set it as "bridge"
         ret = state_mod.managed("test", "network", {"lan": {"_type": "bridge", "proto": "static"}})
@@ -390,41 +390,41 @@ class TestApplyFlow:
     def test_apply_verify_confirm(self, mock_time, patch_dunders):
         mock_time.monotonic.side_effect = [0, 3]
         mock_time.sleep = MagicMock()
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
         updated = dict(NETWORK_STATE)
         updated["lan"] = dict(NETWORK_STATE["lan"])
         updated["lan"]["ipaddr"] = "10.35.24.2"
-        patch_dunders["saltext_ubus.get"] = MagicMock(
+        patch_dunders["openwrt_ubus.get"] = MagicMock(
             side_effect=[AGENT_ONESHOT, NETWORK_STATE, updated]
         )
-        patch_dunders["saltext_ubus.set"] = MagicMock()
-        patch_dunders["saltext_ubus.apply"] = MagicMock()
-        patch_dunders["saltext_ubus.confirm"] = MagicMock()
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(
+        patch_dunders["openwrt_ubus.set"] = MagicMock()
+        patch_dunders["openwrt_ubus.apply"] = MagicMock()
+        patch_dunders["openwrt_ubus.confirm"] = MagicMock()
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(
             side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
         )
 
         ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
         assert ret["result"] is True
-        patch_dunders["saltext_ubus.set"].assert_called_once_with(
+        patch_dunders["openwrt_ubus.set"].assert_called_once_with(
             "network", "lan", {"ipaddr": "10.35.24.2"}
         )
-        patch_dunders["saltext_ubus.apply"].assert_called_once_with(rollback=120)
-        patch_dunders["saltext_ubus.confirm"].assert_called_once()
+        patch_dunders["openwrt_ubus.apply"].assert_called_once_with(rollback=120)
+        patch_dunders["openwrt_ubus.confirm"].assert_called_once()
         assert "applied, and confirmed" in ret["comment"]
 
     def test_verification_failure(self, patch_dunders):
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
         # After apply, value doesn't match
         bad_state = dict(NETWORK_STATE)
         bad_state["lan"] = dict(NETWORK_STATE["lan"])
         bad_state["lan"]["ipaddr"] = "10.35.24.1"  # Still old value
-        patch_dunders["saltext_ubus.get"] = MagicMock(
+        patch_dunders["openwrt_ubus.get"] = MagicMock(
             side_effect=[AGENT_ONESHOT, NETWORK_STATE, bad_state]
         )
-        patch_dunders["saltext_ubus.set"] = MagicMock()
-        patch_dunders["saltext_ubus.apply"] = MagicMock()
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(return_value=SERVICES_RUNNING)
+        patch_dunders["openwrt_ubus.set"] = MagicMock()
+        patch_dunders["openwrt_ubus.apply"] = MagicMock()
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(return_value=SERVICES_RUNNING)
 
         ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
         assert ret["result"] is False
@@ -435,17 +435,17 @@ class TestApplyFlow:
     def test_custom_rollback_timeout(self, mock_time, patch_dunders):
         mock_time.monotonic.side_effect = [0, 3]
         mock_time.sleep = MagicMock()
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
         updated = dict(NETWORK_STATE)
         updated["lan"] = dict(NETWORK_STATE["lan"])
         updated["lan"]["proto"] = "dhcp"
-        patch_dunders["saltext_ubus.get"] = MagicMock(
+        patch_dunders["openwrt_ubus.get"] = MagicMock(
             side_effect=[AGENT_ONESHOT, NETWORK_STATE, updated]
         )
-        patch_dunders["saltext_ubus.set"] = MagicMock()
-        patch_dunders["saltext_ubus.apply"] = MagicMock()
-        patch_dunders["saltext_ubus.confirm"] = MagicMock()
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(
+        patch_dunders["openwrt_ubus.set"] = MagicMock()
+        patch_dunders["openwrt_ubus.apply"] = MagicMock()
+        patch_dunders["openwrt_ubus.confirm"] = MagicMock()
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(
             side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
         )
 
@@ -455,48 +455,48 @@ class TestApplyFlow:
             {"lan": {"proto": "dhcp"}},
             apply_rollback=120,
         )
-        patch_dunders["saltext_ubus.apply"].assert_called_once_with(rollback=120)
+        patch_dunders["openwrt_ubus.apply"].assert_called_once_with(rollback=120)
 
     @patch("saltext.saltext_ubus.states.saltext_ubus.time")
     def test_oneshot_snapshots_and_polls(self, mock_time, patch_dunders):
         """managed() in oneshot mode does snapshot -> apply -> poll -> confirm."""
         mock_time.monotonic.side_effect = [0, 3]
         mock_time.sleep = MagicMock()
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
         updated = dict(NETWORK_STATE)
         updated["lan"] = dict(NETWORK_STATE["lan"])
         updated["lan"]["ipaddr"] = "10.35.24.2"
-        patch_dunders["saltext_ubus.get"] = MagicMock(
+        patch_dunders["openwrt_ubus.get"] = MagicMock(
             side_effect=[AGENT_ONESHOT, NETWORK_STATE, updated]
         )
-        patch_dunders["saltext_ubus.set"] = MagicMock()
-        patch_dunders["saltext_ubus.apply"] = MagicMock()
-        patch_dunders["saltext_ubus.confirm"] = MagicMock()
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(
+        patch_dunders["openwrt_ubus.set"] = MagicMock()
+        patch_dunders["openwrt_ubus.apply"] = MagicMock()
+        patch_dunders["openwrt_ubus.confirm"] = MagicMock()
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(
             side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
         )
 
         ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
         assert ret["result"] is True
         # service_list called twice: snapshot + one poll
-        assert patch_dunders["saltext_ubus.service_list"].call_count == 2
-        patch_dunders["saltext_ubus.confirm"].assert_called_once()
+        assert patch_dunders["openwrt_ubus.service_list"].call_count == 2
+        patch_dunders["openwrt_ubus.confirm"].assert_called_once()
 
     @patch("saltext.saltext_ubus.states.saltext_ubus.time")
     def test_oneshot_rollback_on_service_failure(self, mock_time, patch_dunders):
         """managed() in oneshot mode: services don't recover -> no confirm."""
         mock_time.monotonic.side_effect = [0, 200]
         mock_time.sleep = MagicMock()
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
         updated = dict(NETWORK_STATE)
         updated["lan"] = dict(NETWORK_STATE["lan"])
         updated["lan"]["ipaddr"] = "10.35.24.2"
-        patch_dunders["saltext_ubus.get"] = MagicMock(
+        patch_dunders["openwrt_ubus.get"] = MagicMock(
             side_effect=[AGENT_ONESHOT, NETWORK_STATE, updated]
         )
-        patch_dunders["saltext_ubus.set"] = MagicMock()
-        patch_dunders["saltext_ubus.apply"] = MagicMock()
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(
+        patch_dunders["openwrt_ubus.set"] = MagicMock()
+        patch_dunders["openwrt_ubus.apply"] = MagicMock()
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(
             side_effect=[SERVICES_RUNNING, SERVICES_PARTIAL_DOWN]
         )
 
@@ -504,7 +504,7 @@ class TestApplyFlow:
         assert ret["result"] is False
         assert "NOT confirming" in ret["comment"]
         assert "dnsmasq/cfg01411c" in ret["comment"]
-        assert "saltext_ubus.confirm" not in patch_dunders
+        assert "openwrt_ubus.confirm" not in patch_dunders
 
 
 # --- Helper functions ---
@@ -577,8 +577,8 @@ class TestResolveSections:
 
 class TestAgentMode:
     def test_audit_mode_reports_drift(self, patch_dunders):
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=[AGENT_AUDIT, NETWORK_STATE])
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(side_effect=[AGENT_AUDIT, NETWORK_STATE])
 
         ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
         assert ret["result"] is True
@@ -586,13 +586,13 @@ class TestAgentMode:
         assert "1 section(s) drifted" in ret["comment"]
         assert "lan" in ret["changes"]
         # No write operations should have been called
-        assert "saltext_ubus.set" not in patch_dunders
-        assert "saltext_ubus.apply" not in patch_dunders
-        assert "saltext_ubus.confirm" not in patch_dunders
+        assert "openwrt_ubus.set" not in patch_dunders
+        assert "openwrt_ubus.apply" not in patch_dunders
+        assert "openwrt_ubus.confirm" not in patch_dunders
 
     def test_audit_mode_no_drift(self, patch_dunders):
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=[AGENT_AUDIT, NETWORK_STATE])
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(side_effect=[AGENT_AUDIT, NETWORK_STATE])
 
         ret = state_mod.managed(
             "test",
@@ -607,78 +607,78 @@ class TestAgentMode:
         monkeypatch.setattr(
             state_mod,
             "__opts__",
-            {"test": False, "proxy": {"proxytype": "saltext_ubus_jsonrpc"}},
+            {"test": False, "proxy": {"proxytype": "openwrt_ubus_jsonrpc"}},
             raising=False,
         )
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.get"] = MagicMock(
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(
             side_effect=[AGENT_AUTOVERIFIED, NETWORK_STATE]
         )
-        patch_dunders["saltext_ubus.set"] = MagicMock()
+        patch_dunders["openwrt_ubus.set"] = MagicMock()
 
         ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
         assert ret["result"] is True
         assert "staged in rpcd session" in ret["comment"]
-        assert "saltext_ubus.applied" in ret["comment"]
-        patch_dunders["saltext_ubus.set"].assert_called_once()
-        assert "saltext_ubus.commit" not in patch_dunders
-        assert "saltext_ubus.apply" not in patch_dunders
-        assert "saltext_ubus.confirm" not in patch_dunders
+        assert "openwrt_ubus.applied" in ret["comment"]
+        patch_dunders["openwrt_ubus.set"].assert_called_once()
+        assert "openwrt_ubus.commit" not in patch_dunders
+        assert "openwrt_ubus.apply" not in patch_dunders
+        assert "openwrt_ubus.confirm" not in patch_dunders
 
     def test_autoverified_mode_ssh_stages_no_commit(self, patch_dunders, monkeypatch):
         monkeypatch.setattr(
             state_mod,
             "__opts__",
-            {"test": False, "proxy": {"proxytype": "saltext_ubus_ssh"}},
+            {"test": False, "proxy": {"proxytype": "openwrt_ubus_ssh"}},
             raising=False,
         )
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.get"] = MagicMock(
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(
             side_effect=[AGENT_AUTOVERIFIED, NETWORK_STATE]
         )
-        patch_dunders["saltext_ubus.set"] = MagicMock()
+        patch_dunders["openwrt_ubus.set"] = MagicMock()
 
         ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
         assert ret["result"] is True
         assert "staged" in ret["comment"]
-        assert "saltext_ubus.applied" in ret["comment"]
-        patch_dunders["saltext_ubus.set"].assert_called_once()
-        assert "saltext_ubus.commit" not in patch_dunders
-        assert "saltext_ubus.apply" not in patch_dunders
-        assert "saltext_ubus.confirm" not in patch_dunders
+        assert "openwrt_ubus.applied" in ret["comment"]
+        patch_dunders["openwrt_ubus.set"].assert_called_once()
+        assert "openwrt_ubus.commit" not in patch_dunders
+        assert "openwrt_ubus.apply" not in patch_dunders
+        assert "openwrt_ubus.confirm" not in patch_dunders
 
     def test_humanreviewed_mode_stages_no_commit(self, patch_dunders, monkeypatch):
         monkeypatch.setattr(
             state_mod,
             "__opts__",
-            {"test": False, "proxy": {"proxytype": "saltext_ubus_jsonrpc"}},
+            {"test": False, "proxy": {"proxytype": "openwrt_ubus_jsonrpc"}},
             raising=False,
         )
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
-        patch_dunders["saltext_ubus.get"] = MagicMock(
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(
             side_effect=[AGENT_HUMANREVIEWED, NETWORK_STATE]
         )
-        patch_dunders["saltext_ubus.set"] = MagicMock()
+        patch_dunders["openwrt_ubus.set"] = MagicMock()
 
         ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
         assert ret["result"] is True
         assert "staged in rpcd session" in ret["comment"]
-        patch_dunders["saltext_ubus.set"].assert_called_once()
-        assert "saltext_ubus.apply" not in patch_dunders
-        assert "saltext_ubus.confirm" not in patch_dunders
+        patch_dunders["openwrt_ubus.set"].assert_called_once()
+        assert "openwrt_ubus.apply" not in patch_dunders
+        assert "openwrt_ubus.confirm" not in patch_dunders
 
     def test_disabled_skips_everything(self, patch_dunders):
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=AGENT_DISABLED)
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=AGENT_DISABLED)
 
         ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
         assert ret["result"] is True
         assert "salt-openwrt disabled" in ret["comment"]
         # Only one get call (agent config), no changes/set/apply
-        patch_dunders["saltext_ubus.get"].assert_called_once_with("salt-openwrt", "global")
+        patch_dunders["openwrt_ubus.get"].assert_called_once_with("salt-openwrt", "global")
 
     def test_missing_config_defaults_oneshot(self, patch_dunders):
         """When salt-openwrt config is absent, default to oneshot mode."""
-        patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
         call_count = [0]
         original_state = NETWORK_STATE
 
@@ -689,7 +689,7 @@ class TestAgentMode:
                 raise KeyError("salt-openwrt")
             return original_state
 
-        patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=get_side_effect)
+        patch_dunders["openwrt_ubus.get"] = MagicMock(side_effect=get_side_effect)
 
         ret = state_mod.managed(
             "test",
@@ -710,10 +710,10 @@ class TestApplied:
         """Happy path: snapshot -> apply -> poll (all back) -> confirm."""
         mock_time.monotonic.side_effect = [0, 3]  # deadline calc, first poll check
         mock_time.sleep = MagicMock()
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
-        patch_dunders["saltext_ubus.apply"] = MagicMock()
-        patch_dunders["saltext_ubus.confirm"] = MagicMock()
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
+        patch_dunders["openwrt_ubus.apply"] = MagicMock()
+        patch_dunders["openwrt_ubus.confirm"] = MagicMock()
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(
             side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
         )
 
@@ -721,25 +721,25 @@ class TestApplied:
         assert ret["result"] is True
         assert "applied and confirmed" in ret["comment"]
         assert "4 service(s) verified running" in ret["comment"]
-        patch_dunders["saltext_ubus.apply"].assert_called_once_with(rollback=120)
-        patch_dunders["saltext_ubus.confirm"].assert_called_once()
+        patch_dunders["openwrt_ubus.apply"].assert_called_once_with(rollback=120)
+        patch_dunders["openwrt_ubus.confirm"].assert_called_once()
 
     @patch("saltext.saltext_ubus.states.saltext_ubus.time")
     def test_services_recover_after_delay(self, mock_time, patch_dunders):
         """service_list returns partial-down on first poll, all-up on second."""
         mock_time.monotonic.side_effect = [0, 3, 6]  # deadline calc, poll 1, poll 2
         mock_time.sleep = MagicMock()
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
-        patch_dunders["saltext_ubus.apply"] = MagicMock()
-        patch_dunders["saltext_ubus.confirm"] = MagicMock()
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
+        patch_dunders["openwrt_ubus.apply"] = MagicMock()
+        patch_dunders["openwrt_ubus.confirm"] = MagicMock()
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(
             side_effect=[SERVICES_RUNNING, SERVICES_PARTIAL_DOWN, SERVICES_AFTER_RESTART]
         )
 
         ret = state_mod.applied("test", config="network")
         assert ret["result"] is True
         assert "applied and confirmed" in ret["comment"]
-        patch_dunders["saltext_ubus.confirm"].assert_called_once()
+        patch_dunders["openwrt_ubus.confirm"].assert_called_once()
 
     @patch("saltext.saltext_ubus.states.saltext_ubus.time")
     def test_services_not_recovered_no_confirm(self, mock_time, patch_dunders):
@@ -747,9 +747,9 @@ class TestApplied:
         # deadline calc returns 0, first poll check exceeds deadline
         mock_time.monotonic.side_effect = [0, 200]
         mock_time.sleep = MagicMock()
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
-        patch_dunders["saltext_ubus.apply"] = MagicMock()
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
+        patch_dunders["openwrt_ubus.apply"] = MagicMock()
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(
             side_effect=[SERVICES_RUNNING, SERVICES_PARTIAL_DOWN]
         )
 
@@ -757,41 +757,41 @@ class TestApplied:
         assert ret["result"] is False
         assert "NOT confirming" in ret["comment"]
         assert "dnsmasq/cfg01411c" in ret["comment"]
-        assert "saltext_ubus.confirm" not in patch_dunders
+        assert "openwrt_ubus.confirm" not in patch_dunders
 
     def test_apply_without_config(self, patch_dunders):
         """applied() without config labels as 'all'."""
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
-        patch_dunders["saltext_ubus.apply"] = MagicMock()
-        patch_dunders["saltext_ubus.confirm"] = MagicMock()
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
+        patch_dunders["openwrt_ubus.apply"] = MagicMock()
+        patch_dunders["openwrt_ubus.confirm"] = MagicMock()
         # No running services -> empty snapshot -> skip polling
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(return_value={})
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(return_value={})
 
         ret = state_mod.applied("test")
         assert ret["result"] is True
         assert "all: applied and confirmed" in ret["comment"]
 
     def test_disabled_skips(self, patch_dunders):
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=AGENT_DISABLED)
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=AGENT_DISABLED)
 
         ret = state_mod.applied("test", config="network")
         assert ret["result"] is True
         assert "salt-openwrt disabled" in ret["comment"]
-        patch_dunders["saltext_ubus.get"].assert_called_once_with("salt-openwrt", "global")
+        patch_dunders["openwrt_ubus.get"].assert_called_once_with("salt-openwrt", "global")
 
     def test_test_mode(self, patch_dunders, monkeypatch):
         monkeypatch.setattr(state_mod, "__opts__", {"test": True}, raising=False)
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
 
         ret = state_mod.applied("test", config="network")
         assert ret["result"] is None
         assert "would apply" in ret["comment"]
-        assert "saltext_ubus.apply" not in patch_dunders
+        assert "openwrt_ubus.apply" not in patch_dunders
 
     def test_apply_failure(self, patch_dunders):
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
-        patch_dunders["saltext_ubus.apply"] = MagicMock(side_effect=RuntimeError("connection lost"))
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(return_value=SERVICES_RUNNING)
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
+        patch_dunders["openwrt_ubus.apply"] = MagicMock(side_effect=RuntimeError("connection lost"))
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(return_value=SERVICES_RUNNING)
 
         ret = state_mod.applied("test", config="network")
         assert ret["result"] is False
@@ -800,9 +800,9 @@ class TestApplied:
 
     def test_apply_noop_status5(self, patch_dunders):
         """ubus status 5 (No data) means nothing to apply -- no snapshot/poll."""
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(return_value=SERVICES_RUNNING)
-        patch_dunders["saltext_ubus.apply"] = MagicMock(
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(return_value=SERVICES_RUNNING)
+        patch_dunders["openwrt_ubus.apply"] = MagicMock(
             side_effect=RuntimeError("ubus call failed: status 5 (No data)")
         )
 
@@ -815,12 +815,12 @@ class TestApplied:
         """Services come back but confirm() raises."""
         mock_time.monotonic.side_effect = [0, 3]
         mock_time.sleep = MagicMock()
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
-        patch_dunders["saltext_ubus.apply"] = MagicMock()
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
+        patch_dunders["openwrt_ubus.apply"] = MagicMock()
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(
             side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
         )
-        patch_dunders["saltext_ubus.confirm"] = MagicMock(
+        patch_dunders["openwrt_ubus.confirm"] = MagicMock(
             side_effect=RuntimeError("confirm failed")
         )
 
@@ -833,16 +833,16 @@ class TestApplied:
     def test_custom_rollback(self, mock_time, patch_dunders):
         mock_time.monotonic.side_effect = [0, 3]
         mock_time.sleep = MagicMock()
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
-        patch_dunders["saltext_ubus.apply"] = MagicMock()
-        patch_dunders["saltext_ubus.confirm"] = MagicMock()
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
+        patch_dunders["openwrt_ubus.apply"] = MagicMock()
+        patch_dunders["openwrt_ubus.confirm"] = MagicMock()
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(
             side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
         )
 
         ret = state_mod.applied("test", config="network", rollback=180)
         assert ret["result"] is True
-        patch_dunders["saltext_ubus.apply"].assert_called_once_with(rollback=180)
+        patch_dunders["openwrt_ubus.apply"].assert_called_once_with(rollback=180)
 
     @patch("saltext.saltext_ubus.states.saltext_ubus.time")
     def test_rollback_timeout_from_device_config(self, mock_time, patch_dunders):
@@ -851,27 +851,27 @@ class TestApplied:
         mock_time.sleep = MagicMock()
         agent = dict(AGENT_ONESHOT)
         agent["rollback_timeout"] = "90"
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=agent)
-        patch_dunders["saltext_ubus.apply"] = MagicMock()
-        patch_dunders["saltext_ubus.confirm"] = MagicMock()
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=agent)
+        patch_dunders["openwrt_ubus.apply"] = MagicMock()
+        patch_dunders["openwrt_ubus.confirm"] = MagicMock()
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(
             side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
         )
 
         ret = state_mod.applied("test", config="network")
         assert ret["result"] is True
-        patch_dunders["saltext_ubus.apply"].assert_called_once_with(rollback=90)
+        patch_dunders["openwrt_ubus.apply"].assert_called_once_with(rollback=90)
 
     def test_snapshot_failure_skips_health_check(self, patch_dunders):
         """If service_list fails on snapshot, proceed without health check."""
-        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
-        patch_dunders["saltext_ubus.apply"] = MagicMock()
-        patch_dunders["saltext_ubus.confirm"] = MagicMock()
-        patch_dunders["saltext_ubus.service_list"] = MagicMock(
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=AGENT_ONESHOT)
+        patch_dunders["openwrt_ubus.apply"] = MagicMock()
+        patch_dunders["openwrt_ubus.confirm"] = MagicMock()
+        patch_dunders["openwrt_ubus.service_list"] = MagicMock(
             side_effect=RuntimeError("ubus unavailable")
         )
 
         ret = state_mod.applied("test", config="network")
         assert ret["result"] is True
         assert "applied and confirmed" in ret["comment"]
-        patch_dunders["saltext_ubus.confirm"].assert_called_once()
+        patch_dunders["openwrt_ubus.confirm"].assert_called_once()

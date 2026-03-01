@@ -24,7 +24,7 @@ def patch_dunders(monkeypatch):
 def mock_call(patch_dunders):
     """Provide a mock for the proxy's call function."""
     call_fn = MagicMock()
-    patch_dunders["saltext_ubus_jsonrpc.call"] = call_fn
+    patch_dunders["openwrt_ubus_jsonrpc.call"] = call_fn
     return call_fn
 
 

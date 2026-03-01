@@ -9,4 +9,5 @@ _____________
 .. autosummary::
     :toctree:
 
+    openwrt
     saltext_ubus

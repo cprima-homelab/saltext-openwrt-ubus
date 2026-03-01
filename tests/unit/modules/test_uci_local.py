@@ -1,5 +1,5 @@
 """
-Unit tests for the saltext_ubus local execution module.
+Unit tests for the openwrt_ubus local execution module.
 
 All tests mock subprocess.run. No ubus calls are made.
 """

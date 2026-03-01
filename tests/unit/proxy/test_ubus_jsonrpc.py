@@ -83,7 +83,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "saltext_ubus_jsonrpc",
+                "proxytype": "openwrt_ubus_jsonrpc",
                 "host": "10.35.24.1",
                 "username": "salt-agent",
                 "password": "secret",
@@ -115,7 +115,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "saltext_ubus_jsonrpc",
+                "proxytype": "openwrt_ubus_jsonrpc",
                 "host": "10.35.24.1",
                 "password": "secret",
             }
@@ -141,7 +141,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "saltext_ubus_jsonrpc",
+                "proxytype": "openwrt_ubus_jsonrpc",
                 "host": "10.0.0.1",
                 "username": "u",
                 "password": "p",
@@ -164,7 +164,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "saltext_ubus_jsonrpc",
+                "proxytype": "openwrt_ubus_jsonrpc",
                 "host": "10.0.0.1",
                 "password": "p",
                 "session_timeout": 600,
@@ -212,7 +212,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "saltext_ubus_jsonrpc",
+                "proxytype": "openwrt_ubus_jsonrpc",
                 "host": "10.0.0.1",
                 "password": "p",
                 "rpcd_timeout": 300,
@@ -239,7 +239,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "saltext_ubus_jsonrpc",
+                "proxytype": "openwrt_ubus_jsonrpc",
                 "host": "10.0.0.1",
                 "password": "p",
             }
@@ -253,12 +253,12 @@ class TestInit:
         assert len(set_calls) == 0
 
     def test_missing_host_raises(self):
-        opts = {"proxy": {"proxytype": "saltext_ubus_jsonrpc", "password": "secret"}}
+        opts = {"proxy": {"proxytype": "openwrt_ubus_jsonrpc", "password": "secret"}}
         with pytest.raises(ValueError, match="required pillar key 'host'"):
             proxy_mod.init(opts)
 
     def test_missing_password_raises(self):
-        opts = {"proxy": {"proxytype": "saltext_ubus_jsonrpc", "host": "10.0.0.1"}}
+        opts = {"proxy": {"proxytype": "openwrt_ubus_jsonrpc", "host": "10.0.0.1"}}
         with pytest.raises(ValueError, match="required pillar key 'password'"):
             proxy_mod.init(opts)
 

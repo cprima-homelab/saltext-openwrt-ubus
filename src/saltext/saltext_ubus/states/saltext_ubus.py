@@ -19,13 +19,13 @@ log = logging.getLogger(__name__)
 POLL_INTERVAL = 3  # seconds between service polls
 SAFETY_MARGIN_FRACTION = 4  # use rollback // 4 as margin, min 10s
 
-__virtualname__ = "saltext_ubus"
-__proxyenabled__ = ["saltext_ubus_jsonrpc", "saltext_ubus_ssh"]
+__virtualname__ = "openwrt_ubus"
+__proxyenabled__ = ["openwrt_ubus_jsonrpc", "openwrt_ubus_ssh"]
 
 
 def __virtual__():
-    if "saltext_ubus.get" not in __salt__:
-        return False, "The 'saltext_ubus' execution module is not available"
+    if "openwrt_ubus.get" not in __salt__:
+        return False, "The 'openwrt_ubus' execution module is not available"
     return __virtualname__
 
 
@@ -55,7 +55,7 @@ def managed(name, config, sections, apply_rollback=None, revert_pending=False):
     .. code-block:: yaml
 
         network_config:
-          saltext_ubus.managed:
+          openwrt_ubus.managed:
             - config: network
             - sections:
                 lan:
@@ -200,7 +200,7 @@ def applied(name, config=None, rollback=None):
 
     # 4. Apply with rollback timer
     try:
-        __salt__["saltext_ubus.apply"](rollback=rollback)
+        __salt__["openwrt_ubus.apply"](rollback=rollback)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         # ubus status 5 = "No data" means nothing to apply
         if "status 5" in str(exc) or "No data" in str(exc):
@@ -223,7 +223,7 @@ def applied(name, config=None, rollback=None):
 
     # 6. Confirm -- cancel rollback timer, changes permanent
     try:
-        __salt__["saltext_ubus.confirm"]()
+        __salt__["openwrt_ubus.confirm"]()
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = (
@@ -241,7 +241,7 @@ def applied(name, config=None, rollback=None):
 def _get_agent_mode():
     """Read salt-openwrt config from the device. Returns (enabled, mode, rollback_timeout)."""
     try:
-        agent = __salt__["saltext_ubus.get"]("salt-openwrt", "global")
+        agent = __salt__["openwrt_ubus.get"]("salt-openwrt", "global")
     except Exception:  # pylint: disable=broad-exception-caught
         log.debug("salt-openwrt config not found, defaulting to oneshot mode")
         return True, "oneshot", 120
@@ -256,13 +256,13 @@ def _get_agent_mode():
 
 def _is_json_rpc():
     """Check if the current transport is JSON-RPC (session-scoped staging)."""
-    return __opts__.get("proxy", {}).get("proxytype") == "saltext_ubus_jsonrpc"
+    return __opts__.get("proxy", {}).get("proxytype") == "openwrt_ubus_jsonrpc"
 
 
 def _check_pending(ret, config, revert_pending):
     """Check for pending deltas, optionally reverting them."""
     try:
-        pending = __salt__["saltext_ubus.changes"](config)
+        pending = __salt__["openwrt_ubus.changes"](config)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = f"Failed to check pending changes for {config}: {exc}"
@@ -274,19 +274,19 @@ def _check_pending(ret, config, revert_pending):
             ret["comment"] = (
                 f"Uncommitted changes exist for {config}. "
                 f"Set revert_pending=True to discard them, or "
-                f"revert manually with saltext_ubus.revert. "
+                f"revert manually with openwrt_ubus.revert. "
                 f"Pending: {pending}"
             )
             return pending
         if not __opts__["test"]:
-            __salt__["saltext_ubus.revert"](config)
+            __salt__["openwrt_ubus.revert"](config)
     return pending
 
 
 def _read_and_resolve(ret, config, sections):
     """Read current config and resolve singleton anonymous sections."""
     try:
-        current = __salt__["saltext_ubus.get"](config)
+        current = __salt__["openwrt_ubus.get"](config)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = f"Failed to read {config}: {exc}"
@@ -316,10 +316,10 @@ def _stage_changes(ret, config, all_changes, resolved, current):
                         f"and no _type specified for creation"
                     )
                     return
-                __salt__["saltext_ubus.add"](config, type_, name=section_name)
+                __salt__["openwrt_ubus.add"](config, type_, name=section_name)
 
             values = {opt: change["new"] for opt, change in section_changes.items()}
-            __salt__["saltext_ubus.set"](config, section_name, values)
+            __salt__["openwrt_ubus.set"](config, section_name, values)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = f"Failed to set values on {config}: {exc}"
@@ -335,13 +335,13 @@ def _commit_or_apply(ret, config, all_changes, apply_rollback):
         if _is_json_rpc():
             ret["comment"] = (
                 f"{config}: {len(all_changes)} section(s) staged in rpcd session "
-                f"(apply with saltext_ubus.applied)"
+                f"(apply with openwrt_ubus.applied)"
             )
         else:
             ret["comment"] = (
                 f"{config}: {len(all_changes)} section(s) staged "
                 f"(review with 'uci changes {config}', "
-                f"then apply with saltext_ubus.applied)"
+                f"then apply with openwrt_ubus.applied)"
             )
     else:
         _apply_and_confirm(ret, config, all_changes, apply_rollback)
@@ -356,7 +356,7 @@ def _apply_and_confirm(ret, config, all_changes, apply_rollback):
     snapshot = _snapshot_services()
 
     try:
-        __salt__["saltext_ubus.apply"](rollback=apply_rollback)
+        __salt__["openwrt_ubus.apply"](rollback=apply_rollback)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = f"Failed to apply {config}: {exc}"
@@ -364,7 +364,7 @@ def _apply_and_confirm(ret, config, all_changes, apply_rollback):
 
     # Verify UCI values were written correctly
     try:
-        new_state = __salt__["saltext_ubus.get"](config)
+        new_state = __salt__["openwrt_ubus.get"](config)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = (
@@ -398,7 +398,7 @@ def _apply_and_confirm(ret, config, all_changes, apply_rollback):
         return
 
     try:
-        __salt__["saltext_ubus.confirm"]()
+        __salt__["openwrt_ubus.confirm"]()
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = (
@@ -414,7 +414,7 @@ def _snapshot_services():
     instances only. Services with no running instances are skipped.
     """
     try:
-        services = __salt__["saltext_ubus.service_list"]()
+        services = __salt__["openwrt_ubus.service_list"]()
     except Exception:  # pylint: disable=broad-exception-caught
         log.debug("Could not snapshot services, skipping health check")
         return {}
@@ -452,7 +452,7 @@ def _wait_for_services(snapshot, rollback):
         time.sleep(POLL_INTERVAL)
 
         try:
-            services = __salt__["saltext_ubus.service_list"]()
+            services = __salt__["openwrt_ubus.service_list"]()
         except Exception:  # pylint: disable=broad-exception-caught
             log.debug("service_list poll failed, will retry")
             if time.monotonic() >= deadline:

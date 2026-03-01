@@ -8,7 +8,7 @@ OpenWrt configuration management through the ubus API.
 
     # /srv/salt/pillar/router.sls
     proxy:
-      proxytype: saltext_ubus_jsonrpc
+      proxytype: openwrt_ubus_jsonrpc
       host: 10.35.24.1
       password: secret
       # username: salt-agent      (default)
@@ -27,8 +27,8 @@ from saltext.saltext_ubus.utils.rpc import UbusRpcClient
 
 log = logging.getLogger(__name__)
 
-__virtualname__ = "saltext_ubus_jsonrpc"
-__proxyenabled__ = ["saltext_ubus_jsonrpc"]
+__virtualname__ = "openwrt_ubus_jsonrpc"
+__proxyenabled__ = ["openwrt_ubus_jsonrpc"]
 
 DETAILS = {}
 
@@ -52,7 +52,7 @@ def init(opts):
     proxy_conf = opts["proxy"]
     for key in ("host", "password"):
         if key not in proxy_conf:
-            raise ValueError(f"saltext_ubus_jsonrpc: required pillar key '{key}' is missing")
+            raise ValueError(f"openwrt_ubus_jsonrpc: required pillar key '{key}' is missing")
 
     session_timeout = proxy_conf.get("session_timeout", DEFAULT_SESSION_TIMEOUT)
     rpcd_timeout = proxy_conf.get("rpcd_timeout", DEFAULT_RPCD_TIMEOUT)
@@ -78,7 +78,7 @@ def init(opts):
     DETAILS["client"] = client
     DETAILS["grains_cache"] = _fetch_grains(client)
     DETAILS["initialized"] = True
-    log.info("saltext_ubus_jsonrpc proxy initialized for %s", proxy_conf["host"])
+    log.info("openwrt_ubus_jsonrpc proxy initialized for %s", proxy_conf["host"])
 
 
 def alive(opts):  # pylint: disable=unused-argument
@@ -107,7 +107,7 @@ def ping():
 def shutdown(opts):  # pylint: disable=unused-argument
     """Clean up proxy state."""
     DETAILS.clear()
-    log.info("saltext_ubus_jsonrpc proxy shut down")
+    log.info("openwrt_ubus_jsonrpc proxy shut down")
 
 
 def grains():

@@ -2,35 +2,52 @@
 
 ## Problem
 
-OpenWrt's UCI system has commands that are not idempotent. Running `uci add` or `uci add_list` twice creates duplicates. Salt has no built-in UCI module. This extension must provide idempotent UCI management that works over both salt-ssh module mode and raw mode.
-Most OpenWrt router architectures do not run a Salt minion at all because stock firmware lacks Python and has very limited flash/RAM, so salt-ssh (either module mode or raw scripts) is the default transport this project must optimize for.
+OpenWrt's UCI system has commands that are not idempotent. Running `uci add` or `uci add_list` twice creates duplicates. Salt has no built-in UCI module.
 
-## Assumptions
+Most OpenWrt routers cannot run a Salt minion at all: stock firmware lacks Python and has very limited flash (16 MB) and RAM (128 MB). The device must be managed remotely without executing Salt or Python on the target.
 
-- **SSH key authentication** is the expected access method. The roster file references key paths; password-based SSH (`passwd:`, `sshpass`) is considered out of scope for now.
-- **Dropbear** on the target needs an authorized key deployed before salt-ssh can manage it.
+This extension uses the **ubus API** exclusively -- all UCI operations (and system/network/service queries) go through ubus, never the `uci` CLI. Three equally implemented transport adapters expose the same API surface: JSON-RPC over HTTPS, SSH, and local subprocess. A Salt proxy minion runs on the Salt master and talks to the device via the chosen transport -- no Salt or Python runs on the router.
 
-These assumptions may be revisited as the project matures.
+The router side is configured by companion opkg packages (`salt-openwrt`, `salt-agent-ubus`) that set up the rpcd user, ACL rules, and agent mode config. While the Salt extension ships sane defaults, these packages give operators control over access scope and agent behavior directly on the device.
+
+## Approaches Not Taken
+
+- **UCI CLI over salt-ssh**: The original design used `cmd.run_all("uci ...")` over salt-ssh. Abandoned because parsing `uci show` output is fragile, each operation requires a separate SSH round-trip, and there is no confirmed-commit safety net.
+- **Salt minion on device**: Running Python + Salt thin tarball on the router requires ~256 MB RAM and 16 MB free flash. The WNDR3800 has 128 MB RAM and 16 MB total flash -- not viable.
+- **Raw mode / shell scripts**: A `render_script()` helper was planned to generate self-contained shell scripts for constrained devices. Never implemented; the ubus JSON-RPC proxy eliminates the need since no code runs on the device.
+- **Package whitelist**: Early design proposed limiting managed packages to a hardcoded list. Dropped in favor of the device's rpcd ACL controlling access (`uci: ["*"]`).
+- **Custom return payload**: A `{result, comment, changes, value}` wrapper dict was planned for execution module functions. Dropped; functions return raw ubus response dicts, and the state module handles result formatting.
+
+## Architecture: Three Transport Adapters
+
+All adapters call the same ubus API. No adapter uses the `uci` CLI.
+
+| Adapter | Transport Path | Use Case |
+|---------|---------------|----------|
+| `ubus_jsonrpc.py` | HTTPS -> uhttpd -> rpcd -> ubus | Primary. Used for austru via proxy minion |
+| `uci_ssh.py` | SSH -> `ubus call` CLI | Fallback / autan. Via salt-ssh proxy |
+| `uci_local.py` | subprocess -> `ubus call` | On-device use (no proxy needed) |
+
+### Shared Logic via Dependency Injection
+
+All business logic lives in `utils/ubus_ops.py`. Each adapter only defines:
+
+- `__virtual__()` -- decides whether this adapter should load
+- `_call(ubus_object, ubus_method, params)` -- transport-specific ubus invocation
+
+Every public function in the adapter delegates to `ubus_ops.<function>(call=_call, ...)`. This keeps the three adapters identical in behavior and avoids code duplication.
+
+### Virtual Name Resolution
+
+All three adapters register `__virtualname__ = "openwrt_ubus"`. Salt loads exactly one based on context:
+
+- **JSON-RPC**: loads when `__opts__["proxy"]["proxytype"] == "openwrt_ubus_jsonrpc"`
+- **SSH**: loads when `__opts__["proxy"]["proxytype"] == "openwrt_ubus_ssh"`
+- **Local**: loads when not a proxy minion and the `ubus` binary exists on the system
 
 ## Package Scope
 
-The project needs a way to limit which UCI packages it covers. One option is a whitelist based on the standard OpenWrt build profile.
-
-### Standard Build Packages
-
-The following packages ship in the current target build:
-
-```
-base-files ca-bundle dnsmasq dropbear firewall4 fstools
-kmod-ath9k kmod-gpio-button-hotplug kmod-nft-offload
-libc libgcc libustream-mbedtls logd mtd netifd nftables
-odhcp6c odhcpd-ipv6only opkg ppp ppp-mod-pppoe procd-ujail
-swconfig uboot-envtools uci uclient-fetch urandom-seed urngd
-wpad-basic-mbedtls kmod-usb-ohci kmod-usb2 kmod-usb-ledtrig-usbport
-kmod-leds-reset kmod-owl-loader kmod-switch-rtl8366s luci
-```
-
-Not all of these produce UCI config (kernel modules, libraries). The UCI-relevant subset, with a tentative priority ranking:
+The following UCI-relevant packages ship in the current target build (WNDR3800, OpenWrt 24.10.x):
 
 | Package | UCI Config File(s) | Priority |
 |---------|-------------------|----------|
@@ -46,217 +63,216 @@ Not all of these produce UCI config (kernel modules, libraries). The UCI-relevan
 | `opkg` | `opkg` | Nice to have |
 | `uboot-envtools` | `ubootenv` | Nice to have |
 
-### Open Questions
+The module does not whitelist packages. The rpcd ACL on the device grants `uci: ["*"]`, so any UCI config package is manageable. The table above is informational -- it documents what ships on the target build.
 
-- Should the whitelist be hardcoded, or configurable per deployment?
-- How should additional packages (e.g., VPN, advanced routing) be added later -- extend the table, or a separate config file?
-- Is the priority ranking above correct, or should some packages move between tiers?
+## Execution Module API
 
-## Execution Module Functions
+Module name: `openwrt_ubus` (called as `salt 'austru' openwrt_ubus.<function>`, or shorthand `openwrt.<function>`)
 
-Module name: `saltext_ubus` (called as `salt-ssh '*' saltext_ubus.<function>`)
-
-### Common Plumbing
-
-All execution module functions follow shared conventions:
-
-**Standard return payload**: Every function returns a dict with consistent structure:
-```python
-{
-    "result": True,       # bool: success or failure
-    "comment": "",        # str: human-readable summary
-    "changes": {},        # dict: what changed (empty if no-op)
-    "value": ...,         # any: the requested data (read ops) or None (write ops)
-}
-```
-
-**Error surfacing**: UCI errors (non-zero return codes, stderr output) are captured via `cmd.run_all` and surfaced in the `comment` field with the raw UCI error message. Functions never silently swallow errors.
-
-**`__virtual__` failure handling**: The module refuses to load (returns a reason string) if `uci` is not found on the target. The check uses `salt.utils.path.which("uci")`.
-
-**Batching round-trips** (post-v0.1): For operations that require multiple UCI calls (e.g., `add` with match check, `set_list`), a future optimization can read state once via a single `uci show <package>` call and parse in Python, rather than issuing separate `uci get` calls per option. In v0.1, each function issues its own UCI calls for simplicity.
-
-**Shell command API**: All functions use `__salt__["cmd.run_all"]` (not `cmd.run`) to capture return codes and stderr. This is mandatory for salt-ssh compatibility.
+All functions return raw ubus response dicts. There is no custom wrapper format.
 
 ### Read Operations
 
-| Function | UCI Command | Returns |
-|----------|------------|---------|
-| `show(package=None)` | `uci show [package]` | Parsed dict of all config or one package |
-| `get(key)` | `uci get <key>` | Single value or list |
-| `export(package=None)` | `uci export [package]` | Raw UCI export text |
-| `changes(package=None)` | `uci changes [package]` | List of uncommitted changes |
+| Function | ubus Call | Returns |
+|----------|----------|---------|
+| `get(config, section=None, option=None)` | `uci get` | Full config dict, single section, or single option value |
+| `configs()` | `uci configs` | List of available UCI config packages |
+| `changes(config)` | `uci changes` | List of uncommitted changes |
+| `state(config, section=None)` | `uci state` | Runtime-merged state (defaults + config + overrides) |
 
 ### Write Operations
 
-| Function | UCI Command | Idempotent | Strategy |
-|----------|------------|-----------|----------|
-| `set(key, value)` | `uci set` | Yes | Direct call |
-| `delete(key)` | `uci -q delete` | Yes | Direct call with `-q` |
-| `add(package, type, values, match_on)` | `uci add` | **Made safe** | Parse `uci show` output via shared parser, match on `match_on` fields, skip if found |
-| `add_list(key, value)` | `uci add_list` | **Made safe** | Read current list, skip if value already present |
-| `del_list(key, value)` | `uci del_list` | Yes | Direct call |
-| `set_list(key, values)` | delete + add_list | **Made safe** | Delete list, add all desired values |
-| `commit(package=None)` | `uci commit` | Yes | Direct call |
-| `revert(package=None)` | `uci revert` | Yes | Direct call |
+| Function | ubus Call | Notes |
+|----------|----------|-------|
+| `set(config, section, values)` | `uci set` | Set one or more options on a section |
+| `add(config, type, name=None, values=None)` | `uci add` | Create a section (named or anonymous) |
+| `delete(config, section, option=None)` | `uci delete` | Delete a section or single option |
 
-### Compound Operations
+### Apply / Commit / Revert Operations
 
-| Function | Purpose |
-|----------|---------|
-| `section_exists(package, type, match_on)` | Check if a section matching criteria exists |
-| `ensure_section(package, type, name, values)` | Create named section if absent, set all values |
-| `diff(package=None)` | Compare running config vs committed config |
+| Function | ubus Call | Notes |
+|----------|----------|-------|
+| `apply(timeout=90)` | `uci apply` | Apply with rollback safety (`rollback=True`) |
+| `confirm()` | `uci confirm` | Lock in applied changes, cancel rollback timer |
+| `rollback()` | `uci rollback` | Manually trigger rollback to pre-apply state |
+| `commit(config)` | `uci commit` | Write staged changes to `/etc/config` without reloading services |
+| `revert(config)` | `uci revert` | Discard staged (uncommitted) changes |
+
+### System / Network / Service Queries
+
+| Function | ubus Call | Returns |
+|----------|----------|---------|
+| `system_board()` | `system board` | Board info: kernel, hostname, model, release |
+| `system_info()` | `system info` | Memory, uptime, load averages |
+| `network_dump()` | `network.interface dump` | All network interfaces and their state |
+| `service_list(verbose=False)` | `service list` | procd service list with instance info |
+
+### Metadata Transform
+
+ubus returns UCI metadata with dot-prefixed keys (`.type`, `.name`, `.anonymous`, `.index`). The helper `ubus_ops.transform_section()` converts these to underscore-prefixed (`_type`, `_name`, `_anonymous`, `_index`) for Python compatibility.
+
+## State Module
+
+Module name: `openwrt_ubus` (used in state files as `openwrt_ubus.managed`, or shorthand `openwrt.managed`)
+
+### `managed(name, config, sections, apply_rollback=None, revert_pending=False)`
+
+Declarative UCI configuration. Converges a config package to the desired state.
+
+**Flow:**
+
+1. Read agent mode from device config (`salt-openwrt.global` section)
+2. Check for uncommitted changes (fail or revert based on `revert_pending`)
+3. Read current config via `uci.get(config)`
+4. Resolve sections: handle singleton anonymous section matching via `_resolve_sections()`
+5. Diff each section: compare desired vs current via `_diff_section()`
+6. Guard against type mismatches before staging any changes
+7. Stage changes: `uci.add` for missing sections, `uci.set` for changed options
+8. Apply or defer based on agent mode and `apply_rollback` parameter
+
+### `applied(name, config=None, rollback=None)`
+
+Applies staged changes and verifies service health. Used in autoverified/humanreviewed modes where `managed()` only stages and `applied()` commits.
+
+**Flow:**
+
+1. Read agent mode, resolve rollback timeout
+2. Snapshot currently running services (PIDs)
+3. Call `uci.apply(rollback=timeout)` to commit and reload
+4. Poll `service.list` until all previously-running services are back
+5. If healthy: call `uci.confirm()` to cancel rollback timer
+6. If services down: skip confirm, let rpcd auto-rollback
+
+### Agent Modes
+
+| Mode | `managed()` Behavior | `applied()` Needed |
+|------|----------------------|-------------------|
+| `oneshot` | Stage + apply + confirm in one call | No |
+| `autoverified` | Stage only | Yes -- applies, polls services, confirms |
+| `humanreviewed` | Stage only | Yes -- operator reviews staged changes first |
+| `audit` | Report drift, never write | No |
+
+Each state function returns the standard Salt state dict: `{name, changes, result, comment}` with `result=None` in test mode.
 
 ## Idempotency Strategy
 
-### Anonymous Sections (`uci add`)
+### Partial Semantics
 
-UCI anonymous sections are referenced by index (`firewall.@rule[3]`). The index changes when sections are added or removed. To make `add` idempotent:
+Only options listed in the `sections` dict are managed. Other options on the same section are left untouched. This allows incremental management of shared config files.
 
-```
-1. Read package state: call uci show <package> once
-2. Parse output using the shared uci_parser library (see 02-cli-config-reader.md, Phase 1)
-3. Filter sections by target type in Python
-4. For each existing section, compare values in match_on fields
-5. If a match is found, return the existing section path (no change)
-6. If no match, call uci add and set values
-```
+### Config Diffing
 
-The parsing is done in Python, not via shell `grep`, to avoid BusyBox incompatibilities in raw mode and to reuse the same parser as the CLI config reader (02).
+`_diff_section(desired, current)` compares desired options against current state:
 
-The `match_on` parameter defines which fields constitute identity. Example:
-- Firewall rule: `match_on=["name"]` or `match_on=["src", "dest", "dest_port"]`
-- DHCP host: `match_on=["name"]` or `match_on=["mac"]`
+- Skips metadata fields (keys starting with `_`)
+- Returns `{option: {old: current_value, new: desired_value}}` for each difference
+- If no differences: state reports "already in desired state" (no-op)
 
-### List Options (`uci add_list`)
+### Anonymous Section Resolution
 
-```
-1. Read current list: uci get <key> (returns space-separated or error if unset)
-2. If desired value already in list, return (no change)
-3. If not present, call uci add_list
-```
+`_resolve_sections(config, sections, current)` handles singleton anonymous sections:
 
-For `set_list` (replace entire list):
-```
-1. Read current list
-2. If current == desired, return (no change)
-3. Delete list: uci delete <key>
-4. Add each desired value: uci add_list <key>=<value>
-```
+- If the pillar key starts with `_` and has a `_type` field, search for anonymous sections (`_anonymous=True`) matching that type
+- Exactly 1 match: use that section's actual name
+- 0 or >1 matches: raise `ValueError` (full anonymous section support planned for v0.3)
 
-## State Module Functions
+### What Gets Staged
 
-Module name: `saltext_ubus` (called in state files as `saltext_ubus.<state>`)
+Only changed options are staged. The diff is computed in Python against the full config dict returned by `uci.get`. No shell-side parsing or `uci show` output processing.
 
-| State | Purpose | Example |
-|-------|---------|---------|
-| `option_present` | Ensure a UCI option has a specific value | `network.lan.ipaddr: 10.35.24.1` |
-| `option_absent` | Ensure a UCI option does not exist | Remove `network.wan6` |
-| `section_present` | Ensure a section exists with given values | Firewall zone with specific settings |
-| `section_absent` | Ensure a section does not exist | Remove a firewall rule by match |
-| `list_present` | Ensure a list option contains specific values | DNS servers in `network.wan.dns` |
-| `list_absent` | Ensure a list option does not contain specific values | Remove a DNS server |
-| `committed` | Ensure all changes for a package are committed | `uci commit network` |
-| `managed` | Declare full desired state for a package | Converge entire package config |
+## Apply / Confirm / Rollback
 
-Each state function returns the standard Salt state dict:
-```python
-{"name": ..., "changes": {...}, "result": True/False/None, "comment": "..."}
-```
+rpcd supports a confirmed-commit cycle via `uci.apply`:
 
-`result=None` in test mode (dry run).
+1. `uci.apply(rollback=True, timeout=N)` -- apply changes and start a rollback timer
+2. If the caller confirms within `timeout` seconds via `uci.confirm()`, changes are permanent
+3. If no confirmation arrives (e.g., network broke, service crashed), rpcd automatically reverts
 
-## Dual-Mode Operation
+### Service Health Verification
 
-### Mode Selection
+The state module uses this cycle for safe applies:
 
-Not all targets can run module mode. Use this decision gate:
+1. **Snapshot**: record PIDs of all running services via `service.list` before apply
+2. **Apply**: call `uci.apply` with rollback timeout
+3. **Poll**: repeatedly call `service.list` until all previously-running services are back
+4. **Confirm or let rollback**: if services recovered, call `uci.confirm()`; otherwise the rollback timer expires and rpcd reverts automatically
 
-| Criterion | Module mode | Raw mode |
-|-----------|:-----------:|:--------:|
-| Python 3.10+ available on target | Required | Not needed |
-| RAM >= 256 MB | Required (thin tarball + Python) | Works on 128 MB |
-| Flash >= 16 MB free | Required (thin tarball storage) | Minimal footprint |
-| Target OS | OpenWrt with Python opkg | Any OpenWrt (stock or minimal) |
+The polling deadline includes a safety margin (`rollback // 4`, minimum 10 seconds) before the rollback timeout to avoid racing the timer.
 
-**Default to raw mode** for stock OpenWrt routers. Module mode is viable only when the target has been explicitly provisioned with Python packages (e.g., via opkg install python3-light).
+## rpcd Session and Timeouts
 
-### Module Mode (salt-ssh with Python on target)
+The JSON-RPC proxy maintains a persistent rpcd session. This is crucial for the autoverified workflow: `managed()` stages changes in one state run, `applied()` commits them in a subsequent run, and the staged changes persist because they share the same rpcd session through the proxy minion.
 
-Standard approach: the execution module runs on the target via Salt's loader system. All functions use `__salt__["cmd.run_all"]("uci ...")` to call UCI commands.
+Three separate timeout mechanisms:
 
-Requirements:
-- Python 3.10+ on target (opkg: `python3-light` + `python3-base`)
-- Salt thin tarball deployed (~15 MB compressed)
-- RAM >= 256 MB (thin tarball extraction + Python runtime)
-- Flash >= 16 MB free
+| Timeout | Default | Controlled By | Purpose |
+|---------|---------|--------------|---------|
+| Session timeout | 300s | pillar `session_timeout` | How long the rpcd login session lives |
+| Invoke timeout | 300s | pillar `rpcd_timeout` (UCI `rpcd.@rpcd[0].timeout`) | How long rpcd waits for a ubus call to return |
+| HTTP timeout | 30s | pillar `timeout` | urllib request timeout |
 
-When these requirements are not met, salt-ssh will fail to deploy the thin tarball. The error surfaces as a transport-level failure. There is no graceful fallback; the operator must explicitly switch to raw mode.
-
-### Raw Mode (salt-ssh -r)
-
-For constrained devices (128 MB RAM, no Python). The execution module provides a helper to generate shell scripts:
-
-```python
-saltext_ubus.render_script(desired_state) -> str
-```
-
-This produces a self-contained shell script that:
-1. Reads current state via `uci show`
-2. Computes diff against desired state
-3. Applies only necessary changes
-4. Commits affected packages
-
-The script is sent via `salt-ssh '*' -r 'sh -s' < script.sh`.
-
-## UCI Command Behavior Reference
-
-| Command | Idempotent | Notes |
-|---------|-----------|-------|
-| `uci show` | Read-only | Outputs `package.section.option=value` |
-| `uci get` | Read-only | Returns single value; error if missing |
-| `uci export` | Read-only | Outputs full config in UCI syntax |
-| `uci set` | Yes | Creates or overwrites; safe to repeat |
-| `uci delete` | Yes (with `-q`) | `-q` suppresses error if missing |
-| `uci add` | **No** | Always creates new anonymous section |
-| `uci add_list` | **No** | Always appends, even if duplicate |
-| `uci del_list` | Yes | No error if value not in list |
-| `uci commit` | Yes | Writes staging to disk; no-op if clean |
-| `uci revert` | Yes | Discards staging; no-op if clean |
-| `uci changes` | Read-only | Lists uncommitted changes |
+The proxy re-authenticates transparently via `_ensure_session()` when the session nears expiry (10-second margin).
 
 ## Testing Strategy
 
 ### Unit Tests
-- Mock `__salt__["cmd.run_all"]` to return known UCI output (retcode, stdout, stderr)
-- Test each function's parsing and idempotency logic
-- Test edge cases: empty config, missing sections, malformed output
-- Test error paths: non-zero retcode, stderr messages, missing `uci` binary
+
+- **Execution module tests**: mock the proxy's `call()` function, verify each adapter delegates correctly to `ubus_ops`
+- **State module tests**: mock execution module functions (`openwrt_ubus.get`, `openwrt_ubus.set`, etc.), test idempotency logic, agent modes, service health verification
+- **Proxy tests**: mock `UbusRpcClient`, verify login, session management, grains fetching, timeout bumping
+- **Utils tests**: test `ubus_ops.transform_section()`, `UbusRpcClient` request/response handling, `SshRunner` command building
 
 ### Functional Tests
+
 - Use `pytest-salt-factories` loader fixtures
-- Test module loading and `__virtual__` function
-- Test state module with mock execution module
+- Test module loading and `__virtual__` resolution
+- Test state module with mock execution module through Salt's loader
 
 ### Integration Tests
-- Use SSH fixtures (already configured with `ssh_fixtures: true`)
-- Test against a mock UCI environment or containerized OpenWrt
-- Validate full salt-ssh round-trip
+
+- Containerized OpenWrt with rpcd planned but not yet implemented
+- SSH integration fixtures configured (`sshd_server`, `known_hosts_file`, `salt_ssh_roster_file`)
 
 ## File Locations
 
 ```
 src/saltext/saltext_ubus/
+  __init__.py
+  version.py
+  grains/
+    saltext_ubus.py          # Device grains via proxy
   modules/
-    saltext_ubus_mod.py    # Execution module
+    ubus_jsonrpc.py           # Execution module: JSON-RPC adapter
+    uci_ssh.py                # Execution module: SSH adapter
+    uci_local.py              # Execution module: local subprocess adapter
+  proxy/
+    ubus_jsonrpc.py           # Proxy minion: JSON-RPC transport
+    uci_ssh.py                # Proxy minion: SSH transport
   states/
-    saltext_ubus_mod.py    # State module
+    saltext_ubus.py           # State module: managed() and applied()
+  utils/
+    ubus_ops.py               # Shared ubus logic (all 16 functions)
+    rpc.py                    # UbusRpcClient (HTTPS JSON-RPC)
+    ssh.py                    # SshRunner (SSH command execution)
+
 tests/
-  unit/modules/           # Unit tests for execution module
-  unit/states/            # Unit tests for state module
-  functional/modules/     # Functional tests
-  functional/states/
-  integration/modules/    # Integration tests with SSH
-  integration/states/
+  unit/
+    grains/test_saltext_ubus.py
+    modules/
+      test_ubus_jsonrpc.py
+      test_uci_ssh.py
+      test_uci_local.py
+    proxy/
+      test_ubus_jsonrpc.py
+      test_uci_ssh.py
+    states/test_saltext_ubus.py
+    utils/
+      test_rpc.py
+      test_ssh.py
+      test_ubus_ops.py
+  functional/
+    modules/test_ubus_jsonrpc.py
+    states/test_saltext_ubus.py
+  integration/
+    modules/test_ubus_jsonrpc.py
 ```

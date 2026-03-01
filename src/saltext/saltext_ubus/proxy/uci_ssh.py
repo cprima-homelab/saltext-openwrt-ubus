@@ -10,7 +10,7 @@ as the JSON-RPC adapter.
 
     # /srv/salt/pillar/router.sls
     proxy:
-      proxytype: saltext_ubus_ssh
+      proxytype: openwrt_ubus_ssh
       host: 10.35.24.1
       # username: root                          (default)
       # port: 22                                (default)
@@ -44,8 +44,8 @@ _DEFAULT_SSH_OPTIONS = [
     "PubkeyAcceptedAlgorithms=+ssh-rsa",
 ]
 
-__virtualname__ = "saltext_ubus_ssh"
-__proxyenabled__ = ["saltext_ubus_ssh"]
+__virtualname__ = "openwrt_ubus_ssh"
+__proxyenabled__ = ["openwrt_ubus_ssh"]
 
 DETAILS = {}
 
@@ -60,7 +60,7 @@ def init(opts):
     proxy_conf = opts["proxy"]
     for key in ("host", "ssh_key"):
         if key not in proxy_conf:
-            raise ValueError(f"saltext_ubus_ssh: required pillar key '{key}' is missing")
+            raise ValueError(f"openwrt_ubus_ssh: required pillar key '{key}' is missing")
     ssh_options = proxy_conf.get("ssh_options", list(_DEFAULT_SSH_OPTIONS))
     ssh_key = proxy_conf["ssh_key"]
     ssh_options = [f"IdentityFile={ssh_key}"] + ssh_options
@@ -76,7 +76,7 @@ def init(opts):
     DETAILS["runner"] = runner
     DETAILS["grains_cache"] = _fetch_grains(runner)
     DETAILS["initialized"] = True
-    log.info("saltext_ubus_ssh proxy initialized for %s", proxy_conf["host"])
+    log.info("openwrt_ubus_ssh proxy initialized for %s", proxy_conf["host"])
 
 
 def alive(opts):  # pylint: disable=unused-argument
@@ -106,7 +106,7 @@ def ping():
 def shutdown(opts):  # pylint: disable=unused-argument
     """Clean up proxy state."""
     DETAILS.clear()
-    log.info("saltext_ubus_ssh proxy shut down")
+    log.info("openwrt_ubus_ssh proxy shut down")
 
 
 def grains():
