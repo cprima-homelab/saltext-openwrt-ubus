@@ -6,12 +6,14 @@ All tests mock the SshRunner. No SSH connections are made.
 
 import json
 import shlex
+import subprocess
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
 
 import saltext.saltext_ubus.proxy.uci_ssh as proxy_mod
+from saltext.saltext_ubus.utils.ssh import SshCommandError
 
 BOARD_RESPONSE = {
     "kernel": "6.6.86",
@@ -241,13 +243,26 @@ class TestAlive:
 class TestPing:
     def test_success(self, mock_runner):
         proxy_mod.DETAILS["runner"] = mock_runner
+        proxy_mod.DETAILS["initialized"] = True
         assert proxy_mod.ping() is True
+        assert proxy_mod.DETAILS["initialized"] is True
 
-    def test_failure(self):
+    def test_failure_marks_unhealthy(self):
         runner = MagicMock()
-        runner.run.side_effect = Exception("Connection refused")
+        runner.test_connection.return_value = False
+        runner.host = "10.38.20.1"
         proxy_mod.DETAILS["runner"] = runner
+        proxy_mod.DETAILS["initialized"] = True
         assert proxy_mod.ping() is False
+        assert proxy_mod.DETAILS["initialized"] is False
+
+    def test_exception_marks_unhealthy(self):
+        runner = MagicMock()
+        runner.test_connection.side_effect = OSError("Network unreachable")
+        proxy_mod.DETAILS["runner"] = runner
+        proxy_mod.DETAILS["initialized"] = True
+        assert proxy_mod.ping() is False
+        assert proxy_mod.DETAILS["initialized"] is False
 
 
 class TestShutdown:
@@ -352,6 +367,64 @@ class TestRunRaw:
         result = proxy_mod.run_raw("reload_config")
         assert result == "done"
         mock_runner.run.assert_called_with("reload_config")
+
+
+class TestCallErrorHandling:
+    def test_ssh_exit_255_marks_unhealthy(self, mock_runner):
+        mock_runner.run.side_effect = SshCommandError(
+            returncode=255, stderr="Connection refused", command="ubus call system board"
+        )
+        proxy_mod.DETAILS["runner"] = mock_runner
+        proxy_mod.DETAILS["initialized"] = True
+        with pytest.raises(SshCommandError):
+            proxy_mod.call("system", "board")
+        assert proxy_mod.DETAILS["initialized"] is False
+
+    def test_ssh_exit_1_keeps_healthy(self, mock_runner):
+        mock_runner.run.side_effect = SshCommandError(
+            returncode=1, stderr="Command failed", command="ubus call uci get"
+        )
+        proxy_mod.DETAILS["runner"] = mock_runner
+        proxy_mod.DETAILS["initialized"] = True
+        with pytest.raises(SshCommandError):
+            proxy_mod.call("uci", "get")
+        assert proxy_mod.DETAILS["initialized"] is True
+
+    def test_timeout_marks_unhealthy(self, mock_runner):
+        mock_runner.run.side_effect = subprocess.TimeoutExpired(cmd="ssh", timeout=30)
+        proxy_mod.DETAILS["runner"] = mock_runner
+        proxy_mod.DETAILS["initialized"] = True
+        with pytest.raises(subprocess.TimeoutExpired):
+            proxy_mod.call("system", "board")
+        assert proxy_mod.DETAILS["initialized"] is False
+
+    def test_os_error_marks_unhealthy(self, mock_runner):
+        mock_runner.run.side_effect = OSError("Network unreachable")
+        proxy_mod.DETAILS["runner"] = mock_runner
+        proxy_mod.DETAILS["initialized"] = True
+        with pytest.raises(OSError):
+            proxy_mod.call("system", "board")
+        assert proxy_mod.DETAILS["initialized"] is False
+
+
+class TestRunRawErrorHandling:
+    def test_ssh_exit_255_marks_unhealthy(self, mock_runner):
+        mock_runner.run.side_effect = SshCommandError(
+            returncode=255, stderr="Connection refused", command="reload_config"
+        )
+        proxy_mod.DETAILS["runner"] = mock_runner
+        proxy_mod.DETAILS["initialized"] = True
+        with pytest.raises(SshCommandError):
+            proxy_mod.run_raw("reload_config")
+        assert proxy_mod.DETAILS["initialized"] is False
+
+    def test_timeout_marks_unhealthy(self, mock_runner):
+        mock_runner.run.side_effect = subprocess.TimeoutExpired(cmd="ssh", timeout=30)
+        proxy_mod.DETAILS["runner"] = mock_runner
+        proxy_mod.DETAILS["initialized"] = True
+        with pytest.raises(subprocess.TimeoutExpired):
+            proxy_mod.run_raw("reload_config")
+        assert proxy_mod.DETAILS["initialized"] is False
 
 
 class TestFetchGrains:

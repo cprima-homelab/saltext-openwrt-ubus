@@ -30,7 +30,9 @@ the defaults (no merging). When ``ssh_key`` is set, an
 import json
 import logging
 import shlex
+import subprocess
 
+from saltext.saltext_ubus.utils.ssh import SshCommandError
 from saltext.saltext_ubus.utils.ssh import SshRunner
 
 log = logging.getLogger(__name__)
@@ -78,16 +80,26 @@ def init(opts):
 
 
 def alive(opts):  # pylint: disable=unused-argument
-    """Return True if the proxy has been initialized."""
+    """Return True if the proxy was initialized and no transport error has occurred.
+
+    This is a flag-based check (no network I/O). Transport errors in
+    ``call()``, ``run_raw()``, or ``ping()`` flip ``initialized`` to
+    False so that Salt triggers ``init()`` on the next cycle.
+    """
     return DETAILS.get("initialized", False)
 
 
 def ping():
-    """Return True if the device responds to a ubus call over SSH."""
+    """Return True if the device responds to an echo over SSH."""
     try:
-        call("system", "board")
-        return True
+        runner = DETAILS["runner"]
+        result = runner.test_connection()
+        if not result:
+            log.warning("SSH ping failed for %s", runner.host)
+            DETAILS["initialized"] = False
+        return result
     except Exception:  # pylint: disable=broad-exception-caught
+        DETAILS["initialized"] = False
         return False
 
 
@@ -129,7 +141,17 @@ def call(ubus_object, ubus_method, params=None):
         cmd += f" {shlex.quote(json.dumps(params))}"
 
     runner = DETAILS["runner"]
-    output = runner.run(cmd)
+    try:
+        output = runner.run(cmd)
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        log.warning("Transport error during SSH command '%s': %s", cmd, exc)
+        DETAILS["initialized"] = False
+        raise
+    except SshCommandError as exc:
+        if exc.returncode == 255:
+            log.warning("SSH connection failure during '%s': %s", cmd, exc)
+            DETAILS["initialized"] = False
+        raise
 
     if not output:
         return None
@@ -142,7 +164,17 @@ def run_raw(command):
     Useful for non-ubus commands like ``reload_config``.
     """
     runner = DETAILS["runner"]
-    return runner.run(command)
+    try:
+        return runner.run(command)
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        log.warning("Transport error during SSH command '%s': %s", command, exc)
+        DETAILS["initialized"] = False
+        raise
+    except SshCommandError as exc:
+        if exc.returncode == 255:
+            log.warning("SSH connection failure during '%s': %s", command, exc)
+            DETAILS["initialized"] = False
+        raise
 
 
 def _fetch_grains(runner):

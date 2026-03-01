@@ -4,12 +4,15 @@ Unit tests for the saltext_ubus proxy module.
 All tests use a mocked RPC client. No network calls are made.
 """
 
+import urllib.error
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
 
 import saltext.saltext_ubus.proxy.ubus_jsonrpc as proxy_mod
+from saltext.saltext_ubus.utils.rpc import JsonRpcError
+from saltext.saltext_ubus.utils.rpc import UbusError
 
 BOARD_RESPONSE = {
     "kernel": "6.6.86",
@@ -167,6 +170,22 @@ class TestPing:
         proxy_mod.DETAILS["client"] = client
         assert proxy_mod.ping() is False
 
+    def test_transport_error_marks_unhealthy(self):
+        client = MagicMock()
+        client.call.side_effect = urllib.error.URLError("connection refused")
+        proxy_mod.DETAILS["client"] = client
+        proxy_mod.DETAILS["initialized"] = True
+        assert proxy_mod.ping() is False
+        assert proxy_mod.DETAILS["initialized"] is False
+
+    def test_application_error_keeps_healthy(self):
+        client = MagicMock()
+        client.call.side_effect = UbusError(4, "Not found")
+        proxy_mod.DETAILS["client"] = client
+        proxy_mod.DETAILS["initialized"] = True
+        assert proxy_mod.ping() is False
+        assert proxy_mod.DETAILS["initialized"] is True
+
 
 class TestShutdown:
     def test_clears_details(self, mock_client):
@@ -203,6 +222,53 @@ class TestCall:
         result = proxy_mod.call("system", "board")
         assert result == BOARD_RESPONSE
         mock_client.call.assert_called_once_with("system", "board", None)
+
+
+class TestCallErrorHandling:
+    def test_url_error_marks_unhealthy(self):
+        client = MagicMock()
+        client.call.side_effect = urllib.error.URLError("connection refused")
+        proxy_mod.DETAILS["client"] = client
+        proxy_mod.DETAILS["initialized"] = True
+        with pytest.raises(urllib.error.URLError):
+            proxy_mod.call("system", "board")
+        assert proxy_mod.DETAILS["initialized"] is False
+
+    def test_timeout_marks_unhealthy(self):
+        client = MagicMock()
+        client.call.side_effect = TimeoutError("timed out")
+        proxy_mod.DETAILS["client"] = client
+        proxy_mod.DETAILS["initialized"] = True
+        with pytest.raises(TimeoutError):
+            proxy_mod.call("system", "board")
+        assert proxy_mod.DETAILS["initialized"] is False
+
+    def test_os_error_marks_unhealthy(self):
+        client = MagicMock()
+        client.call.side_effect = OSError("Network unreachable")
+        proxy_mod.DETAILS["client"] = client
+        proxy_mod.DETAILS["initialized"] = True
+        with pytest.raises(OSError):
+            proxy_mod.call("system", "board")
+        assert proxy_mod.DETAILS["initialized"] is False
+
+    def test_ubus_error_keeps_healthy(self):
+        client = MagicMock()
+        client.call.side_effect = UbusError(4, "Not found")
+        proxy_mod.DETAILS["client"] = client
+        proxy_mod.DETAILS["initialized"] = True
+        with pytest.raises(UbusError):
+            proxy_mod.call("uci", "get")
+        assert proxy_mod.DETAILS["initialized"] is True
+
+    def test_jsonrpc_error_keeps_healthy(self):
+        client = MagicMock()
+        client.call.side_effect = JsonRpcError(-32600, "Invalid request")
+        proxy_mod.DETAILS["client"] = client
+        proxy_mod.DETAILS["initialized"] = True
+        with pytest.raises(JsonRpcError):
+            proxy_mod.call("uci", "get")
+        assert proxy_mod.DETAILS["initialized"] is True
 
 
 class TestFetchGrains:

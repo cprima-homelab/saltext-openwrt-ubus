@@ -18,6 +18,7 @@ OpenWrt configuration management through the ubus API.
 """
 
 import logging
+import urllib.error
 
 from saltext.saltext_ubus.utils.rpc import UbusRpcClient
 
@@ -56,7 +57,12 @@ def init(opts):
 
 
 def alive(opts):  # pylint: disable=unused-argument
-    """Return True if the proxy has been initialized."""
+    """Return True if the proxy was initialized and no transport error has occurred.
+
+    This is a flag-based check (no network I/O). Transport errors in
+    ``call()`` or ``ping()`` flip ``initialized`` to False so that Salt
+    triggers ``init()`` on the next cycle.
+    """
     return DETAILS.get("initialized", False)
 
 
@@ -65,6 +71,10 @@ def ping():
     try:
         DETAILS["client"].call("system", "board")
         return True
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        log.warning("Transport error during ping: %s", exc)
+        DETAILS["initialized"] = False
+        return False
     except Exception:  # pylint: disable=broad-exception-caught
         return False
 
@@ -89,7 +99,12 @@ def grains_refresh():
 
 def call(ubus_object, ubus_method, params=None):
     """Forward a ubus call through the proxy's RPC client."""
-    return DETAILS["client"].call(ubus_object, ubus_method, params)
+    try:
+        return DETAILS["client"].call(ubus_object, ubus_method, params)
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        log.warning("Transport error during ubus call %s.%s: %s", ubus_object, ubus_method, exc)
+        DETAILS["initialized"] = False
+        raise
 
 
 def _fetch_grains(client):
