@@ -59,14 +59,35 @@ OpenWrt SSH is fast enough for UCI commands.
 
 ## Pillar Configuration
 
+### SSH proxy (`saltext_ubus_ssh`)
+
 ```yaml
 proxy:
-  proxytype: saltext_ubus
+  proxytype: saltext_ubus_ssh
   host: 10.35.24.1
   user: root
   port: 22
   ssh_priv: /root/.ssh/id_ed25519
 ```
+
+### JSON-RPC proxy (`saltext_ubus_jsonrpc`)
+
+```yaml
+proxy:
+  proxytype: saltext_ubus_jsonrpc
+  host: 10.35.24.1
+  password: secret
+  # username: salt-agent      (default)
+  # port: 443                 (default)
+  # verify_ssl: false         (default)
+  # timeout: 30               (default, HTTP request timeout in seconds)
+  # session_timeout: 300      (default, rpcd session lifetime in seconds)
+  # rpcd_timeout: 300         (default, rpcd ubus invoke timeout in seconds)
+```
+
+The three timeout settings control different layers of the request path.
+See [06-rpcd-acl-model.md](06-rpcd-acl-model.md#timeout-configuration) for
+details on what each controls and how they interact.
 
 ## Running a Proxy Minion
 

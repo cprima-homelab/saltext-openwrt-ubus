@@ -145,7 +145,9 @@ To grant full access for Salt operations, deploy a custom ACL file:
     "description": "Salt extension for UCI management",
     "read": {
       "ubus": {
+        "session": ["access", "login"],
         "system": ["board", "info"],
+        "service": ["list"],
         "network": ["get_proto_handlers"],
         "network.device": ["status"],
         "network.interface": ["dump"],
@@ -230,6 +232,87 @@ Only one rollback session can be active at a time. A second `apply` with
 
 This mechanism works identically whether the request arrives over HTTPS
 (JSON-RPC) or the local ubus socket (`ubus call` CLI over SSH).
+
+## Timeout Configuration
+
+rpcd has three independent timeout mechanisms that affect Salt operations.
+The proxy module exposes all three as pillar settings.
+
+### Overview
+
+```
+Salt Master (proxy minion)                    OpenWrt Device
+  |                                              |
+  |--- HTTPS POST /ubus ---- timeout ---------> |
+  |    (HTTP request timeout)                    |
+  |                                         rpcd |
+  |                                              |--- ubus call ---> target daemon
+  |                                              |    (rpcd invoke timeout)
+  |                                              |<-- response ------
+  |<-- JSON-RPC response ----------------------- |
+  |                                              |
+  |  session token valid for session_timeout     |
+```
+
+### The three timeouts
+
+| Timeout | What it controls | Where configured | Default |
+|---------|-----------------|------------------|---------|
+| **HTTP request** | How long the Salt proxy waits for an HTTP response from uhttpd | Pillar `proxy.timeout` | 30s |
+| **Session lifetime** | How long the rpcd login session lives; staged UCI changes are lost when it expires | Pillar `proxy.session_timeout`, passed to rpcd via `session login` ubus call | 300s |
+| **rpcd invoke** | How long rpcd waits for a downstream ubus call to return before timing out | Pillar `proxy.rpcd_timeout`, enforced via `rpcd.@rpcd[0].timeout` UCI setting | 300s (OpenWrt ships 30s) |
+
+### Pillar configuration
+
+```yaml
+proxy:
+  proxytype: saltext_ubus_jsonrpc
+  host: 10.35.24.1
+  password: secret
+  timeout: 30            # HTTP request timeout (seconds)
+  session_timeout: 300   # rpcd session lifetime (seconds)
+  rpcd_timeout: 300      # rpcd ubus invoke timeout (seconds)
+```
+
+### How each timeout is applied
+
+**HTTP request timeout** (`timeout`): Passed to Python's `urllib.request.urlopen`
+as the socket timeout. If uhttpd or the network is slow, this fires first.
+
+**Session lifetime** (`session_timeout`): Passed as the `timeout` parameter in
+the `session login` ubus call. rpcd's `rpc_handle_login()` reads this from
+the request and creates a session with that TTL (source: rpcd
+[`include/rpcd/session.h:38`](https://git.openwrt.org/?p=project/rpcd.git;a=blob;f=include/rpcd/session.h),
+[`session.c`](https://git.openwrt.org/?p=project/rpcd.git;a=blob;f=session.c)
+line ~451). If the caller does not pass a timeout, rpcd uses the compiled-in
+default of 300s (`RPC_DEFAULT_SESSION_TIMEOUT`). The proxy re-authenticates
+automatically when the session nears expiry (`_ensure_session()`).
+
+**rpcd invoke timeout** (`rpcd_timeout`): The `rpcd.@rpcd[0].timeout` UCI
+setting controls how long rpcd waits for a ubus call to complete. This is
+analogous to the `ubus -t` CLI flag. The OpenWrt default is 30s, which can
+be too short for `uci apply` + service reloads on slow devices (128 MB MIPS
+routers with many services). At proxy connect, `_ensure_rpcd_timeout()` reads
+the current UCI value and bumps it if below the configured minimum. This
+requires a `uci commit rpcd` + `reload_config` which restarts rpcd --
+the proxy handles this by sleeping 2s and re-authenticating.
+
+### Interaction between timeouts
+
+For a `uci apply` call to succeed, all three timeouts must be long enough:
+
+1. rpcd receives the call and dispatches to the uci handler
+2. The uci handler commits changes, triggers `reload_config`, waits for
+   procd to reload services
+3. rpcd must not time out waiting for the uci handler (invoke timeout)
+4. uhttpd must not time out waiting for rpcd (HTTP timeout is set on the
+   client side, so the proxy controls this)
+5. The session must still be valid when the response arrives
+
+In practice: set `rpcd_timeout >= rollback_timeout` (so rpcd doesn't kill
+the apply call before the rollback timer is armed) and `timeout` >= a few
+seconds longer than `rpcd_timeout` (so the HTTP request doesn't timeout
+before rpcd finishes).
 
 ## Security Notes
 
