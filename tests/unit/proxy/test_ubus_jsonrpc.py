@@ -136,6 +136,16 @@ class TestInit:
         assert grains["osrelease"] == "24.10.5"
         assert grains["model"] == "Netgear WNDR3800"
 
+    def test_missing_host_raises(self):
+        opts = {"proxy": {"proxytype": "saltext_ubus_jsonrpc", "password": "secret"}}
+        with pytest.raises(ValueError, match="required pillar key 'host'"):
+            proxy_mod.init(opts)
+
+    def test_missing_password_raises(self):
+        opts = {"proxy": {"proxytype": "saltext_ubus_jsonrpc", "host": "10.0.0.1"}}
+        with pytest.raises(ValueError, match="required pillar key 'password'"):
+            proxy_mod.init(opts)
+
 
 class TestAlive:
     def test_true_after_init(self):

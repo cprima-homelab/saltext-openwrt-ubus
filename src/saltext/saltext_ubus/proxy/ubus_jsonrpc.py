@@ -35,7 +35,11 @@ def __virtual__():
 
 def init(opts):
     """Create JSON-RPC client from proxy pillar and authenticate."""
+    DETAILS.clear()
     proxy_conf = opts["proxy"]
+    for key in ("host", "password"):
+        if key not in proxy_conf:
+            raise ValueError(f"saltext_ubus_jsonrpc: required pillar key '{key}' is missing")
     client = UbusRpcClient(
         host=proxy_conf["host"],
         username=proxy_conf.get("username", "salt-agent"),

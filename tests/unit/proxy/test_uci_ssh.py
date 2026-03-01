@@ -76,6 +76,7 @@ class TestInit:
             "proxy": {
                 "proxytype": "saltext_ubus_ssh",
                 "host": "10.38.20.1",
+                "ssh_key": "/root/.ssh/id_ed25519",
                 "username": "root",
                 "port": 2222,
                 "ssh_options": ["StrictHostKeyChecking=no"],
@@ -87,7 +88,7 @@ class TestInit:
             host="10.38.20.1",
             username="root",
             port=2222,
-            ssh_options=["StrictHostKeyChecking=no"],
+            ssh_options=["IdentityFile=/root/.ssh/id_ed25519", "StrictHostKeyChecking=no"],
             timeout=30,
         )
         mock_instance.test_connection.assert_called_once()
@@ -105,6 +106,7 @@ class TestInit:
             "proxy": {
                 "proxytype": "saltext_ubus_ssh",
                 "host": "10.38.20.1",
+                "ssh_key": "/root/.ssh/openwrt_ed25519",
             }
         }
         proxy_mod.init(opts)
@@ -114,6 +116,7 @@ class TestInit:
             username="root",
             port=22,
             ssh_options=[
+                "IdentityFile=/root/.ssh/openwrt_ed25519",
                 "StrictHostKeyChecking=no",
                 "UserKnownHostsFile=/dev/null",
                 "HostKeyAlgorithms=+ssh-rsa",
@@ -156,13 +159,37 @@ class TestInit:
             "proxy": {
                 "proxytype": "saltext_ubus_ssh",
                 "host": "10.38.20.1",
+                "ssh_key": "/root/.ssh/id_rsa",
                 "ssh_options": custom_options,
             }
         }
         proxy_mod.init(opts)
 
         call_kwargs = mock_runner_cls.call_args[1]
-        assert call_kwargs["ssh_options"] == ["StrictHostKeyChecking=yes"]
+        assert call_kwargs["ssh_options"] == [
+            "IdentityFile=/root/.ssh/id_rsa",
+            "StrictHostKeyChecking=yes",
+        ]
+
+    def test_missing_host_raises(self):
+        opts = {
+            "proxy": {
+                "proxytype": "saltext_ubus_ssh",
+                "ssh_key": "/root/.ssh/id_ed25519",
+            }
+        }
+        with pytest.raises(ValueError, match="required pillar key 'host'"):
+            proxy_mod.init(opts)
+
+    def test_missing_ssh_key_raises(self):
+        opts = {
+            "proxy": {
+                "proxytype": "saltext_ubus_ssh",
+                "host": "10.38.20.1",
+            }
+        }
+        with pytest.raises(ValueError, match="required pillar key 'ssh_key'"):
+            proxy_mod.init(opts)
 
     @patch("saltext.saltext_ubus.proxy.uci_ssh.SshRunner")
     def test_connection_failure_raises(self, mock_runner_cls):
@@ -174,6 +201,7 @@ class TestInit:
             "proxy": {
                 "proxytype": "saltext_ubus_ssh",
                 "host": "10.38.20.1",
+                "ssh_key": "/root/.ssh/id_ed25519",
             }
         }
         with pytest.raises(ConnectionError, match="Cannot connect"):
@@ -190,6 +218,7 @@ class TestInit:
             "proxy": {
                 "proxytype": "saltext_ubus_ssh",
                 "host": "10.38.20.1",
+                "ssh_key": "/root/.ssh/id_ed25519",
             }
         }
         proxy_mod.init(opts)

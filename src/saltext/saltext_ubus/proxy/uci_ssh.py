@@ -15,7 +15,7 @@ as the JSON-RPC adapter.
       # username: root                          (default)
       # port: 22                                (default)
       # timeout: 30                             (default)
-      # ssh_key: /root/.ssh/openwrt_ed25519     (optional)
+      ssh_key: /root/.ssh/openwrt_ed25519
       # ssh_options:                            (defaults below)
       #   - StrictHostKeyChecking=no
       #   - UserKnownHostsFile=/dev/null
@@ -54,11 +54,14 @@ def __virtual__():
 
 def init(opts):
     """Create SSH runner from proxy pillar and verify connectivity."""
+    DETAILS.clear()
     proxy_conf = opts["proxy"]
+    for key in ("host", "ssh_key"):
+        if key not in proxy_conf:
+            raise ValueError(f"saltext_ubus_ssh: required pillar key '{key}' is missing")
     ssh_options = proxy_conf.get("ssh_options", list(_DEFAULT_SSH_OPTIONS))
-    ssh_key = proxy_conf.get("ssh_key")
-    if ssh_key:
-        ssh_options = [f"IdentityFile={ssh_key}"] + ssh_options
+    ssh_key = proxy_conf["ssh_key"]
+    ssh_options = [f"IdentityFile={ssh_key}"] + ssh_options
     runner = SshRunner(
         host=proxy_conf["host"],
         username=proxy_conf.get("username", "root"),
