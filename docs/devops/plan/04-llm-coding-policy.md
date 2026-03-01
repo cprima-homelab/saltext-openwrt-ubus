@@ -1,5 +1,7 @@
 # 04 -- LLM Coding Policy
 
+> Last reviewed against: v0.3.0
+
 ## Purpose
 
 This document defines conventions for AI-assisted development on saltext-ubus. It is the source material for generating CLAUDE.md, .cursorrules, and similar instruction files.
@@ -43,31 +45,38 @@ config rule
 - Named sections have stable references: `network.lan`
 - Anonymous sections have **unstable** index-based references: `firewall.@rule[3]`
 - Adding/removing anonymous sections shifts all higher indices
-- `uci show` returns list values space-separated and single-quoted: `dns='1.1.1.1' '1.0.0.1'`
-- `uci get` returns list values space-separated, unquoted, on a single line: `1.1.1.1 1.0.0.1`
-- `uci -q` suppresses errors (useful for `delete` on possibly-missing paths)
 - Changes are staged until `uci commit <package>` writes them to `/etc/config/<package>`
 - `uci revert <package>` discards staged changes
+- **This extension uses ubus, not the uci CLI** (see ADR-000)
 
 ## Salt Extension Patterns
 
 ### Module Structure
 
-```python
-# Execution module: src/saltext/saltext_ubus/modules/saltext_ubus_mod.py
+All three adapters (JSON-RPC, SSH, local) share the same pattern.
+Each defines only `__virtual__()` and `_call()`, delegating all logic
+to `utils/ubus_ops.py`:
 
-__virtualname__ = "saltext_ubus"
+```python
+# Execution module adapter: src/saltext/saltext_ubus/modules/ubus_jsonrpc.py
+
+from saltext.saltext_ubus.utils import ubus_ops
+
+__virtualname__ = "openwrt_ubus"
+__proxyenabled__ = ["openwrt_ubus_jsonrpc"]
 
 def __virtual__():
-    """Only load if we can run uci commands."""
+    if __opts__.get("proxy", {}).get("proxytype") != "openwrt_ubus_jsonrpc":
+        return False, "proxytype is not openwrt_ubus_jsonrpc"
     return __virtualname__
 
-def get(key):
-    """Get a UCI value."""
-    ret = __salt__["cmd.run_all"](f"uci get {key}")
-    if ret["retcode"] != 0:
-        return None
-    return ret["stdout"].strip()
+def _call(ubus_object, ubus_method, params=None):
+    """Forward a ubus call through the proxy module."""
+    return __proxy__["openwrt_ubus_jsonrpc.call"](ubus_object, ubus_method, params)
+
+# All public functions delegate to ubus_ops:
+def get(config, section=None, option=None):
+    return ubus_ops.get(_call, config, section=section, option=option)
 ```
 
 ### Dunder Globals
@@ -79,6 +88,7 @@ def get(key):
 | `__grains__` | System grains (OS, kernel, etc.) | All modules |
 | `__pillar__` | Pillar data | All modules |
 | `__context__` | Per-module persistent cache | All modules |
+| `__proxy__` | Call proxy module functions | Proxy-aware modules |
 
 ### State Return Dict
 
@@ -96,30 +106,36 @@ Every state function must return:
 
 State functions must support `test=True` (dry run):
 ```python
-def option_present(name, key, value):
-    current = __salt__["saltext_ubus.get"](key)
-    if current == value:
-        return {"name": name, "changes": {}, "result": True, "comment": "Already set"}
+def managed(name, config, sections, ...):
+    # ... diff desired vs current ...
     if __opts__["test"]:
-        return {"name": name, "changes": {key: {"old": current, "new": value}},
-                "result": None, "comment": f"Would set {key}={value}"}
-    __salt__["saltext_ubus.set"](key, value)
-    return {"name": name, "changes": {key: {"old": current, "new": value}},
-            "result": True, "comment": f"Set {key}={value}"}
+        return {"name": name, "changes": changes,
+                "result": None, "comment": "Would apply changes"}
+    # ... stage changes via openwrt_ubus.set / openwrt_ubus.add ...
+    return {"name": name, "changes": changes,
+            "result": True, "comment": "Applied changes"}
 ```
 
 ## Idempotency Rules
 
-1. **Never call `uci add` without checking for existing sections first.** Always walk existing sections and match on identifying fields.
-2. **Never call `uci add_list` without checking the current list.** Read first, add only if the value is missing.
-3. **Prefer `uci set` for named sections.** `uci set firewall.my_rule=rule` is idempotent.
-4. **Use `uci -q delete` for cleanup.** The `-q` flag prevents errors when the target doesn't exist.
-5. **Always `uci commit` explicitly.** Don't rely on implicit commits.
+1. **Never stage changes without diffing first.** The state module reads
+   current config via `openwrt_ubus.get(config)` and computes a delta
+   with `_diff_section()`. Only changed options are staged.
+2. **Use partial semantics.** Only options listed in the pillar are managed.
+   Other options on the same section are left untouched.
+3. **Handle anonymous sections carefully.** Singleton anonymous sections
+   can be resolved by `_type` match. Multi-instance anonymous section
+   management is not yet implemented.
+4. **Use the apply/confirm cycle for safety.** `ubus call uci apply`
+   with rollback ensures connectivity-breaking changes auto-revert.
+5. **Check for uncommitted changes before staging.** The state module
+   verifies no prior uncommitted changes exist (or reverts them if
+   `revert_pending=True`).
 
 ## Code Style
 
 - **Formatter**: black, line length 100
-- **Import sorting**: isort, single-line imports, profile=black
+- **Import sorting**: isort, profile=black
 - **Linting**: pylint (config in `.pylintrc`), bandit for security
 - **Type hints**: use for public API functions, not required for internal helpers
 - **Docstrings**: Google style (napoleon), required for all public functions
@@ -127,22 +143,24 @@ def option_present(name, key, value):
 
 Example docstring:
 ```python
-def set(key, value):
+def get(config, section=None, option=None):
     """
-    Set a UCI option.
+    Read UCI configuration.
 
     Args:
-        key: UCI path (e.g., ``network.lan.ipaddr``)
-        value: Value to set
+        config: UCI config package name (e.g., ``network``)
+        section: Optional section name
+        option: Optional option name
 
     Returns:
-        True if changed, False if already set
+        Full config dict, single section dict, or single option value
 
     CLI Example:
 
     .. code-block:: bash
 
-        salt '*' saltext_ubus.set network.lan.ipaddr 10.35.24.1
+        salt 'austru' openwrt_ubus.get network
+        salt 'austru' openwrt_ubus.get network lan proto
     """
 ```
 
@@ -158,19 +176,23 @@ def set(key, value):
 ## Testing Requirements
 
 - Every public execution module function needs a unit test
-- Unit tests mock `__salt__["cmd.run_all"]` with known UCI output
+- Unit tests mock the adapter's `_call()` function with known ubus JSON responses
+- State module tests mock `openwrt_ubus.get`, `openwrt_ubus.set`, etc. via `__salt__`
+- Proxy tests mock `UbusRpcClient` / `SshRunner`
+- Utils tests cover `ubus_ops.transform_section()` and shared logic
 - Test both success and error paths
-- Test idempotency: calling a function twice should produce the same result
-- Use captured `uci show` output from real routers as test fixtures
-- Integration tests use the SSH fixtures from `tests/conftest.py`
+- Test idempotency: calling a state function twice should produce no-op on second call
 
-## Salt-SSH Awareness
+## Transport Awareness
 
-All execution module functions must work when called via salt-ssh:
-- Use `cmd.run_all` (not `cmd.run`) to capture return codes
-- Handle the case where the target shell is `/bin/sh` (ash), not bash
-- Don't assume GNU coreutils; OpenWrt uses BusyBox
-- Don't assume Python is available on the target (raw mode generates shell scripts)
+The extension does **not** run shell commands on the target device. All
+three adapters talk to the same ubusd daemon via different transports,
+returning identical JSON. Code in `ubus_ops.py` is fully transport-agnostic.
+
+When writing new functions:
+- Add the logic to `ubus_ops.py` with a `call` parameter (dependency injection)
+- Each adapter's public function delegates: `return ubus_ops.new_func(_call, ...)`
+- Never assume a specific transport -- no SSH-specific or HTTP-specific logic in shared code
 
 ## Files to Generate
 
@@ -179,14 +201,5 @@ All execution module functions must work when called via salt-ssh:
 | `CLAUDE.md` | saltext-ubus repo root | Claude Code instructions (gitignored) |
 | `.cursorrules` | saltext-ubus repo root | Cursor AI instructions (optional, committed) |
 
-These files should be generated from this document and updated when policy changes.
-
-### Keeping Instruction Files in Sync
-
-Policy drift between this document and the generated instruction files is a known risk. Mitigation:
-
-1. **Manual regeneration**: When this document changes, regenerate CLAUDE.md and .cursorrules as part of the same commit. The commit message should reference the policy change.
-2. **Pre-commit reminder**: The `docs/devops/plan/04-llm-coding-policy.md` file is listed in a pre-commit check that warns (not blocks) when it is modified without a corresponding change to CLAUDE.md. This is advisory, not enforced, to avoid blocking legitimate doc-only edits.
-3. **Section header anchors**: CLAUDE.md references this document by section anchor (e.g., `See 04-llm-coding-policy.md#idempotency-rules`) so that stale content can be traced to its source.
-
-There is no automated generation tool. The instruction files are hand-written derivatives of this policy document, not templates rendered by a script. Automation is deferred until the policy stabilizes.
+Neither file exists yet. When created, they should be derived from this
+policy document.

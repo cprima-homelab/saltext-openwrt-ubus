@@ -1,5 +1,7 @@
 # ubus JSON-RPC API (Captured from austru)
 
+> Last reviewed against: v0.3.0
+
 Observations from a live OpenWrt 24.10.5 router (Netgear WNDR3800).
 All examples use the `/ubus` endpoint over HTTPS with uhttpd.
 
@@ -188,11 +190,15 @@ Each change is an array: `[operation, section, option?, value?]`.
 
 The `apply` method supports a safe-apply pattern:
 
-1. `uci.set` + `uci.commit` -- stage and persist changes
-2. `uci.apply {"rollback": true, "timeout": 30}` -- apply with 30s rollback timer
-3. Test connectivity
+1. `uci.set` -- stage changes (per-session staging directory)
+2. `uci.apply {"rollback": true, "timeout": 30}` -- commits implicitly,
+   reloads services, arms 30s rollback timer
+3. Test connectivity / verify services
 4. `uci.confirm` -- cancel the rollback timer (changes stick)
 5. If `confirm` is not called within timeout, config auto-reverts
+
+Note: `uci.apply` commits staged changes implicitly -- a separate
+`uci.commit` before `uci.apply` is not required.
 
 This is the same mechanism LuCI uses for safe network changes.
 

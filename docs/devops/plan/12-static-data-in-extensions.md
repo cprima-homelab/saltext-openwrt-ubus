@@ -1,4 +1,6 @@
-# Static Data in Salt Extensions
+# 12 -- Static Data in Salt Extensions
+
+> Last reviewed against: v0.3.0
 
 Salt extensions package Python modules that extend Salt. They do
 **not** package SLS files, pillar data, or Jinja templates.
@@ -82,14 +84,14 @@ The corresponding pillar SLS on the master:
 ```yaml
 # /srv/salt/pillar/router.sls
 proxy:
-  proxytype: saltext_ubus_jsonrpc
+  proxytype: openwrt_ubus_jsonrpc
   host: 10.35.24.1
   password: secret
   # username: salt-agent   (default)
   # verify_ssl: false      (default)
 ```
 
-The SSH transport (`saltext_ubus_ssh`) uses key-based authentication
+The SSH transport (`openwrt_ubus_ssh`) uses key-based authentication
 instead of a password. The proxy module creates an `SshRunner`:
 
 ```python
@@ -120,7 +122,7 @@ The corresponding pillar SLS:
 ```yaml
 # /srv/salt/pillar/router.sls
 proxy:
-  proxytype: saltext_ubus_ssh
+  proxytype: openwrt_ubus_ssh
   host: 10.35.24.1
   # username: root                          (default)
   # ssh_key: /root/.ssh/openwrt_ed25519     (optional)

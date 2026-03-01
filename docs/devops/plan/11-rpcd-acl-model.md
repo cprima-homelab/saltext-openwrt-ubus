@@ -1,4 +1,6 @@
-# rpcd ACL Model
+# 11 -- rpcd ACL Model
+
+> Last reviewed against: v0.3.0
 
 How OpenWrt controls access to the ubus JSON-RPC API.
 
@@ -266,7 +268,7 @@ Salt Master (proxy minion)                    OpenWrt Device
 
 ```yaml
 proxy:
-  proxytype: saltext_ubus_jsonrpc
+  proxytype: openwrt_ubus_jsonrpc
   host: 10.35.24.1
   password: secret
   timeout: 30            # HTTP request timeout (seconds)

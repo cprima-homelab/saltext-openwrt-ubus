@@ -3,6 +3,7 @@
 - **Status**: Accepted
 - **Date**: 2026-02-28
 - **Context**: saltext-uci v0.2.1 SSH adapter design
+- **Last reviewed against**: v0.3.0
 
 ## Context
 
@@ -121,12 +122,13 @@ Because all adapters get the same JSON, the execution module logic is
 identical across transports. Each adapter only differs in its `_call()`
 function:
 
-- `modules/ubus_jsonrpc.py`: `__proxy__["saltext_uci_ubus.call"](...)`
-- `modules/uci_ssh.py`: `__proxy__["saltext_uci_ssh.call"](...)`
+- `modules/ubus_jsonrpc.py`: `__proxy__["openwrt_ubus_jsonrpc.call"](...)`
+- `modules/uci_ssh.py`: `__proxy__["openwrt_ubus_ssh.call"](...)`
 - `modules/uci_local.py`: `subprocess.run(["ubus", "call", ...])`
 
-The `_transform_section()` function (`.type` -> `_type`) and all
-post-processing logic is duplicated verbatim across modules. The state
+All business logic (including `transform_section()`, diffing, and
+post-processing) lives in `utils/ubus_ops.py`. Each adapter only defines
+`_call()` and delegates to `ubus_ops` via dependency injection. The state
 module and grains module are fully transport-agnostic.
 
 ## Consequences
@@ -135,8 +137,8 @@ module and grains module are fully transport-agnostic.
 - The SSH adapter requires `ubusd` on the target (standard on all OpenWrt)
 - The SSH adapter does **not** require uhttpd, rpcd, or ACL configuration
 - The local adapter requires Python3 on the target device
-- The extension name `saltext-uci` is now a misnomer -- the interface is
-  ubus, not UCI. A rename to `saltext-ubus` is planned.
+- The extension was renamed from `saltext-uci` to `saltext-ubus` in
+  v0.3.0, reflecting that the interface is ubus, not the UCI CLI.
 
 ## Alternatives considered
 

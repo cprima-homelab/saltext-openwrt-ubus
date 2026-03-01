@@ -121,7 +121,6 @@ exclude_patterns = [
     ".gitlab-ci",
     ".gitignore",
     "sitevars.rst",
-    "adr",
     "devops",
 ]
 

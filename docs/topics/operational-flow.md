@@ -1,8 +1,8 @@
-# managed() sequence diagram
+# Operational Flow
 
-How `saltext_ubus.managed()` orchestrates a configuration run, from
-pillar input to applied config. The flow varies depending on the agent
-mode set in `/etc/config/salt-openwrt` on the device.
+How the extension orchestrates a configuration run, from pillar input
+to applied config. The flow varies depending on the agent mode set in
+`/etc/config/salt-openwrt` on the device.
 
 ## Full sequence -- oneshot mode
 

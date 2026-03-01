@@ -1,5 +1,7 @@
 # ubus Object Inventory (austru)
 
+> Last reviewed against: v0.3.0
+
 Complete list of ubus objects available on austru (OpenWrt 24.10.5,
 Netgear WNDR3800, LuCI installed). Captured via `list *`.
 
@@ -102,7 +104,7 @@ ACL-controlled: each path must be explicitly granted in ACL files.
 
 ## Relevance for Salt Network Configuration
 
-### Primary (v0.2 scope)
+### Primary (v0.3 scope)
 
 - `uci.*` -- read/write UCI config (network, firewall, dhcp, wireless)
 - `system.board` -- device grains (model, version, architecture)

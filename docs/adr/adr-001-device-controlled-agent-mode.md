@@ -3,6 +3,7 @@
 - **Status**: Accepted
 - **Date**: 2026-02-28
 - **Context**: saltext-ubus v0.2.2 change management design
+- **Last reviewed against**: v0.3.0
 
 ## Context
 
@@ -36,7 +37,7 @@ config salt-openwrt 'global'
     option rollback_timeout '120'
 ```
 
-The state module reads this config via `saltext_ubus.get("salt-openwrt",
+The state module reads this config via `openwrt_ubus.get("salt-openwrt",
 "global")` at the start of every `managed()` call and enforces the mode
 before any write operations.
 
@@ -82,7 +83,7 @@ on the Salt master:
 ```yaml
 # Conventional: master controls device
 proxy:
-  proxytype: saltext_ubus_jsonrpc
+  proxytype: openwrt_ubus_jsonrpc
   mode: audit
 ```
 
@@ -112,20 +113,20 @@ The agent config uses UCI (not a Salt-specific file format) because:
 
 - It is the native config format on OpenWrt -- `uci show`, `uci set`,
   LuCI, and backup/restore all work out of the box.
-- The Salt extension already reads UCI via `saltext_ubus.get()` -- no
+- The Salt extension already reads UCI via `openwrt_ubus.get()` -- no
   new parsing code is needed.
 - The `conffiles` mechanism in opkg preserves user edits across package
   upgrades.
 
 ### Default to audit
 
-New installs default to `mode audit` rather than `mode auto` because:
+New installs default to `mode audit` rather than `mode oneshot` because:
 
 - Enrolling a device should be a read-only operation until the operator
   explicitly opts in to writes.
 - Audit mode lets the operator observe drift reports and verify that
   pillar data is correct before granting write access.
-- Switching from audit to auto is a single `uci set` command -- low
+- Switching from audit to oneshot is a single `uci set` command -- low
   friction when the operator is ready.
 
 ## Consequences

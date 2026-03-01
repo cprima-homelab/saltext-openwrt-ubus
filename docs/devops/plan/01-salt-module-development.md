@@ -174,7 +174,7 @@ Only options listed in the `sections` dict are managed. Other options on the sam
 
 - If the pillar key starts with `_` and has a `_type` field, search for anonymous sections (`_anonymous=True`) matching that type
 - Exactly 1 match: use that section's actual name
-- 0 or >1 matches: raise `ValueError` (full anonymous section support planned for v0.3)
+- 0 or >1 matches: raise `ValueError` (full anonymous section support planned for a future release)
 
 ### What Gets Staged
 
@@ -245,11 +245,13 @@ src/saltext/saltext_ubus/
     ubus_jsonrpc.py           # Execution module: JSON-RPC adapter
     uci_ssh.py                # Execution module: SSH adapter
     uci_local.py              # Execution module: local subprocess adapter
+    openwrt.py                # Shorthand alias -> openwrt_ubus via __salt__
   proxy/
     ubus_jsonrpc.py           # Proxy minion: JSON-RPC transport
     uci_ssh.py                # Proxy minion: SSH transport
   states/
     saltext_ubus.py           # State module: managed() and applied()
+    openwrt.py                # Shorthand alias -> openwrt_ubus via __states__
   utils/
     ubus_ops.py               # Shared ubus logic (all 16 functions)
     rpc.py                    # UbusRpcClient (HTTPS JSON-RPC)
@@ -270,9 +272,4 @@ tests/
       test_rpc.py
       test_ssh.py
       test_ubus_ops.py
-  functional/
-    modules/test_ubus_jsonrpc.py
-    states/test_saltext_ubus.py
-  integration/
-    modules/test_ubus_jsonrpc.py
 ```

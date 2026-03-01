@@ -1,5 +1,7 @@
 # 07 -- Package Support Tiers
 
+> Last reviewed against: v0.3.0
+
 ## Preface
 
 This document addresses a fundamental gap in saltext-ubus: the extension
@@ -15,6 +17,12 @@ same confidence as one targeting `network`, even though the extension has
 never been tested against those packages and some of them contain
 security-sensitive configuration (SSH keys, authentication credentials,
 TLS certificates).
+
+By design, the extension code does not grow per-package. Adding support
+for a new UCI package requires zero code changes -- the operator writes
+pillar and state SLS files, and `managed()` handles the rest generically.
+Only if per-package schema or tier enforcement is added would the
+extension itself gain per-package files (see alternatives below).
 
 This gap exists at every layer:
 
@@ -74,7 +82,7 @@ currently supports:
 |--------------------|--------|-----------|
 | Named sections (`config type 'name'`) | Supported | Direct `uci set pkg.name.opt=val` |
 | Singleton anonymous sections | Supported | `_resolve_sections()` finds the one section of a given type |
-| Multiple anonymous sections | **Not supported** | Deferred to v0.3 -- requires walk+match logic |
+| Multiple anonymous sections | **Not supported** | Requires walk+match logic, not yet implemented |
 
 This means packages like `firewall` (mostly anonymous sections: rules,
 zones, forwardings) cannot be fully managed by the current state module,
@@ -85,22 +93,10 @@ this limitation explicit rather than leaving it as a runtime surprise.
 
 Several existing documents touch on this problem without resolving it:
 
-- **`01-salt-module-development.md`** (section "Package Scope"): "The
-  project needs a way to limit which UCI packages it covers. One option
-  is a whitelist based on the standard OpenWrt build profile." Lists
-  priority-ranked packages. Asks but does not answer: "Should the
-  whitelist be hardcoded, or configurable per deployment?"
-
-- **`05-minimal-scope.md`**: Comprehensive UCI package taxonomy for
-  austru. Defines complexity tiers (Tier 1: named sections, Tier 2:
-  mixed, Tier 3: mostly anonymous). Recommends `network` named
-  sections as the first slice.
-
-- **`docs/devops/code/02-scaling-by-package.md`**: Plans a
-  `utils/packages/` directory with one Python file per UCI package,
-  each declaring `UCI_PACKAGE`, `OPKG`, `NAMED_SECTION_TYPES`,
-  `ANONYMOUS_SECTION_TYPES`, `LIST_OPTIONS`. This directory does not
-  exist yet.
+- **`01-salt-module-development.md`** (section "Package Scope"): lists
+  priority-ranked UCI packages on the target build. Notes that the
+  module does not whitelist packages -- the rpcd ACL on the device
+  grants `uci: ["*"]`, so any config package is manageable.
 
 - **`openwrt/ROADMAP.md`** (v0.2.0): "Scope `uci` read/write to
   packages actually used." (v1.0.0): "ACL scope locked to documented
@@ -112,7 +108,7 @@ This document synthesizes these threads into concrete alternatives.
 
 For reference, these are the UCI-relevant packages on the target
 platform (OpenWrt 24.10.5, Netgear WNDR3800), mapped to the
-complexity tier from `05-minimal-scope.md`:
+complexity tier:
 
 | UCI package | Owning opkg | Tier | Section types | Security-sensitive |
 |-------------|-------------|------|---------------|-------------------|
@@ -129,8 +125,8 @@ complexity tier from `05-minimal-scope.md`:
 
 Tier 1 packages (all named sections) are structurally compatible with
 the current state module. Tier 2 packages work for their named and
-singleton anonymous sections. Tier 3 packages require the anonymous
-section support planned for v0.3.
+singleton anonymous sections. Tier 3 packages require the multi-instance anonymous
+section support that is not yet implemented.
 
 ## The Two Dimensions
 
@@ -164,10 +160,10 @@ The two dimensions combine as a matrix. Mode controls behavior, tier
 controls scope:
 
 ```
-              audit       autoverified   oneshot
-stable        observe     stage          apply
-experimental  observe*    stage*         apply*     (* requires opt-in)
-unregistered  REFUSE      REFUSE         REFUSE
+              audit       autoverified   humanreviewed   oneshot
+stable        observe     stage          stage           apply
+experimental  observe*    stage*         stage*          apply*    (* opt-in)
+unregistered  REFUSE      REFUSE         REFUSE          REFUSE
 ```
 
 An unregistered package is refused regardless of mode. An experimental
@@ -181,7 +177,7 @@ The gate belongs in `managed()` in `states/saltext_ubus.py`, inserted
 after the existing mode check (step 1) and before the first ubus read
 (step 3). This is the only function that makes changes. The execution
 module functions (`get`, `set_`, etc.) remain unrestricted -- an
-operator can always call `saltext_ubus.get("dropbear")` directly for
+operator can always call `openwrt_ubus.get("dropbear")` directly for
 inspection.
 
 ```python
@@ -203,8 +199,7 @@ point (`managed()`). They differ in how the tier registry is structured.
 
 ### Alternative A: Per-package module files with schema
 
-Build the `utils/packages/` directory planned in
-`docs/devops/code/02-scaling-by-package.md`. Each UCI package gets a
+Build a `utils/packages/` directory. Each UCI package gets a
 Python file declaring its tier, named section types, anonymous section
 types, and list options. The registry serves dual purpose: tier
 whitelist and schema metadata for future features.
@@ -242,7 +237,7 @@ NAMED_SECTIONS = {
     },
 }
 
-# Not yet handled by managed() -- placeholder for v0.3
+# Not yet handled by managed() -- not yet implemented
 ANONYMOUS_SECTIONS = {
     "device": {},
     "switch": {},
@@ -296,7 +291,7 @@ if pkg_tier == "experimental" and not allow_experimental:
 - Builds directly on the existing plan from `02-scaling-by-package.md`
 - Schema metadata (list_options, section types) solves real future
   problems: list disambiguation, anonymous section dispatch
-- Natural release narrative: "v0.3 promotes wireless from experimental
+- Natural release narrative: "v0.4 promotes wireless from experimental
   to stable"
 - Per-section-type granularity available when needed
 - Each file is small, self-documenting, individually reviewable
@@ -368,7 +363,7 @@ Identical gate logic to Alternative A. Only the import path changes.
 
 Not included. The state module already handles list vs scalar correctly
 by relying on what ubus returns (lists come back as JSON arrays). If
-explicit schema is needed for anonymous section support in v0.3, it
+explicit schema is needed when anonymous section support lands, it
 can be added then -- either by extending `scope.py` or by adopting
 Alternative A's structure at that point.
 
@@ -514,7 +509,7 @@ for section_name, desired in resolved.items():
         if handling == scope.ANONYMOUS:
             return _refuse(ret,
                 f"{config}.{section_name}: anonymous section type "
-                f"'{section_type}' not yet supported (v0.3)")
+                f"'{section_type}' not yet supported")
 ```
 
 #### Interaction matrix
@@ -524,8 +519,8 @@ The anonymous handling column is gated by **capability**, not just tier:
 ```
               named+stable    singleton+stable    anonymous+experimental
 audit         observe         observe             observe (if opted in)
-manual        stage           stage               REFUSE (can't handle)
-auto          apply           apply               REFUSE (can't handle)
+autoverified  stage           stage               REFUSE (can't handle)
+oneshot       apply           apply               REFUSE (can't handle)
 ```
 
 #### Pros
@@ -537,8 +532,8 @@ auto          apply           apply               REFUSE (can't handle)
   not yet supported" rather than "firewall is experimental"
 - Prevents the state module from attempting operations it structurally
   cannot handle
-- Natural upgrade path: when v0.3 adds anonymous support, change the
-  handling category and the gate opens automatically
+- Natural upgrade path: when anonymous section support lands, change
+  the handling category and the gate opens automatically
 - Single file, moderate complexity
 
 #### Cons
@@ -587,7 +582,7 @@ This is already on the ROADMAP (v0.2.0) and can be done as a follow-up.
 None of the alternatives change the execution modules or `ubus_ops.py`.
 The gate lives in `managed()` only. The execution module functions
 (`get`, `set_`, `delete`, etc.) remain unrestricted -- an operator can
-always call `saltext_ubus.get("dropbear")` directly for inspection or
+always call `openwrt_ubus.get("dropbear")` directly for inspection or
 ad-hoc changes. The whitelist restricts only the `managed()` state
 function, which is the high-level path that reads, diffs, stages,
 applies, and confirms.

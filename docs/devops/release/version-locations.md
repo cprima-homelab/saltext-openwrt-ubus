@@ -26,8 +26,8 @@ Only update if the meaning has changed.
 
 | File | Line | Context |
 |------|------|---------|
-| `docs/devops/code/05-jsonrpc-vs-cli.md:19` | `v0.2 Approach` | Historical: describes when JSON-RPC was adopted |
-| `docs/devops/code/05-jsonrpc-vs-cli.md:147` | `Recommendation for v0.2` | Historical |
+| `docs/devops/plan/10-jsonrpc-vs-cli.md:19` | `v0.2 Approach` | Historical: describes when JSON-RPC was adopted |
+| `docs/devops/plan/10-jsonrpc-vs-cli.md:147` | `Recommendation for v0.2` | Historical |
 | `docs/devops/code/07-ubus-object-inventory.md:105` | `Primary (v0.2 scope)` | Historical |
 | `src/saltext/saltext_ubus/states/saltext_ubus.py:8` | `deferred to v0.3` | Future: anonymous section support |
 | `src/saltext/saltext_ubus/states/saltext_ubus.py:266` | `planned for v0.3` | Future: anonymous section support |

@@ -26,8 +26,15 @@ Salt extension for OpenWrt configuration management via ubus
   :caption: Reference
   :hidden:
 
-  topics/managed-flow
+  topics/operational-flow
   changelog
+
+.. toctree::
+  :maxdepth: 2
+  :caption: Architecture Decisions
+  :hidden:
+
+  adr/index
 
 
 Indices and tables

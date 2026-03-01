@@ -1,5 +1,7 @@
 # UCI Runtime Behavior (Captured from austru)
 
+> Last reviewed against: v0.3.0
+
 Observations from a live OpenWrt router (Netgear WNDR3800, netifd 2025.05.23).
 These inform parsing and test fixture design.
 

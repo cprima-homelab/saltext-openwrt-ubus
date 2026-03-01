@@ -1,119 +1,43 @@
 # Roadmap
 
-## Resolved in v0.1
+> Last reviewed against: v0.3.0
 
-- **Templating for UCI commands**: All user-provided values are now
-  escaped via `shlex.quote()` to prevent shell injection.
-- **Inspecting `uci` opkg**: The `uci` package (opkg `uci`, depends on
-  `libuci`) provides the CLI binary. Both are in the `base` section.
-- **salt-ssh vs proxy**: Solved via proxy minion pattern. The proxy runs
-  on the salt-master and SSHes into the router. No Python needed on
-  the target. salt-ssh raw mode is not used.
+## Resolved
 
-## Post-v0.1 Technical Debt
+### v0.1 -- Initial implementation
 
-### SSH Connection Efficiency
+- Salt proxy minion pattern (no Python on target)
+- SSH and JSON-RPC transport adapters
+- Execution module: get, set, add, delete, apply, confirm, rollback,
+  revert, commit, state, configs, changes
+- Input escaping via `shlex.quote()`
 
-Each proxy `cmd()` call opens a fresh SSH connection via `subprocess.run`.
-A function like `set_list` with 5 values triggers 7 SSH connections
-(1 get + 1 delete + 5 add_list).
+### v0.2 -- Proxy and state module
 
-Improvement: Use SSH ControlMaster multiplexing. Open a persistent
-control socket in `init()`, reuse it in `cmd()`, close in `shutdown()`.
+- State module: `managed()` with partial semantics, `applied()` with
+  service health verification
+- Grains module: device facts via proxy (os, model, kernel, memory, etc.)
+- Agent modes: oneshot, autoverified, humanreviewed, audit
+- rpcd session management: login, timeout bumping, session keep-alive
+- Singleton anonymous section resolution (by `_type`)
+- Local subprocess adapter (`uci_local.py`)
+- System/network/service query functions
+- Shared logic via `ubus_ops.py` (dependency injection)
 
-### Scalar vs List Ambiguity in `uci show`
+### v0.3 -- Virtualname rename
 
-A multi-word scalar (`ports='0 1 2 3 5'`) is indistinguishable from a
-list (`dns='1.1.1.1' '1.0.0.1'`) in `uci show` output.
+- Rename virtualnames: `saltext_ubus` -> `openwrt_ubus`
+- Add `openwrt` shorthand alias modules
+- Proxy virtualnames: `openwrt_ubus_jsonrpc`, `openwrt_ubus_ssh`
 
-Improvement: Use the schema declarations in `utils/packages/*.py`
-(`LIST_OPTIONS`) to disambiguate during parsing.
+## Planned
 
-### Grains Support (NAPALM parity)
-
-NAPALM proxy implements `get_grains()` and `grains_refresh()` to expose
-device facts (vendor, model, OS version, serial, interfaces) as Salt
-grains. This enables targeting by device characteristics:
-`salt -G 'os:OpenWrt' saltext_ubus.show network`.
-
-OpenWrt grains could include:
-
-| Grain | Source command |
-|-------|---------------|
-| `openwrt_version` | `cat /etc/openwrt_release` |
-| `model` | `cat /tmp/sysinfo/model` |
-| `board_name` | `cat /tmp/sysinfo/board_name` |
-| `hostname` | `uci get system.@system[0].hostname` |
-| `installed_packages` | `opkg list-installed` |
-| `total_ram` | `cat /proc/meminfo` (MemTotal) |
-| `flash_size` | `df /overlay` |
-
-### `force_reconnect` (NAPALM parity)
-
-NAPALM supports `force_reconnect=True` to use alternate connection
-parameters per-call (different user, different port). Not needed while
-we use per-call SSH (no persistent connection), but would matter if
-SSH ControlMaster is added.
-
-### `alive()` Real Check (NAPALM parity)
-
-NAPALM's `alive()` calls `is_alive()` on the device driver to verify
-the connection is still open. Our proxy always returns True since there
-is no persistent connection. If ControlMaster is added, `alive()` should
-check the control socket.
-
-### Multiprocessing Flag (NAPALM parity)
-
-NAPALM sets `multiprocessing: False` for SSH-based proxy minions to
-avoid concurrent SSH sessions stomping on each other. Our proxy uses
-per-call subprocess SSH so this is not currently an issue, but should
-be considered if connection pooling is added.
-
-### State Module
-
-`states/saltext_ubus_mod.py` is a stub. Next step: implement `managed`
-state for named sections (Tier 1), using the existing execution module
-functions.
-
-### Anonymous Section Support (Tier 2/3)
-
-Named sections have stable paths (`network.lan`). Anonymous sections
-(`firewall.@rule[N]`) require walk+match logic: find the section by
-matching on field values, not by index. Needed for `firewall`, `dhcp`
-static leases, and `system`.
-
-### `uci export` Parser
-
-`utils/uci_parser.py` only implements `parse_show()`. Plan 02 also calls
-for `parse_export()` for round-trip config backup/restore.
-
-### LuCI-visible Staging for Manual Mode
-
-Manual mode currently cannot show Salt-staged changes in LuCI's
-"Unsaved Changes" view. Each rpcd JSON-RPC session gets an isolated
-staging directory (`/var/run/rpcd/uci-<session_id>/`), so Salt's
-session and LuCI's session are completely separate -- neither can see
-the other's pending changes.
-
-Explore whether an rpcd/uci session can be initialized or hijacked to
-make Salt-staged changes visible in LuCI:
-
-- Can Salt authenticate with an existing LuCI session token (read from
-  `/tmp/luci-sessions/` or rpcd session store) and stage into that
-  session's directory?
-- Can a new rpcd session be created with a predictable or shared ID
-  that LuCI could be pointed at?
-- Can Salt write directly to `/var/run/rpcd/uci-<luci_sid>/` via SSH,
-  bypassing rpcd, so LuCI picks up the changes on next page load?
-- Does rpcd support any form of shared/global staging outside of
-  per-session directories?
-- Could a LuCI plugin or ucode hook display changes from an external
-  source (e.g. `/tmp/.uci/` or a Salt-specific staging path)?
-
-This would enable a true review workflow where the operator sees
-Salt-proposed changes in the LuCI UI and clicks "Save & Apply".
-
-### CLI Entry Point
-
-Plan 02 describes a standalone CLI (`uci-reader`) that reads config
-without requiring Salt. Deferred from v0.1.
+- **Config reader / pillar generator** -- read device config via ubus,
+  output Salt pillar YAML for onboarding existing routers.
+  See [02-cli-config-reader.md](02-cli-config-reader.md).
+- **Anonymous section management** -- address anonymous sections by type
+  and match criteria, beyond the current singleton-only support.
+- **Integration tests** -- containerized OpenWrt with rpcd for
+  end-to-end testing.
+- **LuCI staging visibility** -- explore making Salt-staged changes
+  visible in LuCI's "Unsaved Changes" view for humanreviewed mode.
