@@ -27,9 +27,10 @@ This gap exists at every layer:
   choosing which states to apply, but a typo or copy-paste error has
   no safety net.
 
-The existing agent mode system (`audit` / `manual` / `auto`) controls
-*how aggressively* Salt acts on a device, but says nothing about *which
-packages* are in scope. A device in `auto` mode will happily apply
+The existing agent mode system (`audit` / `autoverified` / `oneshot`)
+controls *how aggressively* Salt acts on a device, but says nothing
+about *which packages* are in scope. A device in `oneshot` mode will
+happily apply
 changes to any UCI package, including ones that could lock the operator
 out of the device.
 
@@ -38,8 +39,9 @@ This document proposes three alternatives for adding a second dimension
 types each version of saltext-ubus has been validated for. The two
 dimensions are orthogonal and use non-clashing vocabulary:
 
-- **Mode** (existing, device-controlled): audit / manual / auto --
-  answers "how aggressively does Salt act on this device?"
+- **Mode** (existing, device-controlled): audit / autoverified /
+  humanreviewed / oneshot -- answers "how aggressively does Salt act
+  on this device?"
 - **Tier** (proposed, code-controlled): stable / experimental --
   answers "what has this version of the extension been validated for?"
 
@@ -141,8 +143,9 @@ how the extension behaves:
 | Mode | Reads | Diffs | Stages | Applies | Confirms |
 |------|-------|-------|--------|---------|----------|
 | `audit` | yes | yes | no | no | no |
-| `manual` | yes | yes | yes | no | no |
-| `auto` | yes | yes | yes | yes | yes |
+| `autoverified` | yes | yes | yes | no | no |
+| `humanreviewed` | yes | yes | yes | no | no |
+| `oneshot` | yes | yes | yes | yes | yes |
 
 ### Tier (proposed)
 
@@ -161,10 +164,10 @@ The two dimensions combine as a matrix. Mode controls behavior, tier
 controls scope:
 
 ```
-              audit       manual      auto
-stable        observe     stage       apply
-experimental  observe*    stage*      apply*     (* requires opt-in)
-unregistered  REFUSE      REFUSE      REFUSE
+              audit       autoverified   oneshot
+stable        observe     stage          apply
+experimental  observe*    stage*         apply*     (* requires opt-in)
+unregistered  REFUSE      REFUSE         REFUSE
 ```
 
 An unregistered package is refused regardless of mode. An experimental

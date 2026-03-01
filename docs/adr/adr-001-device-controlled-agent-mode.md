@@ -33,7 +33,7 @@ The question is: who controls the extension's behavior?
 config salt-openwrt 'global'
     option enabled '1'
     option mode 'audit'
-    option require_commit '0'
+    option rollback_timeout '120'
 ```
 
 The state module reads this config via `saltext_ubus.get("salt-openwrt",
@@ -42,42 +42,35 @@ before any write operations.
 
 ### Mode semantics
 
-| Mode     | Reads config | Computes drift | Stages writes | Applies | Confirms |
-|----------|-------------|----------------|---------------|---------|----------|
-| `audit`  | yes         | yes            | no            | no      | no       |
-| `manual` | yes         | yes            | yes           | no      | no       |
-| `auto`   | yes         | yes            | yes           | yes     | yes      |
+| Mode             | Reads config | Computes drift | Stages writes | Applies | Confirms |
+|------------------|-------------|----------------|---------------|---------|----------|
+| `audit`          | yes         | yes            | no            | no      | no       |
+| `autoverified`   | yes         | yes            | yes           | no      | no       |
+| `humanreviewed`  | yes         | yes            | yes           | no      | no       |
+| `oneshot`        | yes         | yes            | yes           | yes     | yes      |
 
 - **audit** -- Salt reports what is different between desired and actual
   state. No UCI writes occur. Safe default for newly enrolled devices.
-- **manual** -- Salt stages UCI changes (calls `uci set`) but does not
-  call `uci apply` or `uci confirm`. The staging behavior is
+- **autoverified** -- Salt stages UCI changes (calls `uci set`) but does
+  not call `uci apply` or `uci confirm`. The `applied()` state activates
+  staged changes with rollback protection. The staging behavior is
   transport-aware:
   - *SSH*: changes stage to `/tmp/.uci/`, visible to `uci changes`.
-    The operator reviews and activates manually.
-  - *JSON-RPC*: changes are session-scoped (`/var/run/rpcd/uci-<sid>/`)
-    and would be lost when the session expires (~300s). Salt calls
-    `uci commit` to persist to `/etc/config/`. The operator activates
-    with `uci apply`.
-
-  **Gap (v0.2):** manual mode currently tells the operator to run bare
-  `uci commit && uci apply` (SSH) or `uci apply` (JSON-RPC) with no
-  rollback safety net. rpcd's confirmed-commit mechanism (`uci apply
-  {"rollback":true}` + `uci confirm`) is available on both transports
-  but manual mode does not yet expose a way to trigger it. A future
-  `saltext_ubus.applied` state or `saltext_ubus.apply_checked` execution
-  module function would let the operator apply staged changes with the
-  same rollback protection that auto mode uses.
-- **auto** -- Salt applies changes with rollback safety (existing
-  behavior). Full automation.
+  - *JSON-RPC*: changes stage in the rpcd session, kept alive by the
+    proxy minion.
+- **humanreviewed** -- Reserved for a future LuCI approval gate. Currently
+  behaves identically to autoverified.
+- **oneshot** -- Salt stages, applies with rollback safety, verifies,
+  and confirms in a single run. Full automation.
 
 Setting `enabled` to `0` causes Salt to skip the device entirely.
 
 ### Backward compatibility
 
 When `/etc/config/salt-openwrt` does not exist (package not installed),
-`_get_agent_mode()` catches the exception and returns `(True, "auto")`.
-Existing devices continue to work without any changes.
+`_get_agent_mode()` catches the exception and returns
+`(True, "oneshot", 120)`. Existing devices continue to work without
+any changes.
 
 ## Rationale
 
@@ -140,13 +133,13 @@ New installs default to `mode audit` rather than `mode auto` because:
 - A new opkg package `salt-openwrt` ships the default config file.
   It has no dependencies and can be installed alongside either
   `salt-agent-ubus` (JSON-RPC) or `salt-agent-ssh`.
-- The state module's `managed()` function has three new code paths
-  (disabled, audit, manual) in addition to the existing auto path.
+- The state module's `managed()` function has code paths for disabled,
+  audit, autoverified, humanreviewed, and oneshot modes.
 - Drift reporting in audit mode uses the same diff logic as the normal
   path -- no separate code is needed.
-- Manual mode reuses the existing `apply_rollback=None` code path.
-  It is transport-aware: SSH skips commit (true staging), JSON-RPC
-  commits to persist past the ephemeral rpcd session.
+- Autoverified and humanreviewed modes reuse the existing
+  `apply_rollback=None` code path. Both are transport-aware: SSH
+  stages to `/tmp/.uci/`, JSON-RPC stages in the rpcd session.
 - The mode check adds one extra `uci get` call per `managed()` run.
   On a 128 MB device over JSON-RPC this is sub-millisecond overhead.
 

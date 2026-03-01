@@ -4,9 +4,9 @@ How `saltext_ubus.managed()` orchestrates a configuration run, from
 pillar input to applied config. The flow varies depending on the agent
 mode set in `/etc/config/salt-openwrt` on the device.
 
-## Full sequence -- auto mode
+## Full sequence -- oneshot mode
 
-The happy path when `mode = auto`. Salt reads, diffs, stages, applies
+The happy path when `mode = oneshot`. Salt reads, diffs, stages, applies
 with rollback protection, verifies, and confirms.
 
 ```{mermaid}
@@ -20,9 +20,9 @@ sequenceDiagram
 
     Master->>State: managed(config, sections)
     State->>UCI: get("salt-openwrt", "global")
-    UCI-->>State: {enabled: "1", mode: "auto"}
+    UCI-->>State: {enabled: "1", mode: "oneshot"}
 
-    Note over State: Mode = auto, proceed
+    Note over State: Mode = oneshot, proceed
 
     State->>UCI: changes(config)
     UCI-->>State: {} (no pending deltas)
@@ -116,32 +116,25 @@ sequenceDiagram
     end
 ```
 
-## Manual mode
+## Autoverified mode
 
-When `mode = manual`, Salt stages UCI changes (`uci set`) but does not
-call `uci apply` or `uci confirm`. The staging behavior differs by
+When `mode = autoverified`, Salt stages UCI changes (`uci set`) but does
+not call `uci apply` or `uci confirm`. The `applied()` state activates
+staged changes with rollback protection. The staging behavior differs by
 transport because rpcd routes changes differently depending on whether
 a session ID is present:
 
 - **SSH transport** runs `ubus call uci set` without a session. Changes
   stage to `/tmp/.uci/`, visible to `uci changes` from CLI and LuCI.
-  The operator can review and activate at their convenience.
 
 - **JSON-RPC transport** passes the rpcd session token with every call.
-  Changes stage to `/var/run/rpcd/uci-<session_id>/`, invisible to
-  standard tooling and auto-cleaned when the session expires (~300s).
-  Salt must `uci commit` to persist changes to `/etc/config/`.
+  Changes stage in the rpcd session, kept alive by the proxy minion.
 
-**Current gap:** The activation step (operator runs `uci apply`) has no
-rollback protection. rpcd's confirmed-commit mechanism (`uci apply
-{"rollback":true}` + `uci confirm`) works on both transports -- even
-over SSH via the local ubus socket -- but the extension does not yet
-provide a Salt-side command to trigger it after review. The operator
-must either use bare `uci apply` (no safety net) or manually run `ubus
-call uci apply '{"rollback":true,"timeout":120}'` + `ubus call uci
-confirm` on the device.
+The `applied()` state applies all staged changes globally with rollback
+protection, verifies connectivity, and confirms. It can be called without
+a `config` parameter for session-global apply.
 
-### Manual mode -- SSH transport
+### Autoverified mode -- SSH transport
 
 ```{mermaid}
 sequenceDiagram
@@ -154,9 +147,9 @@ sequenceDiagram
 
     Master->>State: managed(config, sections)
     State->>UCI: get("salt-openwrt", "global")
-    UCI-->>State: {enabled: "1", mode: "manual"}
+    UCI-->>State: {enabled: "1", mode: "autoverified"}
 
-    Note over State: Mode = manual<br/>Override: apply_rollback = None
+    Note over State: Mode = autoverified<br/>Override: apply_rollback = None
 
     State->>UCI: changes(config)
     UCI-->>State: {} (no pending)
@@ -184,19 +177,15 @@ sequenceDiagram
     Note over Human: Later...
     Human->>Device: uci changes (review staged)
 
-    alt Safe: apply with rollback (recommended)
-        Human->>UCI: ubus call uci apply '{"rollback":true,"timeout":120}'
-        UCI-->>Human: Applied + 120s rollback timer armed
-        Note over Human: Verify connectivity / config
-        Human->>UCI: ubus call uci confirm
-        UCI-->>Human: Timer cancelled, changes permanent
-    else Unsafe: bare apply (no rollback)
-        Human->>UCI: uci commit && uci apply
-        UCI-->>Human: Applied + services reloaded (no safety net)
+    rect rgb(230, 235, 250)
+        Note over Human,Device: applied() state
+        Human->>UCI: saltext_ubus.applied()
+        Note over UCI: apply(rollback) + verify + confirm
+        UCI-->>Human: Applied and confirmed
     end
 ```
 
-### Manual mode -- JSON-RPC transport
+### Autoverified mode -- JSON-RPC transport
 
 ```{mermaid}
 sequenceDiagram
@@ -210,9 +199,9 @@ sequenceDiagram
 
     Master->>State: managed(config, sections)
     State->>UCI: get("salt-openwrt", "global")
-    UCI-->>State: {enabled: "1", mode: "manual"}
+    UCI-->>State: {enabled: "1", mode: "autoverified"}
 
-    Note over State: Mode = manual<br/>Override: apply_rollback = None
+    Note over State: Mode = autoverified<br/>Override: apply_rollback = None
 
     State->>UCI: changes(config)
     UCI-->>State: {} (no pending)
@@ -242,21 +231,24 @@ sequenceDiagram
 
     Note over State: Skip apply -- services NOT reloaded
 
-    State-->>Master: result=True, changes={...},<br/>"committed (not applied)"
+    State-->>Master: result=True, changes={...},<br/>"staged in rpcd session"
 
     Note over Human: Later...
 
-    alt Safe: apply with rollback (recommended)
-        Human->>UCI: uci apply {"rollback":true,"timeout":120}
-        UCI-->>Human: Applied + 120s rollback timer armed
-        Note over Human: Verify connectivity / config
-        Human->>UCI: uci confirm {}
-        UCI-->>Human: Timer cancelled, changes permanent
-    else Unsafe: bare apply (no rollback)
-        Human->>UCI: uci apply
-        UCI-->>Human: Services reloaded (no safety net)
+    rect rgb(230, 235, 250)
+        Note over Human,Config: applied() state
+        Human->>UCI: saltext_ubus.applied()
+        Note over UCI: apply(rollback) + verify + confirm
+        UCI-->>Human: Applied and confirmed
     end
 ```
+
+## Humanreviewed mode
+
+When `mode = humanreviewed`, Salt behaves identically to autoverified
+mode. This mode is reserved for a future LuCI approval gate where an
+operator must explicitly approve staged changes through the web
+interface before `applied()` activates them.
 
 ## Disabled device
 
@@ -271,7 +263,7 @@ sequenceDiagram
 
     Master->>State: managed(config, sections)
     State->>UCI: get("salt-openwrt", "global")
-    UCI-->>State: {enabled: "0", mode: "auto"}
+    UCI-->>State: {enabled: "0", mode: "oneshot"}
 
     Note over State: Device disabled, skip entirely
 
@@ -281,7 +273,7 @@ sequenceDiagram
 ## Graceful fallback (package not installed)
 
 When `/etc/config/salt-openwrt` does not exist, the `get()` call raises
-an exception. The state module catches it and defaults to `auto` mode,
+an exception. The state module catches it and defaults to `oneshot` mode,
 preserving backward compatibility.
 
 ```{mermaid}
@@ -295,9 +287,9 @@ sequenceDiagram
     State->>UCI: get("salt-openwrt", "global")
     UCI--xState: Exception (config not found)
 
-    Note over State: Catch exception<br/>Default: enabled=True, mode="auto"
+    Note over State: Catch exception<br/>Default: enabled=True, mode="oneshot"
 
-    Note over State: Continue with full auto flow...
+    Note over State: Continue with full oneshot flow...
 ```
 
 ## Pending deltas handling
@@ -314,7 +306,7 @@ sequenceDiagram
 
     Master->>State: managed(config, sections)
     State->>UCI: get("salt-openwrt", "global")
-    UCI-->>State: {enabled: "1", mode: "auto"}
+    UCI-->>State: {enabled: "1", mode: "oneshot"}
 
     State->>UCI: changes(config)
     UCI-->>State: {section: {option: delta}}

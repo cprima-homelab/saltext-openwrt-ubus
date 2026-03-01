@@ -1,5 +1,5 @@
 Package: salt-openwrt
-Version: 0.1.0-1
+Version: 0.1.1-1
 Section: admin
 Architecture: all
 Maintainer: Christian Prior-Mamulyan <cprior@gmail.com>

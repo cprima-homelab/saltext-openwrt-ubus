@@ -24,17 +24,20 @@ return view.extend({
 			_('Controls what Salt is allowed to do on this device.'));
 		o.value('audit', _('Audit') + ' -- ' +
 			_('Read-only. Salt reports configuration drift but makes no changes.'));
-		o.value('manual', _('Manual') + ' -- ' +
-			_('Salt stages changes but does not apply them. ' +
-			  'An operator reviews and activates.'));
-		o.value('auto', _('Auto') + ' -- ' +
-			_('Full automation. Salt applies changes with rollback protection.'));
+		o.value('oneshot', _('Oneshot') + ' -- ' +
+			_('Full automation. Salt stages, applies, verifies, and confirms in one run.'));
+		o.value('autoverified', _('Autoverified') + ' -- ' +
+			_('Salt stages changes in one run. A separate applied() state activates them ' +
+			  'with rollback protection.'));
+		o.value('humanreviewed', _('Human-reviewed') + ' -- ' +
+			_('Reserved for future LuCI approval gate. Currently behaves like autoverified.'));
 		o.default = 'audit';
 
-		o = s.option(form.Flag, 'require_commit', _('Require explicit commit'),
-			_('Reserved for future use.'));
-		o.rmempty = false;
-		o.default = '0';
+		o = s.option(form.Value, 'rollback_timeout', _('Rollback timeout (seconds)'),
+			_('Seconds to wait before auto-reverting unapplied changes. ' +
+			  'Used by oneshot mode and the applied() state.'));
+		o.datatype = 'uinteger';
+		o.default = '120';
 
 		o = s.option(form.DummyValue, 'last_run', _('Last state run'));
 		o.placeholder = _('No data');
