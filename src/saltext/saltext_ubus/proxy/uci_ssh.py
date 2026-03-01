@@ -20,6 +20,7 @@ as the JSON-RPC adapter.
 
 import json
 import logging
+import shlex
 
 from saltext.saltext_ubus.utils.ssh import SshRunner
 
@@ -102,7 +103,7 @@ def call(ubus_object, ubus_method, params=None):
     """
     cmd = f"ubus call {ubus_object} {ubus_method}"
     if params is not None:
-        cmd += f" '{json.dumps(params)}'"
+        cmd += f" {shlex.quote(json.dumps(params))}"
 
     runner = DETAILS["runner"]
     output = runner.run(cmd)

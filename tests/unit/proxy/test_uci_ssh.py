@@ -5,6 +5,7 @@ All tests mock the SshRunner. No SSH connections are made.
 """
 
 import json
+import shlex
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
@@ -189,8 +190,9 @@ class TestCall:
         proxy_mod.DETAILS["runner"] = mock_runner
         mock_runner.run.side_effect = None
         mock_runner.run.return_value = json.dumps({"values": {"lan": {}}})
-        result = proxy_mod.call("uci", "get", {"config": "network"})
-        expected_cmd = 'ubus call uci get \'{"config": "network"}\''
+        params = {"config": "network"}
+        result = proxy_mod.call("uci", "get", params)
+        expected_cmd = f"ubus call uci get {shlex.quote(json.dumps(params))}"
         mock_runner.run.assert_called_with(expected_cmd)
         assert result == {"values": {"lan": {}}}
 
@@ -200,6 +202,46 @@ class TestCall:
         mock_runner.run.return_value = ""
         result = proxy_mod.call("uci", "set", {"config": "network", "section": "lan", "values": {}})
         assert result is None
+
+    def test_call_with_single_quote_in_value(self, mock_runner):
+        proxy_mod.DETAILS["runner"] = mock_runner
+        mock_runner.run.side_effect = None
+        mock_runner.run.return_value = "{}"
+        params = {"config": "system", "section": "cfg01", "values": {"desc": "it's"}}
+        proxy_mod.call("uci", "set", params)
+        actual_cmd = mock_runner.run.call_args[0][0]
+        assert actual_cmd == f"ubus call uci set {shlex.quote(json.dumps(params))}"
+        # Verify the payload round-trips through JSON correctly
+        payload_str = actual_cmd.split("ubus call uci set ", 1)[1]
+        # shlex.split undoes the shell quoting
+        unquoted = shlex.split(payload_str)[0]
+        assert json.loads(unquoted) == params
+
+    def test_call_with_double_quote_in_value(self, mock_runner):
+        proxy_mod.DETAILS["runner"] = mock_runner
+        mock_runner.run.side_effect = None
+        mock_runner.run.return_value = "{}"
+        params = {"config": "system", "section": "cfg01", "values": {"desc": 'say "hi"'}}
+        proxy_mod.call("uci", "set", params)
+        actual_cmd = mock_runner.run.call_args[0][0]
+        assert actual_cmd == f"ubus call uci set {shlex.quote(json.dumps(params))}"
+        payload_str = actual_cmd.split("ubus call uci set ", 1)[1]
+        unquoted = shlex.split(payload_str)[0]
+        assert json.loads(unquoted) == params
+
+    def test_call_with_shell_metacharacters(self, mock_runner):
+        proxy_mod.DETAILS["runner"] = mock_runner
+        mock_runner.run.side_effect = None
+        mock_runner.run.return_value = "{}"
+        params = {"config": "system", "section": "cfg01", "values": {"cmd": "$(whoami)"}}
+        proxy_mod.call("uci", "set", params)
+        actual_cmd = mock_runner.run.call_args[0][0]
+        assert actual_cmd == f"ubus call uci set {shlex.quote(json.dumps(params))}"
+        # The $() must NOT be expanded -- it should survive as literal text
+        assert "$(whoami)" in json.dumps(params)
+        payload_str = actual_cmd.split("ubus call uci set ", 1)[1]
+        unquoted = shlex.split(payload_str)[0]
+        assert json.loads(unquoted) == params
 
 
 class TestRunRaw:
