@@ -21,7 +21,7 @@ endef
 define Package/salt-agent-ubus/description
   Creates a salt-agent system user with rpcd login and installs ACL
   rules granting scoped access to UCI, network, and system ubus
-  objects via the JSON-RPC API. Used by the saltext-uci Salt extension
+  objects via the JSON-RPC API. Used by the saltext-ubus Salt extension
   to manage OpenWrt devices over HTTPS instead of SSH.
 endef
 
