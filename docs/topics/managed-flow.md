@@ -132,6 +132,15 @@ a session ID is present:
   standard tooling and auto-cleaned when the session expires (~300s).
   Salt must `uci commit` to persist changes to `/etc/config/`.
 
+**Current gap:** The activation step (operator runs `uci apply`) has no
+rollback protection. rpcd's confirmed-commit mechanism (`uci apply
+{"rollback":true}` + `uci confirm`) works on both transports -- even
+over SSH via the local ubus socket -- but the extension does not yet
+provide a Salt-side command to trigger it after review. The operator
+must either use bare `uci apply` (no safety net) or manually run `ubus
+call uci apply '{"rollback":true,"timeout":120}'` + `ubus call uci
+confirm` on the device.
+
 ### Manual mode -- SSH transport
 
 ```{mermaid}
@@ -174,8 +183,17 @@ sequenceDiagram
 
     Note over Human: Later...
     Human->>Device: uci changes (review staged)
-    Human->>UCI: uci commit && uci apply
-    UCI-->>Human: Applied + services reloaded
+
+    alt Safe: apply with rollback (recommended)
+        Human->>UCI: ubus call uci apply '{"rollback":true,"timeout":120}'
+        UCI-->>Human: Applied + 120s rollback timer armed
+        Note over Human: Verify connectivity / config
+        Human->>UCI: ubus call uci confirm
+        UCI-->>Human: Timer cancelled, changes permanent
+    else Unsafe: bare apply (no rollback)
+        Human->>UCI: uci commit && uci apply
+        UCI-->>Human: Applied + services reloaded (no safety net)
+    end
 ```
 
 ### Manual mode -- JSON-RPC transport
@@ -227,8 +245,17 @@ sequenceDiagram
     State-->>Master: result=True, changes={...},<br/>"committed (not applied)"
 
     Note over Human: Later...
-    Human->>UCI: uci apply
-    UCI-->>Human: Services reloaded
+
+    alt Safe: apply with rollback (recommended)
+        Human->>UCI: uci apply {"rollback":true,"timeout":120}
+        UCI-->>Human: Applied + 120s rollback timer armed
+        Note over Human: Verify connectivity / config
+        Human->>UCI: uci confirm {}
+        UCI-->>Human: Timer cancelled, changes permanent
+    else Unsafe: bare apply (no rollback)
+        Human->>UCI: uci apply
+        UCI-->>Human: Services reloaded (no safety net)
+    end
 ```
 
 ## Disabled device

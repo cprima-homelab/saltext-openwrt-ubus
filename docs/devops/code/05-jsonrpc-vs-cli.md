@@ -39,7 +39,7 @@ Salt master -> HTTPS POST -> uhttpd -> rpcd -> ubus -> libubus
 | **List disambiguation**    | Requires schema/heuristic| Native (arrays vs strings)|
 | **Batch read**             | One `uci show` call      | One `uci.get` call        |
 | **Batch write**            | Multiple `uci set` calls | One `uci.set` with values object |
-| **Safe apply + rollback**  | Not available             | `apply(rollback=true)` + `confirm` |
+| **Safe apply + rollback**  | Via `ubus call uci apply` on local socket | `apply(rollback=true)` + `confirm` |
 | **Staged changes inspect** | `uci changes` (text)     | `uci.changes` (JSON array)|
 | **Device grains**          | Parse multiple files      | `system.board` + `system.info` |
 | **Runtime network state**  | `ip addr`, `ifstatus`    | `network.interface dump`  |
@@ -111,20 +111,44 @@ Metadata is structured. Anonymous flag is explicit.
 ```sh
 uci set network.lan.ipaddr='10.35.24.2'
 uci commit network
+reload_config
 # If this breaks connectivity, manual recovery required
 ```
 
-### JSON-RPC: set + commit + apply with rollback
+### CLI: set + apply with rollback (via local ubus socket)
+
+```sh
+uci set network.lan.ipaddr='10.35.24.2'
+ubus call uci apply '{"rollback":true,"timeout":30}'
+# Config is committed, services reloaded, 30s timer starts.
+# rpcd handles the rollback -- the mechanism is the same as JSON-RPC.
+ubus call uci confirm
+# Timer cancelled, change is permanent.
+# If confirm not sent: auto-revert after 30s.
+```
+
+The `ubus` CLI talks to rpcd via the local Unix socket. The confirmed
+commit cycle (snapshot, apply, arm timer, confirm/rollback) is handled
+entirely by rpcd, regardless of whether the request arrives over HTTPS
+or the local socket. The only difference is staging location: CLI `uci
+set` stages to `/tmp/.uci/`, JSON-RPC stages to the per-session
+directory `/var/run/rpcd/uci-<session_id>/`.
+
+### JSON-RPC: set + apply with rollback
 
 ```
 1. uci.set {config: "network", section: "lan", values: {ipaddr: "10.35.24.2"}}
-2. uci.commit {config: "network"}
-3. uci.apply {rollback: true, timeout: 30}
-   -- config is applied, 30s timer starts --
-4. uci.confirm {}
+2. uci.apply {rollback: true, timeout: 30}
+   -- commits staged changes, reloads services, 30s timer starts --
+3. uci.confirm {}
    -- timer cancelled, change is permanent --
    -- if confirm not sent: auto-revert after 30s --
 ```
+
+Note: `uci.apply` commits implicitly -- a separate `uci.commit` call
+before `uci.apply` is not required. rpcd snapshots `/etc/config/*`,
+commits from the staging directory, reloads services, and arms the
+rollback timer in a single operation.
 
 This is critical for remote management: a bad network change auto-reverts
 instead of bricking the device.

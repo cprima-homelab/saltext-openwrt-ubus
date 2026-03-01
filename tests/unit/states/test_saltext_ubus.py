@@ -342,7 +342,7 @@ class TestApplyFlow:
         patch_dunders["saltext_ubus.confirm"].assert_called_once()
         assert "applied, and confirmed" in ret["comment"]
 
-    def test_commit_only_when_apply_none_jsonrpc(self, patch_dunders, monkeypatch):
+    def test_stage_only_when_apply_none_jsonrpc(self, patch_dunders, monkeypatch):
         monkeypatch.setattr(
             state_mod,
             "__opts__",
@@ -352,7 +352,6 @@ class TestApplyFlow:
         patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
         patch_dunders["saltext_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
         patch_dunders["saltext_ubus.set"] = MagicMock()
-        patch_dunders["saltext_ubus.commit"] = MagicMock()
 
         ret = state_mod.managed(
             "test",
@@ -361,9 +360,9 @@ class TestApplyFlow:
             apply_rollback=None,
         )
         assert ret["result"] is True
-        assert "committed" in ret["comment"]
-        assert "not applied" in ret["comment"]
-        patch_dunders["saltext_ubus.commit"].assert_called_once_with("network")
+        assert "staged in rpcd session" in ret["comment"]
+        assert "saltext_ubus.applied" in ret["comment"]
+        assert "saltext_ubus.commit" not in patch_dunders
         assert "saltext_ubus.apply" not in patch_dunders
         assert "saltext_ubus.confirm" not in patch_dunders
 
@@ -526,7 +525,7 @@ class TestAgentMode:
         assert "audit mode -- no drift detected" in ret["comment"]
         assert not ret["changes"]
 
-    def test_manual_mode_jsonrpc_commits_no_apply(self, patch_dunders, monkeypatch):
+    def test_manual_mode_jsonrpc_stages_no_commit(self, patch_dunders, monkeypatch):
         monkeypatch.setattr(
             state_mod,
             "__opts__",
@@ -536,14 +535,13 @@ class TestAgentMode:
         patch_dunders["saltext_ubus.changes"] = MagicMock(return_value=[])
         patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=[AGENT_MANUAL, NETWORK_STATE])
         patch_dunders["saltext_ubus.set"] = MagicMock()
-        patch_dunders["saltext_ubus.commit"] = MagicMock()
 
         ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
         assert ret["result"] is True
-        assert "committed" in ret["comment"]
-        assert "not applied" in ret["comment"]
+        assert "staged in rpcd session" in ret["comment"]
+        assert "saltext_ubus.applied" in ret["comment"]
         patch_dunders["saltext_ubus.set"].assert_called_once()
-        patch_dunders["saltext_ubus.commit"].assert_called_once_with("network")
+        assert "saltext_ubus.commit" not in patch_dunders
         assert "saltext_ubus.apply" not in patch_dunders
         assert "saltext_ubus.confirm" not in patch_dunders
 
@@ -561,7 +559,7 @@ class TestAgentMode:
         ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
         assert ret["result"] is True
         assert "staged" in ret["comment"]
-        assert "uci changes" in ret["comment"]
+        assert "saltext_ubus.applied" in ret["comment"]
         patch_dunders["saltext_ubus.set"].assert_called_once()
         assert "saltext_ubus.commit" not in patch_dunders
         assert "saltext_ubus.apply" not in patch_dunders
@@ -599,3 +597,77 @@ class TestAgentMode:
         # Should proceed in auto mode, no drift
         assert ret["result"] is True
         assert "already in desired state" in ret["comment"]
+
+
+# --- Applied state ---
+
+
+class TestApplied:
+    def test_apply_confirm_cycle(self, patch_dunders):
+        patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=[AGENT_AUTO, NETWORK_STATE])
+        patch_dunders["saltext_ubus.apply"] = MagicMock()
+        patch_dunders["saltext_ubus.confirm"] = MagicMock()
+
+        ret = state_mod.applied("test", "network")
+        assert ret["result"] is True
+        assert "applied and confirmed" in ret["comment"]
+        patch_dunders["saltext_ubus.apply"].assert_called_once_with(rollback=120)
+        patch_dunders["saltext_ubus.confirm"].assert_called_once()
+
+    def test_disabled_skips(self, patch_dunders):
+        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=AGENT_DISABLED)
+
+        ret = state_mod.applied("test", "network")
+        assert ret["result"] is True
+        assert "salt-openwrt disabled" in ret["comment"]
+        patch_dunders["saltext_ubus.get"].assert_called_once_with("salt-openwrt", "global")
+
+    def test_test_mode(self, patch_dunders, monkeypatch):
+        monkeypatch.setattr(state_mod, "__opts__", {"test": True}, raising=False)
+        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=AGENT_AUTO)
+
+        ret = state_mod.applied("test", "network")
+        assert ret["result"] is None
+        assert "would apply" in ret["comment"]
+        assert "saltext_ubus.apply" not in patch_dunders
+
+    def test_apply_failure(self, patch_dunders):
+        patch_dunders["saltext_ubus.get"] = MagicMock(return_value=AGENT_AUTO)
+        patch_dunders["saltext_ubus.apply"] = MagicMock(side_effect=RuntimeError("connection lost"))
+
+        ret = state_mod.applied("test", "network")
+        assert ret["result"] is False
+        assert "Failed to apply" in ret["comment"]
+        assert "connection lost" in ret["comment"]
+
+    def test_verify_failure(self, patch_dunders):
+        patch_dunders["saltext_ubus.get"] = MagicMock(
+            side_effect=[AGENT_AUTO, RuntimeError("device unreachable")]
+        )
+        patch_dunders["saltext_ubus.apply"] = MagicMock()
+
+        ret = state_mod.applied("test", "network")
+        assert ret["result"] is False
+        assert "Failed to verify" in ret["comment"]
+        assert "Rollback will revert" in ret["comment"]
+
+    def test_confirm_failure(self, patch_dunders):
+        patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=[AGENT_AUTO, NETWORK_STATE])
+        patch_dunders["saltext_ubus.apply"] = MagicMock()
+        patch_dunders["saltext_ubus.confirm"] = MagicMock(
+            side_effect=RuntimeError("confirm failed")
+        )
+
+        ret = state_mod.applied("test", "network")
+        assert ret["result"] is False
+        assert "Failed to confirm" in ret["comment"]
+        assert "Rollback will revert" in ret["comment"]
+
+    def test_custom_rollback(self, patch_dunders):
+        patch_dunders["saltext_ubus.get"] = MagicMock(side_effect=[AGENT_AUTO, NETWORK_STATE])
+        patch_dunders["saltext_ubus.apply"] = MagicMock()
+        patch_dunders["saltext_ubus.confirm"] = MagicMock()
+
+        ret = state_mod.applied("test", "network", rollback=180)
+        assert ret["result"] is True
+        patch_dunders["saltext_ubus.apply"].assert_called_once_with(rollback=180)

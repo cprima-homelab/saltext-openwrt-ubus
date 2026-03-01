@@ -177,12 +177,64 @@ Then configure the salt rpcd login with `list read 'saltext-ubus'` and
 3. **Expire**: Token auto-expires after `timeout` seconds of inactivity
 4. **Refresh**: Each successful call resets the expiry timer
 
-There is no explicit logout. Sessions are stored in memory and lost on
-rpcd restart.
+There is no explicit logout. Sessions are stored in rpcd process memory
+(not persisted to disk) and lost on rpcd restart.
+
+### Per-Session UCI Staging
+
+rpcd isolates uncommitted UCI changes by session. When a session-bearing
+`uci.set` call arrives, rpcd directs libuci to write delta files to a
+per-session directory:
+
+```
+/var/run/rpcd/uci-<session_id_hex>/
+```
+
+This means:
+
+- Changes made in one rpcd session are invisible to other sessions until
+  committed.
+- CLI `uci set` commands (run as root on the device) stage to the default
+  `/tmp/.uci/` directory, which is separate from any rpcd session.
+- When a session expires, rpcd calls `rpc_uci_purge_savedir_cb` which
+  deletes the entire per-session directory. All uncommitted changes for
+  that session are silently discarded.
+
+This is the first layer of safety: if a user starts changes in LuCI and
+walks away (session times out after ~300s), the staged changes vanish.
+
+### Apply / Confirm / Rollback
+
+rpcd implements a confirmed-commit cycle via three `uci` methods:
+
+| Method    | What it does |
+|-----------|-------------|
+| `apply`   | Snapshot `/etc/config/*` to `/var/run/rpcd/snapshot-files/`, commit staged changes, reload services via procd, arm a uloop rollback timer |
+| `confirm` | Cancel the rollback timer, purge snapshots -- changes become permanent |
+| `rollback`| Restore snapshots to `/etc/config/`, reload services -- device reverts to pre-apply state |
+
+When `apply` is called with `{"rollback": true, "timeout": N}`:
+
+1. rpcd copies current `/etc/config/*` files to `/var/run/rpcd/snapshot-files/`
+2. Commits staged changes (from `/tmp/.uci/` or the session directory) to `/etc/config/`
+3. Triggers procd service reloads via ubus events
+4. Arms a timer for N seconds
+
+If `confirm` arrives before the timer fires, the snapshots are purged and
+changes are permanent. If the timer fires without confirmation, rpcd
+restores the snapshots and reloads services -- the device reverts
+automatically.
+
+Only one rollback session can be active at a time. A second `apply` with
+`rollback=true` while a timer is running returns `UBUS_STATUS_PERMISSION_DENIED`.
+
+This mechanism works identically whether the request arrives over HTTPS
+(JSON-RPC) or the local ubus socket (`ubus call` CLI over SSH).
 
 ## Security Notes
 
-- rpcd sessions are per-process; restarting rpcd invalidates all sessions
+- rpcd sessions are in-memory only; restarting rpcd invalidates all
+  sessions and discards all per-session staging directories
 - `$p$<user>` reads the password hash from `/etc/shadow` (not `/etc/passwd`)
 - The user must have an `/etc/shadow` entry for `$p$` to work
 - ACL `*` for read/write grants all defined access groups but does NOT
@@ -190,3 +242,6 @@ rpcd restart.
   status`, even `*` cannot access it
 - uhttpd redirects HTTP to HTTPS by default; self-signed cert
 - Session tokens are transmitted in the JSON body, not cookies or headers
+- The local ubus Unix socket bypasses rpcd session/ACL checks entirely;
+  processes with socket access (typically root) have full ubus access
+  including `uci apply`, `uci confirm`, and `uci rollback`

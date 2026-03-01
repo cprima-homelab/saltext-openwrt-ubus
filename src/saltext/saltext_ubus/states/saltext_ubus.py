@@ -143,6 +143,76 @@ def managed(name, config, sections, apply_rollback=90, revert_pending=False):
     return ret
 
 
+def applied(name, config, rollback=120):
+    """
+    Apply staged UCI changes with rollback protection.
+
+    Use after ``managed()`` in manual mode to safely activate changes
+    that have been reviewed. In auto mode, ``managed()`` handles apply
+    and confirm internally -- this state is not needed.
+
+    The rpcd confirmed-commit cycle:
+
+    1. ``uci apply`` snapshots ``/etc/config/*``, commits staged
+       changes, reloads services, and arms a rollback timer.
+    2. This state verifies connectivity by reading the config back.
+    3. On success, ``uci confirm`` cancels the timer -- changes are
+       permanent.
+    4. On failure (device unreachable), the timer expires and rpcd
+       auto-reverts to the snapshot.
+
+    Args:
+        name: State ID.
+        config: UCI package name (e.g., ``'network'``).
+        rollback: Rollback timeout in seconds (default 120).
+    """
+    ret = {"name": name, "changes": {}, "result": True, "comment": ""}
+
+    # 1. Check agent enabled
+    enabled, _ = _get_agent_mode()
+    if not enabled:
+        ret["comment"] = f"{config}: salt-openwrt disabled on device, skipping"
+        return ret
+
+    # 2. Test mode
+    if __opts__["test"]:
+        ret["result"] = None
+        ret["comment"] = f"{config}: would apply staged changes with {rollback}s rollback"
+        return ret
+
+    # 3. Apply with rollback timer
+    try:
+        __salt__["saltext_ubus.apply"](rollback=rollback)
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        ret["result"] = False
+        ret["comment"] = f"Failed to apply {config}: {exc}"
+        return ret
+
+    # 4. Verify connectivity by reading config back
+    try:
+        __salt__["saltext_ubus.get"](config)
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        ret["result"] = False
+        ret["comment"] = (
+            f"Failed to verify {config} after apply: {exc}. "
+            f"Rollback will revert in {rollback}s."
+        )
+        return ret
+
+    # 5. Confirm -- cancel rollback timer, changes permanent
+    try:
+        __salt__["saltext_ubus.confirm"]()
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        ret["result"] = False
+        ret["comment"] = (
+            f"Failed to confirm {config}: {exc}. " f"Rollback will revert in {rollback}s."
+        )
+        return ret
+
+    ret["comment"] = f"{config}: applied and confirmed"
+    return ret
+
+
 def _get_agent_mode():
     """Read salt-openwrt config from the device. Returns (enabled, mode)."""
     try:
@@ -229,37 +299,26 @@ def _stage_changes(ret, config, all_changes, resolved, current):
 def _commit_or_apply(ret, config, all_changes, apply_rollback):
     """Commit or apply depending on rollback setting and transport type."""
     if apply_rollback is None:
-        # Manual mode: SSH stages to /tmp/.uci/ (reviewable via 'uci changes'),
-        # JSON-RPC must commit because session-scoped staging is ephemeral.
+        # Manual mode: leave changes staged for applied() to commit+reload
+        # with rollback protection.  SSH stages to /tmp/.uci/ (reviewable
+        # via 'uci changes'), JSON-RPC stages in the rpcd session (kept
+        # alive by the proxy minion).
         if _is_json_rpc():
-            _commit_only(ret, config)
-            if ret["result"] is False:
-                return
             ret["comment"] = (
-                f"{config}: {len(all_changes)} section(s) committed "
-                f"(not applied, services not reloaded)"
+                f"{config}: {len(all_changes)} section(s) staged in rpcd session "
+                f"(apply with saltext_ubus.applied)"
             )
         else:
-            # SSH: changes already staged in /tmp/.uci/, nothing more to do
             ret["comment"] = (
                 f"{config}: {len(all_changes)} section(s) staged "
                 f"(review with 'uci changes {config}', "
-                f"then 'uci commit {config} && uci apply')"
+                f"then apply with saltext_ubus.applied)"
             )
     else:
         _apply_and_confirm(ret, config, all_changes, apply_rollback)
         if ret["result"] is False:
             return
         ret["comment"] = f"{config}: {len(all_changes)} section(s) updated, applied, and confirmed"
-
-
-def _commit_only(ret, config):
-    """Commit staged changes to /etc/config without reloading services."""
-    try:
-        __salt__["saltext_ubus.commit"](config)
-    except Exception as exc:  # pylint: disable=broad-exception-caught
-        ret["result"] = False
-        ret["comment"] = f"Failed to commit {config}: {exc}"
 
 
 def _apply_and_confirm(ret, config, all_changes, apply_rollback):

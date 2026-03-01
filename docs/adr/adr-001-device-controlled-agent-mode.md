@@ -54,10 +54,20 @@ before any write operations.
   call `uci apply` or `uci confirm`. The staging behavior is
   transport-aware:
   - *SSH*: changes stage to `/tmp/.uci/`, visible to `uci changes`.
-    The operator reviews and activates with `uci commit && uci apply`.
+    The operator reviews and activates manually.
   - *JSON-RPC*: changes are session-scoped (`/var/run/rpcd/uci-<sid>/`)
-    and would be lost when the session expires. Salt calls `uci commit`
-    to persist to `/etc/config/`. The operator activates with `uci apply`.
+    and would be lost when the session expires (~300s). Salt calls
+    `uci commit` to persist to `/etc/config/`. The operator activates
+    with `uci apply`.
+
+  **Gap (v0.2):** manual mode currently tells the operator to run bare
+  `uci commit && uci apply` (SSH) or `uci apply` (JSON-RPC) with no
+  rollback safety net. rpcd's confirmed-commit mechanism (`uci apply
+  {"rollback":true}` + `uci confirm`) is available on both transports
+  but manual mode does not yet expose a way to trigger it. A future
+  `saltext_ubus.applied` state or `saltext_ubus.apply_checked` execution
+  module function would let the operator apply staged changes with the
+  same rollback protection that auto mode uses.
 - **auto** -- Salt applies changes with rollback safety (existing
   behavior). Full automation.
 
