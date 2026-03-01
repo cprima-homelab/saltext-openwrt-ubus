@@ -75,6 +75,7 @@ class UbusRpcClient:
         self.timeout = timeout
         self._session = None
         self._session_expires = 0
+        self._session_timeout = 0
         self._req_id = 0
 
         self._ssl_ctx = ssl.create_default_context()
@@ -129,9 +130,15 @@ class UbusRpcClient:
             raise UbusError(status)
         data = result["result"][1]
         self._session = data["ubus_rpc_session"]
-        self._session_expires = time.monotonic() + data.get("timeout", 300) - 10
+        self._session_timeout = data.get("timeout", 300)
+        self._session_expires = time.monotonic() + self._session_timeout - 10
         log.debug("ubus login OK, session=%s...%s", self._session[:8], self._session[-4:])
         return self._session
+
+    @property
+    def session_timeout(self):
+        """Return the session timeout reported by rpcd at login."""
+        return self._session_timeout
 
     def _ensure_session(self):
         """Re-login if the session has expired or was never created."""

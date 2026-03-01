@@ -5,6 +5,7 @@
 			"ubus": {
 				"session": ["access", "login"],
 				"system": ["board", "info"],
+				"service": ["list"],
 				"network": ["get_proto_handlers"],
 				"network.device": ["status"],
 				"network.interface": ["dump"],

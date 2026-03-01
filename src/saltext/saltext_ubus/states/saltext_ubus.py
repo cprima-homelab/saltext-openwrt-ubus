@@ -12,8 +12,12 @@ field.
 """
 
 import logging
+import time
 
 log = logging.getLogger(__name__)
+
+POLL_INTERVAL = 3  # seconds between service polls
+SAFETY_MARGIN_FRACTION = 4  # use rollback // 4 as margin, min 10s
 
 __virtualname__ = "saltext_ubus"
 __proxyenabled__ = ["saltext_ubus_jsonrpc", "saltext_ubus_ssh"]
@@ -25,7 +29,7 @@ def __virtual__():
     return __virtualname__
 
 
-def managed(name, config, sections, apply_rollback=90, revert_pending=False):
+def managed(name, config, sections, apply_rollback=None, revert_pending=False):
     """
     Ensure named UCI sections match desired state.
 
@@ -38,9 +42,9 @@ def managed(name, config, sections, apply_rollback=90, revert_pending=False):
         sections: Dict of ``{section_name: {option: value, ...}}``.
             Keys starting with ``_`` trigger singleton anonymous section
             lookup by the ``_type`` field.
-        apply_rollback: Rollback timeout in seconds. ``None`` = stage
-            changes only (do not commit or reload). Default ``90`` =
-            commit + reload with 90s rollback safety net.
+        apply_rollback: Rollback timeout in seconds. ``None`` (default)
+            = resolve from device ``rollback_timeout`` config in oneshot
+            mode, or stage only in autoverified/humanreviewed mode.
         revert_pending: If ``True``, silently revert uncommitted deltas
             before proceeding. If ``False`` (default), fail when pending
             deltas exist to prevent discarding someone else's staged
@@ -62,7 +66,7 @@ def managed(name, config, sections, apply_rollback=90, revert_pending=False):
     ret = {"name": name, "changes": {}, "result": True, "comment": ""}
 
     # 1. Check agent mode
-    enabled, mode = _get_agent_mode()
+    enabled, mode, rollback_timeout = _get_agent_mode()
     if not enabled:
         ret["comment"] = f"{config}: salt-openwrt disabled on device, skipping"
         return ret
@@ -114,11 +118,15 @@ def managed(name, config, sections, apply_rollback=90, revert_pending=False):
         )
         return ret
 
-    # 6. Manual mode -- stage only, do not apply
-    if mode == "manual":
+    # 6. Autoverified / humanreviewed mode -- stage only, do not apply
+    if mode in ("autoverified", "humanreviewed"):
         apply_rollback = None
 
-    # 7. Test mode
+    # 7. Resolve apply_rollback default for oneshot mode
+    if apply_rollback is None and mode == "oneshot":
+        apply_rollback = rollback_timeout
+
+    # 8. Test mode
     if __opts__["test"]:
         ret["result"] = None
         ret["changes"] = all_changes
@@ -129,12 +137,12 @@ def managed(name, config, sections, apply_rollback=90, revert_pending=False):
         ret["comment"] = f"{config}: {'; '.join(parts)}"
         return ret
 
-    # 8. Stage uci.set calls
+    # 9. Stage uci.set calls
     _stage_changes(ret, config, all_changes, resolved, current)
     if ret["result"] is False:
         return ret
 
-    # 9. Commit or apply
+    # 10. Commit or apply
     _commit_or_apply(ret, config, all_changes, apply_rollback)
     if ret["result"] is False:
         return ret
@@ -143,86 +151,107 @@ def managed(name, config, sections, apply_rollback=90, revert_pending=False):
     return ret
 
 
-def applied(name, config, rollback=120):
+def applied(name, config=None, rollback=None):
     """
-    Apply staged UCI changes with rollback protection.
+    Apply staged UCI changes with rollback protection and service
+    health verification.
 
-    Use after ``managed()`` in manual mode to safely activate changes
-    that have been reviewed. In auto mode, ``managed()`` handles apply
-    and confirm internally -- this state is not needed.
+    Use after ``managed()`` in autoverified mode to safely activate
+    changes that have been staged. In oneshot mode, ``managed()``
+    handles apply and confirm internally -- this state is not needed.
 
     The rpcd confirmed-commit cycle:
 
     1. ``uci apply`` snapshots ``/etc/config/*``, commits staged
        changes, reloads services, and arms a rollback timer.
-    2. This state verifies connectivity by reading the config back.
-    3. On success, ``uci confirm`` cancels the timer -- changes are
-       permanent.
-    4. On failure (device unreachable), the timer expires and rpcd
-       auto-reverts to the snapshot.
+    2. This state polls ``service list`` until all previously-running
+       services show ``running=true`` again.
+    3. ``uci confirm`` cancels the timer -- changes are permanent.
+    4. If services crash or fail to restart, confirm is NOT called
+       and rpcd auto-reverts when the timer expires.
 
     Args:
         name: State ID.
-        config: UCI package name (e.g., ``'network'``).
-        rollback: Rollback timeout in seconds (default 120).
+        config: UCI package name. Optional, used only for labeling.
+        rollback: Rollback timeout in seconds. Default ``None`` =
+            resolved from device ``rollback_timeout`` config.
     """
     ret = {"name": name, "changes": {}, "result": True, "comment": ""}
+    label = config or "all"
 
     # 1. Check agent enabled
-    enabled, _ = _get_agent_mode()
+    enabled, _, rollback_timeout = _get_agent_mode()
     if not enabled:
-        ret["comment"] = f"{config}: salt-openwrt disabled on device, skipping"
+        ret["comment"] = f"{label}: salt-openwrt disabled on device, skipping"
         return ret
+
+    # Resolve rollback default from device config
+    if rollback is None:
+        rollback = rollback_timeout
 
     # 2. Test mode
     if __opts__["test"]:
         ret["result"] = None
-        ret["comment"] = f"{config}: would apply staged changes with {rollback}s rollback"
+        ret["comment"] = f"{label}: would apply staged changes with {rollback}s rollback"
         return ret
 
-    # 3. Apply with rollback timer
+    # 3. Snapshot running services before apply
+    snapshot = _snapshot_services()
+
+    # 4. Apply with rollback timer
     try:
         __salt__["saltext_ubus.apply"](rollback=rollback)
     except Exception as exc:  # pylint: disable=broad-exception-caught
+        # ubus status 5 = "No data" means nothing to apply
+        if "status 5" in str(exc) or "No data" in str(exc):
+            ret["comment"] = f"{label}: nothing to apply"
+            return ret
         ret["result"] = False
-        ret["comment"] = f"Failed to apply {config}: {exc}"
+        ret["comment"] = f"Failed to apply {label}: {exc}"
         return ret
 
-    # 4. Verify connectivity by reading config back
-    try:
-        __salt__["saltext_ubus.get"](config)
-    except Exception as exc:  # pylint: disable=broad-exception-caught
+    # 5. Poll services until all previously-running are back
+    all_ok, down = _wait_for_services(snapshot, rollback)
+    if not all_ok:
         ret["result"] = False
         ret["comment"] = (
-            f"Failed to verify {config} after apply: {exc}. "
-            f"Rollback will revert in {rollback}s."
+            f"{label}: services not recovered after apply, "
+            f"NOT confirming (rollback will revert in {rollback}s). "
+            f"Down: {', '.join(down)}"
         )
         return ret
 
-    # 5. Confirm -- cancel rollback timer, changes permanent
+    # 6. Confirm -- cancel rollback timer, changes permanent
     try:
         __salt__["saltext_ubus.confirm"]()
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = (
-            f"Failed to confirm {config}: {exc}. " f"Rollback will revert in {rollback}s."
+            f"Failed to confirm {label}: {exc}. " f"Rollback will revert in {rollback}s."
         )
         return ret
 
-    ret["comment"] = f"{config}: applied and confirmed"
+    svc_note = ""
+    if snapshot:
+        svc_note = f" ({len(snapshot)} service(s) verified running)"
+    ret["comment"] = f"{label}: applied and confirmed{svc_note}"
     return ret
 
 
 def _get_agent_mode():
-    """Read salt-openwrt config from the device. Returns (enabled, mode)."""
+    """Read salt-openwrt config from the device. Returns (enabled, mode, rollback_timeout)."""
     try:
         agent = __salt__["saltext_ubus.get"]("salt-openwrt", "global")
     except Exception:  # pylint: disable=broad-exception-caught
-        log.debug("salt-openwrt config not found, defaulting to auto mode")
-        return True, "auto"
+        log.debug("salt-openwrt config not found, defaulting to oneshot mode")
+        return True, "oneshot", 120
     enabled = agent.get("enabled", "1") == "1"
-    mode = agent.get("mode", "auto")
-    return enabled, mode
+    mode = agent.get("mode", "oneshot")
+    try:
+        rollback_timeout = int(agent.get("rollback_timeout", "120"))
+    except (ValueError, TypeError):
+        rollback_timeout = 120
+    return enabled, mode, rollback_timeout
 
 
 def _is_json_rpc():
@@ -299,10 +328,10 @@ def _stage_changes(ret, config, all_changes, resolved, current):
 def _commit_or_apply(ret, config, all_changes, apply_rollback):
     """Commit or apply depending on rollback setting and transport type."""
     if apply_rollback is None:
-        # Manual mode: leave changes staged for applied() to commit+reload
-        # with rollback protection.  SSH stages to /tmp/.uci/ (reviewable
-        # via 'uci changes'), JSON-RPC stages in the rpcd session (kept
-        # alive by the proxy minion).
+        # Autoverified / humanreviewed mode: leave changes staged for
+        # applied() to commit+reload with rollback protection.  SSH stages
+        # to /tmp/.uci/ (reviewable via 'uci changes'), JSON-RPC stages in
+        # the rpcd session (kept alive by the proxy minion).
         if _is_json_rpc():
             ret["comment"] = (
                 f"{config}: {len(all_changes)} section(s) staged in rpcd session "
@@ -322,7 +351,10 @@ def _commit_or_apply(ret, config, all_changes, apply_rollback):
 
 
 def _apply_and_confirm(ret, config, all_changes, apply_rollback):
-    """Apply changes, verify, and confirm."""
+    """Apply changes, verify UCI values, check services, and confirm."""
+    # Snapshot running services before apply
+    snapshot = _snapshot_services()
+
     try:
         __salt__["saltext_ubus.apply"](rollback=apply_rollback)
     except Exception as exc:  # pylint: disable=broad-exception-caught
@@ -330,6 +362,7 @@ def _apply_and_confirm(ret, config, all_changes, apply_rollback):
         ret["comment"] = f"Failed to apply {config}: {exc}"
         return
 
+    # Verify UCI values were written correctly
     try:
         new_state = __salt__["saltext_ubus.get"](config)
     except Exception as exc:  # pylint: disable=broad-exception-caught
@@ -353,6 +386,17 @@ def _apply_and_confirm(ret, config, all_changes, apply_rollback):
                 )
                 return
 
+    # Check that services recovered after apply
+    all_ok, down = _wait_for_services(snapshot, apply_rollback)
+    if not all_ok:
+        ret["result"] = False
+        ret["comment"] = (
+            f"{config}: services not recovered after apply, "
+            f"NOT confirming (rollback will revert in {apply_rollback}s). "
+            f"Down: {', '.join(down)}"
+        )
+        return
+
     try:
         __salt__["saltext_ubus.confirm"]()
     except Exception as exc:  # pylint: disable=broad-exception-caught
@@ -360,6 +404,77 @@ def _apply_and_confirm(ret, config, all_changes, apply_rollback):
         ret["comment"] = (
             f"Failed to confirm {config}: {exc}. " f"Rollback will revert in {apply_rollback}s."
         )
+
+
+def _snapshot_services():
+    """
+    Snapshot currently running services via ``service list``.
+
+    Returns dict of ``{service_name: {instance_name: pid}}`` for running
+    instances only. Services with no running instances are skipped.
+    """
+    try:
+        services = __salt__["saltext_ubus.service_list"]()
+    except Exception:  # pylint: disable=broad-exception-caught
+        log.debug("Could not snapshot services, skipping health check")
+        return {}
+
+    if not services:
+        return {}
+
+    snapshot = {}
+    for svc_name, svc_data in services.items():
+        instances = svc_data.get("instances", {})
+        running = {}
+        for inst_name, inst_data in instances.items():
+            if inst_data.get("running"):
+                running[inst_name] = inst_data.get("pid")
+        if running:
+            snapshot[svc_name] = running
+    return snapshot
+
+
+def _wait_for_services(snapshot, rollback):
+    """
+    Poll ``service list`` until all previously-running services are back.
+
+    Returns ``(all_ok, down)`` where ``down`` is a list of
+    ``"service/instance"`` strings for services still not running.
+    Stops polling with a safety margin before the rollback deadline.
+    """
+    if not snapshot:
+        return True, []
+
+    safety_margin = max(10, rollback // SAFETY_MARGIN_FRACTION)
+    deadline = time.monotonic() + rollback - safety_margin
+
+    while True:
+        time.sleep(POLL_INTERVAL)
+
+        try:
+            services = __salt__["saltext_ubus.service_list"]()
+        except Exception:  # pylint: disable=broad-exception-caught
+            log.debug("service_list poll failed, will retry")
+            if time.monotonic() >= deadline:
+                # Can't verify -- treat as failure
+                down = [f"{svc}/{inst}" for svc, insts in snapshot.items() for inst in insts]
+                return False, down
+            continue
+
+        down = []
+        for svc_name, instances in snapshot.items():
+            svc_data = (services or {}).get(svc_name, {})
+            svc_instances = svc_data.get("instances", {})
+            for inst_name in instances:
+                inst_data = svc_instances.get(inst_name, {})
+                if not inst_data.get("running"):
+                    down.append(f"{svc_name}/{inst_name}")
+
+        if not down:
+            return True, []
+
+        if time.monotonic() >= deadline:
+            return False, down
 
 
 def _resolve_sections(config, sections, current):

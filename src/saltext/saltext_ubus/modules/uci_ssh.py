@@ -254,3 +254,20 @@ def network_dump():
         salt router saltext_ubus.network_dump
     """
     return ubus_ops.network_dump(_call)
+
+
+# --- Service info ---
+
+
+def service_list(verbose=False):
+    """
+    Return procd service list.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt router saltext_ubus.service_list
+        salt router saltext_ubus.service_list verbose=True
+    """
+    return ubus_ops.service_list(_call, verbose)

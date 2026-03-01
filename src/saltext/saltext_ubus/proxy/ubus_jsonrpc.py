@@ -18,6 +18,7 @@ OpenWrt configuration management through the ubus API.
 """
 
 import logging
+import time
 import urllib.error
 
 from saltext.saltext_ubus.utils.rpc import UbusRpcClient
@@ -28,6 +29,10 @@ __virtualname__ = "saltext_ubus_jsonrpc"
 __proxyenabled__ = ["saltext_ubus_jsonrpc"]
 
 DETAILS = {}
+
+# rpcd's compiled-in default is 300s. Sessions shorter than this cause
+# staged UCI changes to be lost between state runs.
+MIN_SESSION_TIMEOUT = 300
 
 
 def __virtual__():
@@ -50,6 +55,7 @@ def init(opts):
         timeout=proxy_conf.get("timeout", 30),
     )
     client.login()
+    _ensure_rpcd_timeout(client)
     DETAILS["client"] = client
     DETAILS["grains_cache"] = _fetch_grains(client)
     DETAILS["initialized"] = True
@@ -105,6 +111,41 @@ def call(ubus_object, ubus_method, params=None):
         log.warning("Transport error during ubus call %s.%s: %s", ubus_object, ubus_method, exc)
         DETAILS["initialized"] = False
         raise
+
+
+def _ensure_rpcd_timeout(client):
+    """Increase rpcd session timeout if it is below the minimum.
+
+    Staged UCI changes live in the rpcd session. A short timeout causes
+    changes to vanish between state runs. This sets the rpcd config to
+    the compiled-in default (300s) if the device has a lower value,
+    reloads rpcd, and re-authenticates with the longer session.
+    """
+    if client.session_timeout >= MIN_SESSION_TIMEOUT:
+        return
+    log.info(
+        "rpcd session timeout is %ds (need %ds), updating rpcd config",
+        client.session_timeout,
+        MIN_SESSION_TIMEOUT,
+    )
+    try:
+        client.call(
+            "uci",
+            "set",
+            {
+                "config": "rpcd",
+                "section": "@rpcd[0]",
+                "values": {"timeout": str(MIN_SESSION_TIMEOUT)},
+            },
+        )
+        client.call("uci", "commit", {"config": "rpcd"})
+        client.call("uci", "reload_config")
+    except Exception:  # pylint: disable=broad-exception-caught
+        # reload_config restarts rpcd, which may kill our connection
+        pass
+    time.sleep(2)
+    client.login()
+    log.info("rpcd session timeout now %ds", client.session_timeout)
 
 
 def _fetch_grains(client):

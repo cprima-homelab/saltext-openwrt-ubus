@@ -47,6 +47,7 @@ def clean_details():
 def mock_client():
     """Create a mock RPC client."""
     client = MagicMock()
+    client.session_timeout = 300
     client.call.side_effect = lambda obj, method, params=None: {
         ("system", "board"): BOARD_RESPONSE,
         ("system", "info"): INFO_RESPONSE,
@@ -58,6 +59,7 @@ class TestInit:
     @patch("saltext.saltext_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_creates_client_and_logs_in(self, mock_client_cls):
         mock_instance = MagicMock()
+        mock_instance.session_timeout = 300
         mock_instance.call.side_effect = lambda obj, method, params=None: {
             ("system", "board"): BOARD_RESPONSE,
             ("system", "info"): INFO_RESPONSE,
@@ -91,6 +93,7 @@ class TestInit:
     def test_default_username(self, mock_client_cls):
         """init() without explicit username defaults to salt-agent."""
         mock_instance = MagicMock()
+        mock_instance.session_timeout = 300
         mock_instance.call.side_effect = lambda obj, method, params=None: {
             ("system", "board"): BOARD_RESPONSE,
             ("system", "info"): INFO_RESPONSE,
@@ -118,6 +121,7 @@ class TestInit:
     @patch("saltext.saltext_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_fetches_grains_on_init(self, mock_client_cls):
         mock_instance = MagicMock()
+        mock_instance.session_timeout = 300
         mock_instance.call.side_effect = lambda obj, method, params=None: {
             ("system", "board"): BOARD_RESPONSE,
             ("system", "info"): INFO_RESPONSE,

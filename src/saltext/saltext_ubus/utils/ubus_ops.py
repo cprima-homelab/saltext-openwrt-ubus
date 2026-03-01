@@ -147,3 +147,12 @@ def system_info(call):
 def network_dump(call):
     """Return network interface state."""
     return call("network.interface", "dump")
+
+
+# --- Service info ---
+
+
+def service_list(call, verbose=False):
+    """Return procd service list. Use verbose=True to include triggers."""
+    params = {"verbose": True} if verbose else None
+    return call("service", "list", params)
