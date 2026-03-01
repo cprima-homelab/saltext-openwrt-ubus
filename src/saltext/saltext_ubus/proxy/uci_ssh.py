@@ -12,10 +12,19 @@ as the JSON-RPC adapter.
     proxy:
       proxytype: saltext_ubus_ssh
       host: 10.35.24.1
-      username: root
-      port: 22
-      ssh_options:
-        - StrictHostKeyChecking=no
+      # username: root                          (default)
+      # port: 22                                (default)
+      # timeout: 30                             (default)
+      # ssh_key: /root/.ssh/openwrt_ed25519     (optional)
+      # ssh_options:                            (defaults below)
+      #   - StrictHostKeyChecking=no
+      #   - UserKnownHostsFile=/dev/null
+      #   - HostKeyAlgorithms=+ssh-rsa
+      #   - PubkeyAcceptedAlgorithms=+ssh-rsa
+
+When ``ssh_options`` is explicitly set in pillar, it fully replaces
+the defaults (no merging). When ``ssh_key`` is set, an
+``IdentityFile=<path>`` entry is prepended to the options list.
 """
 
 import json
@@ -25,6 +34,13 @@ import shlex
 from saltext.saltext_ubus.utils.ssh import SshRunner
 
 log = logging.getLogger(__name__)
+
+_DEFAULT_SSH_OPTIONS = [
+    "StrictHostKeyChecking=no",
+    "UserKnownHostsFile=/dev/null",
+    "HostKeyAlgorithms=+ssh-rsa",
+    "PubkeyAcceptedAlgorithms=+ssh-rsa",
+]
 
 __virtualname__ = "saltext_ubus_ssh"
 __proxyenabled__ = ["saltext_ubus_ssh"]
@@ -39,11 +55,15 @@ def __virtual__():
 def init(opts):
     """Create SSH runner from proxy pillar and verify connectivity."""
     proxy_conf = opts["proxy"]
+    ssh_options = proxy_conf.get("ssh_options", list(_DEFAULT_SSH_OPTIONS))
+    ssh_key = proxy_conf.get("ssh_key")
+    if ssh_key:
+        ssh_options = [f"IdentityFile={ssh_key}"] + ssh_options
     runner = SshRunner(
         host=proxy_conf["host"],
         username=proxy_conf.get("username", "root"),
         port=proxy_conf.get("port", 22),
-        ssh_options=proxy_conf.get("ssh_options", []),
+        ssh_options=ssh_options,
         timeout=proxy_conf.get("timeout", 30),
     )
     if not runner.test_connection():

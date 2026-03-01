@@ -94,6 +94,77 @@ class TestInit:
         assert proxy_mod.DETAILS["initialized"] is True
 
     @patch("saltext.saltext_ubus.proxy.uci_ssh.SshRunner")
+    def test_default_ssh_options(self, mock_runner_cls):
+        """init() without explicit ssh_options uses _DEFAULT_SSH_OPTIONS."""
+        mock_instance = MagicMock()
+        mock_instance.run.side_effect = _mock_runner_run
+        mock_instance.test_connection.return_value = True
+        mock_runner_cls.return_value = mock_instance
+
+        opts = {
+            "proxy": {
+                "proxytype": "saltext_ubus_ssh",
+                "host": "10.38.20.1",
+            }
+        }
+        proxy_mod.init(opts)
+
+        mock_runner_cls.assert_called_once_with(
+            host="10.38.20.1",
+            username="root",
+            port=22,
+            ssh_options=[
+                "StrictHostKeyChecking=no",
+                "UserKnownHostsFile=/dev/null",
+                "HostKeyAlgorithms=+ssh-rsa",
+                "PubkeyAcceptedAlgorithms=+ssh-rsa",
+            ],
+            timeout=30,
+        )
+
+    @patch("saltext.saltext_ubus.proxy.uci_ssh.SshRunner")
+    def test_ssh_key_prepends_identity_file(self, mock_runner_cls):
+        """ssh_key in pillar prepends IdentityFile= to ssh_options."""
+        mock_instance = MagicMock()
+        mock_instance.run.side_effect = _mock_runner_run
+        mock_instance.test_connection.return_value = True
+        mock_runner_cls.return_value = mock_instance
+
+        opts = {
+            "proxy": {
+                "proxytype": "saltext_ubus_ssh",
+                "host": "10.38.20.1",
+                "ssh_key": "/root/.ssh/openwrt_ed25519",
+            }
+        }
+        proxy_mod.init(opts)
+
+        call_kwargs = mock_runner_cls.call_args[1]
+        assert call_kwargs["ssh_options"][0] == "IdentityFile=/root/.ssh/openwrt_ed25519"
+        assert call_kwargs["ssh_options"][1:] == proxy_mod._DEFAULT_SSH_OPTIONS
+
+    @patch("saltext.saltext_ubus.proxy.uci_ssh.SshRunner")
+    def test_explicit_ssh_options_replace_defaults(self, mock_runner_cls):
+        """Explicit ssh_options in pillar fully replace the defaults."""
+        mock_instance = MagicMock()
+        mock_instance.run.side_effect = _mock_runner_run
+        mock_instance.test_connection.return_value = True
+        mock_runner_cls.return_value = mock_instance
+
+        custom_options = ["StrictHostKeyChecking=yes"]
+        opts = {
+            "proxy": {
+                "proxytype": "saltext_ubus_ssh",
+                "host": "10.38.20.1",
+                "ssh_options": custom_options,
+            }
+        }
+        proxy_mod.init(opts)
+
+        call_kwargs = mock_runner_cls.call_args[1]
+        assert call_kwargs["ssh_options"] == ["StrictHostKeyChecking=yes"]
+
+    @patch("saltext.saltext_ubus.proxy.uci_ssh.SshRunner")
     def test_connection_failure_raises(self, mock_runner_cls):
         mock_instance = MagicMock()
         mock_instance.test_connection.return_value = False

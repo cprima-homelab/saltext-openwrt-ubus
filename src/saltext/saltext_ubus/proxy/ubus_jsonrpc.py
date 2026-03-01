@@ -10,10 +10,11 @@ OpenWrt configuration management through the ubus API.
     proxy:
       proxytype: saltext_ubus_jsonrpc
       host: 10.35.24.1
-      username: salt-agent
       password: secret
-      port: 443
-      verify_ssl: false
+      # username: salt-agent   (default)
+      # port: 443              (default)
+      # verify_ssl: false      (default)
+      # timeout: 30            (default)
 """
 
 import logging
@@ -37,7 +38,7 @@ def init(opts):
     proxy_conf = opts["proxy"]
     client = UbusRpcClient(
         host=proxy_conf["host"],
-        username=proxy_conf["username"],
+        username=proxy_conf.get("username", "salt-agent"),
         password=proxy_conf["password"],
         port=proxy_conf.get("port", 443),
         verify_ssl=proxy_conf.get("verify_ssl", False),

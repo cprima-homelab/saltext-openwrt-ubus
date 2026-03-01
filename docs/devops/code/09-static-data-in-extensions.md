@@ -69,10 +69,11 @@ def init(opts):
     proxy_conf = opts["proxy"]
     client = UbusRpcClient(
         host=proxy_conf["host"],
-        username=proxy_conf["username"],
+        username=proxy_conf.get("username", "salt-agent"),
         password=proxy_conf["password"],
         port=proxy_conf.get("port", 443),
         verify_ssl=proxy_conf.get("verify_ssl", False),
+        timeout=proxy_conf.get("timeout", 30),
     )
 ```
 
@@ -81,12 +82,56 @@ The corresponding pillar SLS on the master:
 ```yaml
 # /srv/salt/pillar/router.sls
 proxy:
-  proxytype: saltext_ubus
+  proxytype: saltext_ubus_jsonrpc
   host: 10.35.24.1
-  username: salt-agent
   password: secret
-  verify_ssl: false
+  # username: salt-agent   (default)
+  # verify_ssl: false      (default)
 ```
+
+The SSH transport (`saltext_ubus_ssh`) uses key-based authentication
+instead of a password. The proxy module creates an `SshRunner`:
+
+```python
+_DEFAULT_SSH_OPTIONS = [
+    "StrictHostKeyChecking=no",
+    "UserKnownHostsFile=/dev/null",
+    "HostKeyAlgorithms=+ssh-rsa",
+    "PubkeyAcceptedAlgorithms=+ssh-rsa",
+]
+
+def init(opts):
+    proxy_conf = opts["proxy"]
+    ssh_options = proxy_conf.get("ssh_options", list(_DEFAULT_SSH_OPTIONS))
+    ssh_key = proxy_conf.get("ssh_key")
+    if ssh_key:
+        ssh_options = [f"IdentityFile={ssh_key}"] + ssh_options
+    runner = SshRunner(
+        host=proxy_conf["host"],
+        username=proxy_conf.get("username", "root"),
+        port=proxy_conf.get("port", 22),
+        ssh_options=ssh_options,
+        timeout=proxy_conf.get("timeout", 30),
+    )
+```
+
+The corresponding pillar SLS:
+
+```yaml
+# /srv/salt/pillar/router.sls
+proxy:
+  proxytype: saltext_ubus_ssh
+  host: 10.35.24.1
+  # username: root                          (default)
+  # ssh_key: /root/.ssh/openwrt_ed25519     (optional)
+  # ssh_options use sensible defaults for OpenWrt dropbear
+```
+
+No password appears in the SSH pillar -- authentication relies on the
+SSH key already deployed to the device (e.g., via `~root/.ssh/authorized_keys`
+on the OpenWrt target). When `ssh_key` is set, an `IdentityFile=` entry
+is prepended to the options. When `ssh_options` is explicitly set, it
+fully replaces the defaults (no merging).
 
 ### Summary
 

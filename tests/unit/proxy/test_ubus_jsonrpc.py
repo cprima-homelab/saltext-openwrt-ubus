@@ -85,6 +85,34 @@ class TestInit:
         assert proxy_mod.DETAILS["initialized"] is True
 
     @patch("saltext.saltext_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
+    def test_default_username(self, mock_client_cls):
+        """init() without explicit username defaults to salt-agent."""
+        mock_instance = MagicMock()
+        mock_instance.call.side_effect = lambda obj, method, params=None: {
+            ("system", "board"): BOARD_RESPONSE,
+            ("system", "info"): INFO_RESPONSE,
+        }.get((obj, method))
+        mock_client_cls.return_value = mock_instance
+
+        opts = {
+            "proxy": {
+                "proxytype": "saltext_ubus_jsonrpc",
+                "host": "10.35.24.1",
+                "password": "secret",
+            }
+        }
+        proxy_mod.init(opts)
+
+        mock_client_cls.assert_called_once_with(
+            host="10.35.24.1",
+            username="salt-agent",
+            password="secret",
+            port=443,
+            verify_ssl=False,
+            timeout=30,
+        )
+
+    @patch("saltext.saltext_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_fetches_grains_on_init(self, mock_client_cls):
         mock_instance = MagicMock()
         mock_instance.call.side_effect = lambda obj, method, params=None: {
