@@ -34,6 +34,17 @@ INFO_RESPONSE = {
     "memory": {"total": 124059648, "free": 45678592, "shared": 1234567, "buffered": 9876543},
 }
 
+RPCD_CONFIG_RESPONSE = {
+    "values": {
+        "cfg01rpcd": {
+            ".type": "rpcd",
+            ".name": "cfg01rpcd",
+            "socket": "/var/run/ubus/ubus.sock",
+            "timeout": "300",
+        }
+    }
+}
+
 
 @pytest.fixture(autouse=True)
 def clean_details():
@@ -43,15 +54,22 @@ def clean_details():
     proxy_mod.DETAILS.clear()
 
 
+def _mock_call_dispatch(obj, method, params=None):
+    """Default mock dispatch for ubus calls used across tests."""
+    if obj == "uci" and method == "get" and params and params.get("config") == "rpcd":
+        return RPCD_CONFIG_RESPONSE
+    return {
+        ("system", "board"): BOARD_RESPONSE,
+        ("system", "info"): INFO_RESPONSE,
+    }.get((obj, method))
+
+
 @pytest.fixture
 def mock_client():
     """Create a mock RPC client."""
     client = MagicMock()
     client.session_timeout = 300
-    client.call.side_effect = lambda obj, method, params=None: {
-        ("system", "board"): BOARD_RESPONSE,
-        ("system", "info"): INFO_RESPONSE,
-    }.get((obj, method))
+    client.call.side_effect = _mock_call_dispatch
     return client
 
 
@@ -60,10 +78,7 @@ class TestInit:
     def test_creates_client_and_logs_in(self, mock_client_cls):
         mock_instance = MagicMock()
         mock_instance.session_timeout = 300
-        mock_instance.call.side_effect = lambda obj, method, params=None: {
-            ("system", "board"): BOARD_RESPONSE,
-            ("system", "info"): INFO_RESPONSE,
-        }.get((obj, method))
+        mock_instance.call.side_effect = _mock_call_dispatch
         mock_client_cls.return_value = mock_instance
 
         opts = {
@@ -95,10 +110,7 @@ class TestInit:
         """init() without explicit username defaults to salt-agent."""
         mock_instance = MagicMock()
         mock_instance.session_timeout = 300
-        mock_instance.call.side_effect = lambda obj, method, params=None: {
-            ("system", "board"): BOARD_RESPONSE,
-            ("system", "info"): INFO_RESPONSE,
-        }.get((obj, method))
+        mock_instance.call.side_effect = _mock_call_dispatch
         mock_client_cls.return_value = mock_instance
 
         opts = {
@@ -124,10 +136,7 @@ class TestInit:
     def test_fetches_grains_on_init(self, mock_client_cls):
         mock_instance = MagicMock()
         mock_instance.session_timeout = 300
-        mock_instance.call.side_effect = lambda obj, method, params=None: {
-            ("system", "board"): BOARD_RESPONSE,
-            ("system", "info"): INFO_RESPONSE,
-        }.get((obj, method))
+        mock_instance.call.side_effect = _mock_call_dispatch
         mock_client_cls.return_value = mock_instance
 
         opts = {
@@ -144,6 +153,104 @@ class TestInit:
         assert grains["os"] == "OpenWrt"
         assert grains["osrelease"] == "24.10.5"
         assert grains["model"] == "Netgear WNDR3800"
+
+    @patch("saltext.saltext_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
+    def test_pillar_session_timeout(self, mock_client_cls):
+        """session_timeout pillar overrides the default."""
+        mock_instance = MagicMock()
+        mock_instance.session_timeout = 600
+        mock_instance.call.side_effect = _mock_call_dispatch
+        mock_client_cls.return_value = mock_instance
+
+        opts = {
+            "proxy": {
+                "proxytype": "saltext_ubus_jsonrpc",
+                "host": "10.0.0.1",
+                "password": "p",
+                "session_timeout": 600,
+            }
+        }
+        proxy_mod.init(opts)
+
+        mock_client_cls.assert_called_once_with(
+            host="10.0.0.1",
+            username="salt-agent",
+            password="p",
+            port=443,
+            verify_ssl=False,
+            timeout=30,
+            session_timeout=600,
+        )
+
+    @patch("saltext.saltext_ubus.proxy.ubus_jsonrpc.time")
+    @patch("saltext.saltext_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
+    def test_rpcd_timeout_bumped_when_low(self, mock_client_cls, mock_time):
+        """init() updates rpcd invoke timeout via UCI when too low."""
+        rpcd_low = {
+            "values": {
+                "cfg01rpcd": {
+                    ".type": "rpcd",
+                    ".name": "cfg01rpcd",
+                    "timeout": "30",
+                }
+            }
+        }
+        calls_made = []
+
+        def dispatch(obj, method, params=None):
+            calls_made.append((obj, method, params))
+            if obj == "uci" and method == "get" and params and params.get("config") == "rpcd":
+                return rpcd_low
+            return {("system", "board"): BOARD_RESPONSE, ("system", "info"): INFO_RESPONSE}.get(
+                (obj, method)
+            )
+
+        mock_instance = MagicMock()
+        mock_instance.session_timeout = 300
+        mock_instance.call.side_effect = dispatch
+        mock_client_cls.return_value = mock_instance
+
+        opts = {
+            "proxy": {
+                "proxytype": "saltext_ubus_jsonrpc",
+                "host": "10.0.0.1",
+                "password": "p",
+                "rpcd_timeout": 300,
+            }
+        }
+        proxy_mod.init(opts)
+
+        # Should have called uci set to bump timeout
+        set_calls = [(o, m, p) for o, m, p in calls_made if o == "uci" and m == "set"]
+        assert len(set_calls) == 1
+        assert set_calls[0][2]["values"]["timeout"] == "300"
+        # Should have committed and reloaded
+        commit_calls = [(o, m) for o, m, _ in calls_made if o == "uci" and m == "commit"]
+        assert len(commit_calls) == 1
+        mock_time.sleep.assert_called_once_with(2)
+
+    @patch("saltext.saltext_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
+    def test_rpcd_timeout_skipped_when_sufficient(self, mock_client_cls):
+        """init() does not touch rpcd config when timeout is already sufficient."""
+        mock_instance = MagicMock()
+        mock_instance.session_timeout = 300
+        mock_instance.call.side_effect = _mock_call_dispatch
+        mock_client_cls.return_value = mock_instance
+
+        opts = {
+            "proxy": {
+                "proxytype": "saltext_ubus_jsonrpc",
+                "host": "10.0.0.1",
+                "password": "p",
+            }
+        }
+        proxy_mod.init(opts)
+
+        # No uci set calls -- rpcd timeout in fixture is already 300
+        set_calls = [
+            c for c in mock_instance.call.call_args_list if c[0][0] == "uci" and c[0][1] == "set"
+        ]
+        assert len(set_calls) == 0
 
     def test_missing_host_raises(self):
         opts = {"proxy": {"proxytype": "saltext_ubus_jsonrpc", "password": "secret"}}

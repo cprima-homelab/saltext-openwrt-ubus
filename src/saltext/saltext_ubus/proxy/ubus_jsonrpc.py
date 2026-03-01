@@ -11,13 +11,16 @@ OpenWrt configuration management through the ubus API.
       proxytype: saltext_ubus_jsonrpc
       host: 10.35.24.1
       password: secret
-      # username: salt-agent   (default)
-      # port: 443              (default)
-      # verify_ssl: false      (default)
-      # timeout: 30            (default)
+      # username: salt-agent      (default)
+      # port: 443                 (default)
+      # verify_ssl: false         (default)
+      # timeout: 30               (default, HTTP request timeout)
+      # session_timeout: 300      (default, rpcd session lifetime)
+      # rpcd_timeout: 300         (default, rpcd ubus invoke timeout)
 """
 
 import logging
+import time
 import urllib.error
 
 from saltext.saltext_ubus.utils.rpc import UbusRpcClient
@@ -29,9 +32,14 @@ __proxyenabled__ = ["saltext_ubus_jsonrpc"]
 
 DETAILS = {}
 
-# rpcd's compiled-in default is 300s. Sessions shorter than this cause
-# staged UCI changes to be lost between state runs.
-MIN_SESSION_TIMEOUT = 300
+# rpcd session timeout: how long the login session lives. Staged UCI
+# changes are scoped to the session and are lost when it expires.
+DEFAULT_SESSION_TIMEOUT = 300
+
+# rpcd ubus invoke timeout: how long rpcd waits for a ubus call to
+# return (rpcd.@rpcd[0].timeout UCI setting). Calls like uci apply
+# trigger service reloads and can take a while on slow devices.
+DEFAULT_RPCD_TIMEOUT = 300
 
 
 def __virtual__():
@@ -45,6 +53,10 @@ def init(opts):
     for key in ("host", "password"):
         if key not in proxy_conf:
             raise ValueError(f"saltext_ubus_jsonrpc: required pillar key '{key}' is missing")
+
+    session_timeout = proxy_conf.get("session_timeout", DEFAULT_SESSION_TIMEOUT)
+    rpcd_timeout = proxy_conf.get("rpcd_timeout", DEFAULT_RPCD_TIMEOUT)
+
     client = UbusRpcClient(
         host=proxy_conf["host"],
         username=proxy_conf.get("username", "salt-agent"),
@@ -52,16 +64,17 @@ def init(opts):
         port=proxy_conf.get("port", 443),
         verify_ssl=proxy_conf.get("verify_ssl", False),
         timeout=proxy_conf.get("timeout", 30),
-        session_timeout=MIN_SESSION_TIMEOUT,
+        session_timeout=session_timeout,
     )
     client.login()
-    if client.session_timeout < MIN_SESSION_TIMEOUT:
+    if client.session_timeout < session_timeout:
         log.warning(
             "rpcd granted session timeout of %ds (requested %ds). "
             "Staged UCI changes may be lost between state runs.",
             client.session_timeout,
-            MIN_SESSION_TIMEOUT,
+            session_timeout,
         )
+    _ensure_rpcd_timeout(client, rpcd_timeout)
     DETAILS["client"] = client
     DETAILS["grains_cache"] = _fetch_grains(client)
     DETAILS["initialized"] = True
@@ -117,6 +130,65 @@ def call(ubus_object, ubus_method, params=None):
         log.warning("Transport error during ubus call %s.%s: %s", ubus_object, ubus_method, exc)
         DETAILS["initialized"] = False
         raise
+
+
+def _ensure_rpcd_timeout(client, desired):
+    """Ensure rpcd's ubus invoke timeout is at least ``desired`` seconds.
+
+    The ``rpcd.@rpcd[0].timeout`` UCI setting controls how long rpcd
+    waits for a ubus call to complete. Operations like ``uci apply``
+    trigger service reloads that can exceed the default 30s on slow
+    devices. This reads the current value and bumps it if needed,
+    then reloads rpcd and re-authenticates.
+    """
+    try:
+        rpcd_conf = client.call("uci", "get", {"config": "rpcd", "type": "rpcd"})
+    except Exception:  # pylint: disable=broad-exception-caught
+        log.debug("Could not read rpcd config, skipping invoke timeout check")
+        return
+
+    # Find the first rpcd-type section
+    values = rpcd_conf.get("values", {})
+    section_name = None
+    current_timeout = None
+    for name, data in values.items():
+        if data.get(".type") == "rpcd":
+            section_name = name
+            try:
+                current_timeout = int(data.get("timeout", 30))
+            except (ValueError, TypeError):
+                current_timeout = 30
+            break
+
+    if section_name is None or current_timeout is None:
+        return
+
+    if current_timeout >= desired:
+        return
+
+    log.info(
+        "rpcd invoke timeout is %ds (need %ds), updating",
+        current_timeout,
+        desired,
+    )
+    try:
+        client.call(
+            "uci",
+            "set",
+            {
+                "config": "rpcd",
+                "section": section_name,
+                "values": {"timeout": str(desired)},
+            },
+        )
+        client.call("uci", "commit", {"config": "rpcd"})
+        client.call("uci", "reload_config")
+    except Exception:  # pylint: disable=broad-exception-caught
+        # reload_config restarts rpcd, which kills our connection
+        pass
+    time.sleep(2)
+    client.login()
+    log.info("rpcd invoke timeout updated to %ds", desired)
 
 
 def _fetch_grains(client):
