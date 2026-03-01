@@ -52,9 +52,16 @@ def init(opts):
         port=proxy_conf.get("port", 443),
         verify_ssl=proxy_conf.get("verify_ssl", False),
         timeout=proxy_conf.get("timeout", 30),
+        session_timeout=MIN_SESSION_TIMEOUT,
     )
     client.login()
-    _ensure_rpcd_timeout(client)
+    if client.session_timeout < MIN_SESSION_TIMEOUT:
+        log.warning(
+            "rpcd granted session timeout of %ds (requested %ds). "
+            "Staged UCI changes may be lost between state runs.",
+            client.session_timeout,
+            MIN_SESSION_TIMEOUT,
+        )
     DETAILS["client"] = client
     DETAILS["grains_cache"] = _fetch_grains(client)
     DETAILS["initialized"] = True
@@ -110,33 +117,6 @@ def call(ubus_object, ubus_method, params=None):
         log.warning("Transport error during ubus call %s.%s: %s", ubus_object, ubus_method, exc)
         DETAILS["initialized"] = False
         raise
-
-
-def _ensure_rpcd_timeout(client):
-    """Warn and re-login if the rpcd session timeout is below the minimum.
-
-    Staged UCI changes live in the rpcd session. A short timeout causes
-    changes to vanish between state runs. rpcd's compiled-in default is
-    300s and there is no known UCI knob that controls session timeout
-    (``rpcd.@rpcd[0].timeout`` controls the ubus socket, not sessions).
-    If rpcd ever reports a shorter value, re-login in case it was a
-    transient issue, and warn so the operator can investigate.
-    """
-    if client.session_timeout >= MIN_SESSION_TIMEOUT:
-        return
-    log.warning(
-        "rpcd session timeout is %ds (need %ds); re-authenticating",
-        client.session_timeout,
-        MIN_SESSION_TIMEOUT,
-    )
-    client.login()
-    if client.session_timeout < MIN_SESSION_TIMEOUT:
-        log.error(
-            "rpcd session timeout is still %ds after re-login. "
-            "Staged UCI changes may be lost between state runs. "
-            "Check rpcd configuration on the device.",
-            client.session_timeout,
-        )
 
 
 def _fetch_grains(client):

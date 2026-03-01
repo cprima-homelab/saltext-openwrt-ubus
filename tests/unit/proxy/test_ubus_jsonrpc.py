@@ -85,6 +85,7 @@ class TestInit:
             port=443,
             verify_ssl=False,
             timeout=30,
+            session_timeout=300,
         )
         mock_instance.login.assert_called_once()
         assert proxy_mod.DETAILS["initialized"] is True
@@ -116,6 +117,7 @@ class TestInit:
             port=443,
             verify_ssl=False,
             timeout=30,
+            session_timeout=300,
         )
 
     @patch("saltext.saltext_ubus.proxy.ubus_jsonrpc.UbusRpcClient")

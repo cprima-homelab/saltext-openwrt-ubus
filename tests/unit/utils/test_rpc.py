@@ -91,6 +91,33 @@ class TestLogin:
             sent = json.loads(req.data)
             assert sent["params"][0] == NULL_SESSION
 
+    def test_login_passes_session_timeout(self):
+        """session_timeout kwarg is forwarded as 'timeout' in login params."""
+        client = UbusRpcClient("10.0.0.1", "salt", "pass", session_timeout=600)
+        body = _jsonrpc_response(
+            result=[UBUS_STATUS_OK, {"ubus_rpc_session": "tok", "timeout": 600}]
+        )
+        with patch("urllib.request.urlopen", return_value=_mock_urlopen(body)) as mock_open:
+            client.login()
+            req = mock_open.call_args[0][0]
+            sent = json.loads(req.data)
+            login_params = sent["params"][3]
+            assert login_params["timeout"] == 600
+        assert client.session_timeout == 600
+
+    def test_login_omits_timeout_when_not_set(self):
+        """When session_timeout is None, no timeout key in login params."""
+        client = UbusRpcClient("10.0.0.1", "salt", "pass")
+        body = _jsonrpc_response(
+            result=[UBUS_STATUS_OK, {"ubus_rpc_session": "tok", "timeout": 300}]
+        )
+        with patch("urllib.request.urlopen", return_value=_mock_urlopen(body)) as mock_open:
+            client.login()
+            req = mock_open.call_args[0][0]
+            sent = json.loads(req.data)
+            login_params = sent["params"][3]
+            assert "timeout" not in login_params
+
 
 class TestCall:
     def _make_client(self):

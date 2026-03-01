@@ -66,13 +66,18 @@ class UbusRpcClient:
         verify_ssl: Whether to verify the TLS certificate (default False
             because OpenWrt uses self-signed certs).
         timeout: HTTP request timeout in seconds.
+        session_timeout: rpcd session timeout in seconds, passed to
+            ``session login``. rpcd's compiled-in default is 300s.
     """
 
-    def __init__(self, host, username, password, port=443, verify_ssl=False, timeout=30):
+    def __init__(
+        self, host, username, password, port=443, verify_ssl=False, timeout=30, session_timeout=None
+    ):
         self.url = f"https://{host}:{port}/ubus"
         self.username = username
         self.password = password
         self.timeout = timeout
+        self._requested_session_timeout = session_timeout
         self._session = None
         self._session_expires = 0
         self._session_timeout = 0
@@ -111,17 +116,16 @@ class UbusRpcClient:
 
         Returns the session token string.
         """
+        login_params = {
+            "username": self.username,
+            "password": self.password,
+        }
+        if self._requested_session_timeout is not None:
+            login_params["timeout"] = self._requested_session_timeout
+
         result = self._raw_request(
             "call",
-            [
-                NULL_SESSION,
-                "session",
-                "login",
-                {
-                    "username": self.username,
-                    "password": self.password,
-                },
-            ],
+            [NULL_SESSION, "session", "login", login_params],
         )
         if "error" in result:
             raise JsonRpcError(result["error"]["code"], result["error"]["message"])
