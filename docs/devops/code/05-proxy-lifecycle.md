@@ -69,6 +69,9 @@ gap where the token is expired but the client thinks it's valid.
 
 ### Per-session staging
 
+For the rpcd C source code that implements this mechanism, see
+[08-rpcd-session-staging-internals.md](08-rpcd-session-staging-internals.md).
+
 UCI changes made via JSON-RPC are staged in a per-session directory:
 
 ```

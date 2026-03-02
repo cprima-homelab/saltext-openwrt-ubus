@@ -186,6 +186,9 @@ There is no explicit logout. Sessions are stored in rpcd process memory
 
 ### Per-Session UCI Staging
 
+For the rpcd C source code that implements this mechanism, see
+[../code/08-rpcd-session-staging-internals.md](../code/08-rpcd-session-staging-internals.md).
+
 rpcd isolates uncommitted UCI changes by session. When a session-bearing
 `uci.set` call arrives, rpcd directs libuci to write delta files to a
 per-session directory:
