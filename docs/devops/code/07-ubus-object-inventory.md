@@ -3,7 +3,10 @@
 > Last reviewed against: v0.3.0
 
 Complete list of ubus objects available on austru (OpenWrt 24.10.5,
-Netgear WNDR3800, LuCI installed). Captured via `list *`.
+Netgear WNDR3800, LuCI installed). Captured via `ubus list`.
+
+For how ubus works and how these objects get registered, see
+[09-ubus-system-architecture](09-ubus-system-architecture.md).
 
 ## Objects by Category
 
@@ -15,7 +18,8 @@ Netgear WNDR3800, LuCI installed). Captured via `list *`.
 | `log`      | (message log access)               |                              |
 | `rc`       | `list`                             | Init script status           |
 | `service`  | `list`, `set`, `add`, `delete`     | procd service management     |
-| `rpc-sys`  | `upgrade_start`, `packagelist`     | System operations            |
+| `container`| `list`, `set`, `add`, `delete`, `state`, `console_set`, `get_features` | procd process container management (same pattern as `service`, not LXC) |
+| `rpc-sys`  | `upgrade_start`, `packagelist`     | System operations (rpcd plugin) |
 
 ### Network
 
@@ -95,13 +99,6 @@ ACL-controlled: each path must be explicitly granted in ACL files.
 | `hotplug.tftp`      | TFTP events                |
 | `hotplug.tty`       | Serial/TTY events          |
 
-### Containers
-
-| Object      | Methods                             |
-|-------------|-------------------------------------|
-| `container` | `list`, `set`, `add`, `delete`,     |
-|             | `state`, `console_set`, `get_features` |
-
 ## Relevance for Salt Network Configuration
 
 ### Primary (v0.3 scope)
@@ -122,6 +119,6 @@ ACL-controlled: each path must be explicitly granted in ACL files.
 ### Out of scope
 
 - `file.*` -- direct file access (use UCI instead)
-- `container.*` -- LXC container management
+- `container` -- procd internals (overlaps with `service`)
 - `hotplug.*` -- event subscriptions (not request/response)
 - `hostapd.*` / `wpa_supplicant` -- low-level WiFi control
