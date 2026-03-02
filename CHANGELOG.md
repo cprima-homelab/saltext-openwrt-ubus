@@ -4,6 +4,18 @@ This project uses [Semantic Versioning](https://semver.org/) - MAJOR.MINOR.PATCH
 
 # Changelog
 
+## 0.3.1 (2026-03-02)
+
+### Changed
+
+- Renamed package from `saltext.saltext-ubus` to `saltext.openwrt-ubus`
+  so the distribution name matches the TestPyPI/PyPI project name
+  `saltext-openwrt-ubus`.
+
+### Added
+
+- OpenSSH ControlMaster connection multiplexing for SSH proxy.
+
 ## 0.3.0 (2026-03-01)
 
 ### Breaking changes
