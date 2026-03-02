@@ -92,6 +92,8 @@ class TestInit:
             port=2222,
             ssh_options=["IdentityFile=/root/.ssh/id_ed25519", "StrictHostKeyChecking=no"],
             timeout=30,
+            control_path="/tmp/saltext-ssh-%r@%h:%p",
+            control_persist=60,
         )
         mock_instance.test_connection.assert_called_once()
         assert proxy_mod.DETAILS["initialized"] is True
@@ -125,6 +127,8 @@ class TestInit:
                 "PubkeyAcceptedAlgorithms=+ssh-rsa",
             ],
             timeout=30,
+            control_path="/tmp/saltext-ssh-%r@%h:%p",
+            control_persist=60,
         )
 
     @patch("saltext.openwrt_ubus.proxy.uci_ssh.SshRunner")
@@ -172,6 +176,47 @@ class TestInit:
             "IdentityFile=/root/.ssh/id_rsa",
             "StrictHostKeyChecking=yes",
         ]
+
+    @patch("saltext.openwrt_ubus.proxy.uci_ssh.SshRunner")
+    def test_multiplex_disabled(self, mock_runner_cls):
+        """ssh_multiplex: false passes control_path=None to SshRunner."""
+        mock_instance = MagicMock()
+        mock_instance.run.side_effect = _mock_runner_run
+        mock_instance.test_connection.return_value = True
+        mock_runner_cls.return_value = mock_instance
+
+        opts = {
+            "proxy": {
+                "proxytype": "openwrt_ubus_ssh",
+                "host": "10.38.20.1",
+                "ssh_key": "/root/.ssh/id_ed25519",
+                "ssh_multiplex": False,
+            }
+        }
+        proxy_mod.init(opts)
+
+        call_kwargs = mock_runner_cls.call_args[1]
+        assert call_kwargs["control_path"] is None
+
+    @patch("saltext.openwrt_ubus.proxy.uci_ssh.SshRunner")
+    def test_custom_control_persist(self, mock_runner_cls):
+        mock_instance = MagicMock()
+        mock_instance.run.side_effect = _mock_runner_run
+        mock_instance.test_connection.return_value = True
+        mock_runner_cls.return_value = mock_instance
+
+        opts = {
+            "proxy": {
+                "proxytype": "openwrt_ubus_ssh",
+                "host": "10.38.20.1",
+                "ssh_key": "/root/.ssh/id_ed25519",
+                "control_persist": 300,
+            }
+        }
+        proxy_mod.init(opts)
+
+        call_kwargs = mock_runner_cls.call_args[1]
+        assert call_kwargs["control_persist"] == 300
 
     def test_missing_host_raises(self):
         opts = {
@@ -273,6 +318,12 @@ class TestShutdown:
 
         proxy_mod.shutdown({})
         assert not proxy_mod.DETAILS
+
+    def test_calls_close_master(self, mock_runner):
+        proxy_mod.DETAILS["runner"] = mock_runner
+        proxy_mod.DETAILS["initialized"] = True
+        proxy_mod.shutdown({})
+        mock_runner.close_master.assert_called_once()
 
 
 class TestGrains:

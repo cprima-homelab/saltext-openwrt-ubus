@@ -32,6 +32,16 @@ def runner_custom():
     )
 
 
+@pytest.fixture
+def runner_mux():
+    """Create an SshRunner with ControlMaster enabled."""
+    return SshRunner(
+        host="10.0.0.1",
+        control_path="/tmp/saltext-ssh-%r@%h:%p",
+        control_persist=120,
+    )
+
+
 class TestBuildSshArgs:
     def test_default_args(self, runner):
         args = runner._build_ssh_args()
@@ -62,6 +72,32 @@ class TestBuildSshArgs:
             "ConnectTimeout=5",
             "192.168.1.1",
         ]
+
+    def test_control_master_args(self, runner_mux):
+        args = runner_mux._build_ssh_args()
+        assert args == [
+            "ssh",
+            "-o",
+            "BatchMode=yes",
+            "-p",
+            "22",
+            "-l",
+            "root",
+            "-o",
+            "ControlMaster=auto",
+            "-o",
+            "ControlPath=/tmp/saltext-ssh-%r@%h:%p",
+            "-o",
+            "ControlPersist=120",
+            "10.0.0.1",
+        ]
+
+    def test_no_control_master_when_path_is_none(self, runner):
+        args = runner._build_ssh_args()
+        for arg in args:
+            assert "ControlMaster" not in arg
+            assert "ControlPath" not in arg
+            assert "ControlPersist" not in arg
 
 
 class TestRun:
@@ -133,6 +169,28 @@ class TestRun:
             runner.run("nonexistent")
         assert exc_info.value.command == "nonexistent"
         assert exc_info.value.returncode == 127
+
+
+class TestCloseMaster:
+    @patch("saltext.openwrt_ubus.utils.ssh.subprocess.run")
+    def test_sends_exit_command(self, mock_run, runner_mux):
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        runner_mux.close_master()
+        mock_run.assert_called_once()
+        args = mock_run.call_args[0][0]
+        assert "-O" in args
+        assert "exit" in args
+        assert "ControlPath=/tmp/saltext-ssh-%r@%h:%p" in args
+
+    @patch("saltext.openwrt_ubus.utils.ssh.subprocess.run")
+    def test_noop_when_no_control_path(self, mock_run, runner):
+        runner.close_master()
+        mock_run.assert_not_called()
+
+    @patch("saltext.openwrt_ubus.utils.ssh.subprocess.run")
+    def test_ignores_errors(self, mock_run, runner_mux):
+        mock_run.side_effect = subprocess.TimeoutExpired(cmd="ssh", timeout=5)
+        runner_mux.close_master()  # should not raise
 
 
 class TestTestConnection:

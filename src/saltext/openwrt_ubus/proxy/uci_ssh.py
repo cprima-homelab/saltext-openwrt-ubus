@@ -21,6 +21,8 @@ as the JSON-RPC adapter.
       #   - UserKnownHostsFile=/dev/null
       #   - HostKeyAlgorithms=+ssh-rsa
       #   - PubkeyAcceptedAlgorithms=+ssh-rsa
+      # ssh_multiplex: true                     (default, ControlMaster)
+      # control_persist: 60                     (default, seconds)
 
 When ``ssh_options`` is explicitly set in pillar, it fully replaces
 the defaults (no merging). When ``ssh_key`` is set, an
@@ -64,12 +66,19 @@ def init(opts):
     ssh_options = proxy_conf.get("ssh_options", list(_DEFAULT_SSH_OPTIONS))
     ssh_key = proxy_conf["ssh_key"]
     ssh_options = [f"IdentityFile={ssh_key}"] + ssh_options
+    control_path = None
+    if proxy_conf.get("ssh_multiplex", True):
+        control_path = "/tmp/saltext-ssh-%r@%h:%p"
+    control_persist = proxy_conf.get("control_persist", 60)
+
     runner = SshRunner(
         host=proxy_conf["host"],
         username=proxy_conf.get("username", "root"),
         port=proxy_conf.get("port", 22),
         ssh_options=ssh_options,
         timeout=proxy_conf.get("timeout", 30),
+        control_path=control_path,
+        control_persist=control_persist,
     )
     if not runner.test_connection():
         raise ConnectionError(f"Cannot connect to {proxy_conf['host']} via SSH")
@@ -104,7 +113,10 @@ def ping():
 
 
 def shutdown(opts):  # pylint: disable=unused-argument
-    """Clean up proxy state."""
+    """Clean up proxy state (including ControlMaster socket)."""
+    runner = DETAILS.get("runner")
+    if runner:
+        runner.close_master()
     DETAILS.clear()
     log.info("openwrt_ubus_ssh proxy shut down")
 
