@@ -4,7 +4,7 @@ import re
 import sys
 
 CODE_ROOT = pathlib.Path(__file__).resolve().parent.parent
-EXECUTION_MODULES_PATH = CODE_ROOT / "src" / "saltext" / "saltext_ubus" / "modules"
+EXECUTION_MODULES_PATH = CODE_ROOT / "src" / "saltext" / "openwrt_ubus" / "modules"
 
 
 def check_cli_examples(files):

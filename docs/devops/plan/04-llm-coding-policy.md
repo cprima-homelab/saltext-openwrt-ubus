@@ -4,7 +4,7 @@
 
 ## Purpose
 
-This document defines conventions for AI-assisted development on saltext-ubus. It is the source material for generating CLAUDE.md, .cursorrules, and similar instruction files.
+This document defines conventions for AI-assisted development on saltext-openwrt-ubus. It is the source material for generating CLAUDE.md, .cursorrules, and similar instruction files.
 
 ## UCI Domain Knowledge
 
@@ -58,9 +58,9 @@ Each defines only `__virtual__()` and `_call()`, delegating all logic
 to `utils/ubus_ops.py`:
 
 ```python
-# Execution module adapter: src/saltext/saltext_ubus/modules/ubus_jsonrpc.py
+# Execution module adapter: src/saltext/openwrt_ubus/modules/ubus_jsonrpc.py
 
-from saltext.saltext_ubus.utils import ubus_ops
+from saltext.openwrt_ubus.utils import ubus_ops
 
 __virtualname__ = "openwrt_ubus"
 __proxyenabled__ = ["openwrt_ubus_jsonrpc"]
@@ -198,8 +198,8 @@ When writing new functions:
 
 | File | Location | Purpose |
 |------|----------|---------|
-| `CLAUDE.md` | saltext-ubus repo root | Claude Code instructions (gitignored) |
-| `.cursorrules` | saltext-ubus repo root | Cursor AI instructions (optional, committed) |
+| `CLAUDE.md` | saltext-openwrt-ubus repo root | Claude Code instructions (gitignored) |
+| `.cursorrules` | saltext-openwrt-ubus repo root | Cursor AI instructions (optional, committed) |
 
 Neither file exists yet. When created, they should be derived from this
 policy document.

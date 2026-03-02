@@ -212,7 +212,7 @@ def tests(session):
             "-o",
             str(COVERAGE_REPORT_PROJECT),
             "--omit=tests/*",
-            "--include=src/saltext/saltext_ubus/*",
+            "--include=src/saltext/openwrt_ubus/*",
         )
         # Generate report for tests code coverage
         session.run(
@@ -220,18 +220,18 @@ def tests(session):
             "xml",
             "-o",
             str(COVERAGE_REPORT_TESTS),
-            "--omit=src/saltext/saltext_ubus/*",
+            "--omit=src/saltext/openwrt_ubus/*",
             "--include=tests/*",
         )
         try:
             session.run(
-                "coverage", "report", "--show-missing", "--include=src/saltext/saltext_ubus/*"
+                "coverage", "report", "--show-missing", "--include=src/saltext/openwrt_ubus/*"
             )
             # If you also want to display the code coverage report on the CLI
             # for the tests, comment the call above and uncomment the line below
             # session.run(
             #    "coverage", "report", "--show-missing",
-            #    "--include=src/saltext/saltext_ubus/*,tests/*"
+            #    "--include=src/saltext/openwrt_ubus/*,tests/*"
             # )
         finally:
             # Move the coverage DB to artifacts/coverage in order for it to be archived by CI

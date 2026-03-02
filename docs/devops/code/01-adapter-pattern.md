@@ -15,7 +15,7 @@ layer through dependency injection.
 | `modules/uci_local.py` | Local subprocess adapter | 300 |
 | `modules/openwrt.py` | Alias (`openwrt` -> `openwrt_ubus`) | 248 |
 
-All paths are relative to `src/saltext/saltext_ubus/`.
+All paths are relative to `src/saltext/openwrt_ubus/`.
 
 ## The pattern
 

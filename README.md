@@ -14,7 +14,7 @@ For setup and usage instructions, please refer to the
 
 ## Contributing
 
-The saltext-ubus project welcomes contributions from anyone!
+The saltext-openwrt-ubus project welcomes contributions from anyone!
 
 The [Salt Extensions guide][salt-extensions-guide] provides comprehensive instructions on all aspects
 of Salt extension development, including [writing tests][writing-tests], [running tests][running-tests],
@@ -26,10 +26,10 @@ To get started contributing, first clone this repository (or your fork):
 
 ```bash
 # Clone the repo
-git clone --origin upstream git@github.com:cprima-homelab/saltext-ubus.git
+git clone --origin upstream git@github.com:cprima-homelab/saltext-openwrt-ubus.git
 
 # Change to the repo dir
-cd saltext-ubus
+cd saltext-openwrt-ubus
 ```
 
 #### Automatic
@@ -100,8 +100,8 @@ appreciate every contribution!
 [first-steps]: https://salt-extensions.github.io/salt-extension-copier/topics/creation.html#initialize-the-python-virtual-environment
 [submitting-pr]: https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/proposing-changes-to-your-work-with-pull-requests/creating-a-pull-request-from-a-fork
 [direnv]: https://direnv.net
-[issues]: https://github.com/cprima-homelab/saltext-ubus/issues
-[PRs]: https://github.com/cprima-homelab/saltext-ubus/pulls
-[discussions]: https://github.com/cprima-homelab/saltext-ubus/discussions
+[issues]: https://github.com/cprima-homelab/saltext-openwrt-ubus/issues
+[PRs]: https://github.com/cprima-homelab/saltext-openwrt-ubus/pulls
+[discussions]: https://github.com/cprima-homelab/saltext-openwrt-ubus/discussions
 [comments]: https://conventionalcomments.org/
-[docs]: https://cprima-homelab.github.io/saltext-ubus
+[docs]: https://cprima-homelab.github.io/saltext-openwrt-ubus

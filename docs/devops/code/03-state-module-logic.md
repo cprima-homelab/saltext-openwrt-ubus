@@ -5,7 +5,7 @@
 How the state module (`states/saltext_ubus.py`, 530 lines) achieves
 idempotent configuration management with rollback safety.
 
-Source: `src/saltext/saltext_ubus/states/saltext_ubus.py`
+Source: `src/saltext/openwrt_ubus/states/saltext_ubus.py`
 
 ## Two public states
 

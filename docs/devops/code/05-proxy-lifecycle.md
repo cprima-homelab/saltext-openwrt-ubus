@@ -14,7 +14,7 @@ relationship between proxy and state module.
 | `utils/rpc.py` | 192 | Pure Python JSON-RPC client |
 | `utils/ssh.py` | 112 | Pure Python SSH runner |
 
-All paths relative to `src/saltext/saltext_ubus/`.
+All paths relative to `src/saltext/openwrt_ubus/`.
 
 ## Proxy interface
 

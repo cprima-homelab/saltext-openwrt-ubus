@@ -4,21 +4,21 @@ Generally, extensions need to be installed into the same Python environment Salt
 
 :::{tab} State
 ```yaml
-Install Salt Saltext-uci extension:
+Install Salt openwrt-ubus extension:
   pip.installed:
-    - name: saltext-ubus
+    - name: saltext-openwrt-ubus
 ```
 :::
 
 :::{tab} Onedir installation
 ```bash
-salt-pip install saltext-ubus
+salt-pip install saltext-openwrt-ubus
 ```
 :::
 
 :::{tab} Regular installation
 ```bash
-pip install saltext-ubus
+pip install saltext-openwrt-ubus
 ```
 :::
 

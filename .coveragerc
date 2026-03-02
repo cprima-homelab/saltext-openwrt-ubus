@@ -38,7 +38,7 @@ ignore_errors = True
 
 [paths]
 source =
-  saltext/saltext_ubus
-  src/saltext/saltext_ubus
+  saltext/openwrt_ubus
+  src/saltext/openwrt_ubus
 testsuite =
   tests/

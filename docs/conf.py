@@ -30,14 +30,14 @@ except NameError:
 PROJECT_ROOT_DIR = Path(docs_basepath).parent
 
 addtl_paths = (
-    os.path.join(os.pardir, "src"),  # saltext.saltext-ubus itself (for autodoc)
+    os.path.join(os.pardir, "src"),  # saltext.openwrt-ubus itself (for autodoc)
     "_ext",  # custom Sphinx extensions
 )
 
 for addtl_path in addtl_paths:
     sys.path.insert(0, os.path.abspath(os.path.join(docs_basepath, addtl_path)))
 
-dist = distribution("saltext.saltext-ubus")
+dist = distribution("saltext.openwrt-ubus")
 
 
 # -- Project information -----------------------------------------------------

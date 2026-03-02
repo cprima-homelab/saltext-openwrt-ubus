@@ -10,8 +10,8 @@ from unittest.mock import patch
 
 import pytest
 
-from saltext.saltext_ubus.utils.ssh import SshCommandError
-from saltext.saltext_ubus.utils.ssh import SshRunner
+from saltext.openwrt_ubus.utils.ssh import SshCommandError
+from saltext.openwrt_ubus.utils.ssh import SshRunner
 
 
 @pytest.fixture
@@ -65,7 +65,7 @@ class TestBuildSshArgs:
 
 
 class TestRun:
-    @patch("saltext.saltext_ubus.utils.ssh.subprocess.run")
+    @patch("saltext.openwrt_ubus.utils.ssh.subprocess.run")
     def test_success(self, mock_run, runner):
         mock_run.return_value = MagicMock(
             returncode=0,
@@ -92,7 +92,7 @@ class TestRun:
             timeout=30,
         )
 
-    @patch("saltext.saltext_ubus.utils.ssh.subprocess.run")
+    @patch("saltext.openwrt_ubus.utils.ssh.subprocess.run")
     def test_nonzero_exit_raises(self, mock_run, runner):
         mock_run.return_value = MagicMock(
             returncode=1,
@@ -104,25 +104,25 @@ class TestRun:
         assert exc_info.value.returncode == 1
         assert "Permission denied" in exc_info.value.stderr
 
-    @patch("saltext.saltext_ubus.utils.ssh.subprocess.run")
+    @patch("saltext.openwrt_ubus.utils.ssh.subprocess.run")
     def test_timeout_override(self, mock_run, runner):
         mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
         runner.run("echo ok", timeout=5)
         assert mock_run.call_args[1]["timeout"] == 5
 
-    @patch("saltext.saltext_ubus.utils.ssh.subprocess.run")
+    @patch("saltext.openwrt_ubus.utils.ssh.subprocess.run")
     def test_default_timeout(self, mock_run, runner):
         mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
         runner.run("echo ok")
         assert mock_run.call_args[1]["timeout"] == 30
 
-    @patch("saltext.saltext_ubus.utils.ssh.subprocess.run")
+    @patch("saltext.openwrt_ubus.utils.ssh.subprocess.run")
     def test_timeout_expired(self, mock_run, runner):
         mock_run.side_effect = subprocess.TimeoutExpired(cmd="ssh", timeout=30)
         with pytest.raises(subprocess.TimeoutExpired):
             runner.run("sleep 999")
 
-    @patch("saltext.saltext_ubus.utils.ssh.subprocess.run")
+    @patch("saltext.openwrt_ubus.utils.ssh.subprocess.run")
     def test_command_in_error(self, mock_run, runner):
         mock_run.return_value = MagicMock(
             returncode=127,
@@ -136,27 +136,27 @@ class TestRun:
 
 
 class TestTestConnection:
-    @patch("saltext.saltext_ubus.utils.ssh.subprocess.run")
+    @patch("saltext.openwrt_ubus.utils.ssh.subprocess.run")
     def test_success(self, mock_run, runner):
         mock_run.return_value = MagicMock(returncode=0, stdout="ok\n", stderr="")
         assert runner.test_connection() is True
 
-    @patch("saltext.saltext_ubus.utils.ssh.subprocess.run")
+    @patch("saltext.openwrt_ubus.utils.ssh.subprocess.run")
     def test_failure_nonzero(self, mock_run, runner):
         mock_run.return_value = MagicMock(returncode=255, stdout="", stderr="Connection refused")
         assert runner.test_connection() is False
 
-    @patch("saltext.saltext_ubus.utils.ssh.subprocess.run")
+    @patch("saltext.openwrt_ubus.utils.ssh.subprocess.run")
     def test_failure_timeout(self, mock_run, runner):
         mock_run.side_effect = subprocess.TimeoutExpired(cmd="ssh", timeout=10)
         assert runner.test_connection() is False
 
-    @patch("saltext.saltext_ubus.utils.ssh.subprocess.run")
+    @patch("saltext.openwrt_ubus.utils.ssh.subprocess.run")
     def test_failure_oserror(self, mock_run, runner):
         mock_run.side_effect = OSError("ssh not found")
         assert runner.test_connection() is False
 
-    @patch("saltext.saltext_ubus.utils.ssh.subprocess.run")
+    @patch("saltext.openwrt_ubus.utils.ssh.subprocess.run")
     def test_wrong_output(self, mock_run, runner):
         mock_run.return_value = MagicMock(returncode=0, stdout="unexpected\n", stderr="")
         assert runner.test_connection() is False

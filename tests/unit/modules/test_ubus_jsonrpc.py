@@ -1,5 +1,5 @@
 """
-Unit tests for the saltext_ubus execution module.
+Unit tests for the openwrt_ubus execution module.
 
 All tests use mocked proxy calls. No network calls or device writes.
 """
@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import saltext.saltext_ubus.modules.ubus_jsonrpc as uci_mod
+import saltext.openwrt_ubus.modules.ubus_jsonrpc as uci_mod
 
 
 @pytest.fixture(autouse=True)

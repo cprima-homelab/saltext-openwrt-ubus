@@ -1,5 +1,5 @@
 """
-Unit tests for the saltext_ubus state module.
+Unit tests for the openwrt_ubus state module.
 
 All tests use mocked execution module calls. No network calls or device writes.
 """
@@ -9,7 +9,7 @@ from unittest.mock import patch
 
 import pytest
 
-import saltext.saltext_ubus.states.saltext_ubus as state_mod
+import saltext.openwrt_ubus.states.saltext_ubus as state_mod
 
 # --- Agent config (what uci.get returns for salt-openwrt) ---
 
@@ -207,7 +207,7 @@ class TestPartialDiff:
         assert ret["result"] is True
         assert not ret["changes"]
 
-    @patch("saltext.saltext_ubus.states.saltext_ubus.time")
+    @patch("saltext.openwrt_ubus.states.saltext_ubus.time")
     def test_detects_changed_option(self, mock_time, patch_dunders):
         mock_time.monotonic.side_effect = [0, 3]
         mock_time.sleep = MagicMock()
@@ -232,7 +232,7 @@ class TestPartialDiff:
         assert ret["changes"]["lan"]["ipaddr"]["old"] == "10.35.24.1"
         assert ret["changes"]["lan"]["ipaddr"]["new"] == "10.35.24.2"
 
-    @patch("saltext.saltext_ubus.states.saltext_ubus.time")
+    @patch("saltext.openwrt_ubus.states.saltext_ubus.time")
     def test_list_option_diff(self, mock_time, patch_dunders):
         mock_time.monotonic.side_effect = [0, 3]
         mock_time.sleep = MagicMock()
@@ -271,7 +271,7 @@ class TestSingletonResolution:
         assert ret["result"] is True
         assert "already in desired state" in ret["comment"]
 
-    @patch("saltext.saltext_ubus.states.saltext_ubus.time")
+    @patch("saltext.openwrt_ubus.states.saltext_ubus.time")
     def test_singleton_with_change(self, mock_time, patch_dunders):
         mock_time.monotonic.side_effect = [0, 3]
         mock_time.sleep = MagicMock()
@@ -325,7 +325,7 @@ class TestSingletonResolution:
 
 
 class TestSectionCreate:
-    @patch("saltext.saltext_ubus.states.saltext_ubus.time")
+    @patch("saltext.openwrt_ubus.states.saltext_ubus.time")
     def test_creates_new_section(self, mock_time, patch_dunders):
         mock_time.monotonic.side_effect = [0, 3]
         mock_time.sleep = MagicMock()
@@ -386,7 +386,7 @@ class TestTypeMismatch:
 
 
 class TestApplyFlow:
-    @patch("saltext.saltext_ubus.states.saltext_ubus.time")
+    @patch("saltext.openwrt_ubus.states.saltext_ubus.time")
     def test_apply_verify_confirm(self, mock_time, patch_dunders):
         mock_time.monotonic.side_effect = [0, 3]
         mock_time.sleep = MagicMock()
@@ -431,7 +431,7 @@ class TestApplyFlow:
         assert "Verification failed" in ret["comment"]
         assert "Rollback will revert" in ret["comment"]
 
-    @patch("saltext.saltext_ubus.states.saltext_ubus.time")
+    @patch("saltext.openwrt_ubus.states.saltext_ubus.time")
     def test_custom_rollback_timeout(self, mock_time, patch_dunders):
         mock_time.monotonic.side_effect = [0, 3]
         mock_time.sleep = MagicMock()
@@ -457,7 +457,7 @@ class TestApplyFlow:
         )
         patch_dunders["openwrt_ubus.apply"].assert_called_once_with(rollback=120)
 
-    @patch("saltext.saltext_ubus.states.saltext_ubus.time")
+    @patch("saltext.openwrt_ubus.states.saltext_ubus.time")
     def test_oneshot_snapshots_and_polls(self, mock_time, patch_dunders):
         """managed() in oneshot mode does snapshot -> apply -> poll -> confirm."""
         mock_time.monotonic.side_effect = [0, 3]
@@ -482,7 +482,7 @@ class TestApplyFlow:
         assert patch_dunders["openwrt_ubus.service_list"].call_count == 2
         patch_dunders["openwrt_ubus.confirm"].assert_called_once()
 
-    @patch("saltext.saltext_ubus.states.saltext_ubus.time")
+    @patch("saltext.openwrt_ubus.states.saltext_ubus.time")
     def test_oneshot_rollback_on_service_failure(self, mock_time, patch_dunders):
         """managed() in oneshot mode: services don't recover -> no confirm."""
         mock_time.monotonic.side_effect = [0, 200]
@@ -705,7 +705,7 @@ class TestAgentMode:
 
 
 class TestApplied:
-    @patch("saltext.saltext_ubus.states.saltext_ubus.time")
+    @patch("saltext.openwrt_ubus.states.saltext_ubus.time")
     def test_apply_confirm_with_service_check(self, mock_time, patch_dunders):
         """Happy path: snapshot -> apply -> poll (all back) -> confirm."""
         mock_time.monotonic.side_effect = [0, 3]  # deadline calc, first poll check
@@ -724,7 +724,7 @@ class TestApplied:
         patch_dunders["openwrt_ubus.apply"].assert_called_once_with(rollback=120)
         patch_dunders["openwrt_ubus.confirm"].assert_called_once()
 
-    @patch("saltext.saltext_ubus.states.saltext_ubus.time")
+    @patch("saltext.openwrt_ubus.states.saltext_ubus.time")
     def test_services_recover_after_delay(self, mock_time, patch_dunders):
         """service_list returns partial-down on first poll, all-up on second."""
         mock_time.monotonic.side_effect = [0, 3, 6]  # deadline calc, poll 1, poll 2
@@ -741,7 +741,7 @@ class TestApplied:
         assert "applied and confirmed" in ret["comment"]
         patch_dunders["openwrt_ubus.confirm"].assert_called_once()
 
-    @patch("saltext.saltext_ubus.states.saltext_ubus.time")
+    @patch("saltext.openwrt_ubus.states.saltext_ubus.time")
     def test_services_not_recovered_no_confirm(self, mock_time, patch_dunders):
         """Poll always returns partial-down -> no confirm, lists down services."""
         # deadline calc returns 0, first poll check exceeds deadline
@@ -810,7 +810,7 @@ class TestApplied:
         assert ret["result"] is True
         assert "nothing to apply" in ret["comment"]
 
-    @patch("saltext.saltext_ubus.states.saltext_ubus.time")
+    @patch("saltext.openwrt_ubus.states.saltext_ubus.time")
     def test_confirm_failure(self, mock_time, patch_dunders):
         """Services come back but confirm() raises."""
         mock_time.monotonic.side_effect = [0, 3]
@@ -829,7 +829,7 @@ class TestApplied:
         assert "Failed to confirm" in ret["comment"]
         assert "Rollback will revert" in ret["comment"]
 
-    @patch("saltext.saltext_ubus.states.saltext_ubus.time")
+    @patch("saltext.openwrt_ubus.states.saltext_ubus.time")
     def test_custom_rollback(self, mock_time, patch_dunders):
         mock_time.monotonic.side_effect = [0, 3]
         mock_time.sleep = MagicMock()
@@ -844,7 +844,7 @@ class TestApplied:
         assert ret["result"] is True
         patch_dunders["openwrt_ubus.apply"].assert_called_once_with(rollback=180)
 
-    @patch("saltext.saltext_ubus.states.saltext_ubus.time")
+    @patch("saltext.openwrt_ubus.states.saltext_ubus.time")
     def test_rollback_timeout_from_device_config(self, mock_time, patch_dunders):
         """rollback_timeout is read from device config when rollback=None."""
         mock_time.monotonic.side_effect = [0, 3]

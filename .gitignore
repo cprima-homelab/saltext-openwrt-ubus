@@ -131,7 +131,7 @@ dmypy.json
 .pyre/
 
 # Ignore the setuptools_scm auto-generated version module
-src/saltext/saltext_ubus/version.py
+src/saltext/openwrt_ubus/version.py
 
 # Ignore CI generated artifacts
 artifacts/

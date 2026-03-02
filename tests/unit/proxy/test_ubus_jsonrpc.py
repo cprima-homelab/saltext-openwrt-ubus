@@ -1,5 +1,5 @@
 """
-Unit tests for the saltext_ubus proxy module.
+Unit tests for the openwrt_ubus proxy module.
 
 All tests use a mocked RPC client. No network calls are made.
 """
@@ -10,9 +10,9 @@ from unittest.mock import patch
 
 import pytest
 
-import saltext.saltext_ubus.proxy.ubus_jsonrpc as proxy_mod
-from saltext.saltext_ubus.utils.rpc import JsonRpcError
-from saltext.saltext_ubus.utils.rpc import UbusError
+import saltext.openwrt_ubus.proxy.ubus_jsonrpc as proxy_mod
+from saltext.openwrt_ubus.utils.rpc import JsonRpcError
+from saltext.openwrt_ubus.utils.rpc import UbusError
 
 BOARD_RESPONSE = {
     "kernel": "6.6.86",
@@ -74,7 +74,7 @@ def mock_client():
 
 
 class TestInit:
-    @patch("saltext.saltext_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
+    @patch("saltext.openwrt_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_creates_client_and_logs_in(self, mock_client_cls):
         mock_instance = MagicMock()
         mock_instance.session_timeout = 300
@@ -105,7 +105,7 @@ class TestInit:
         mock_instance.login.assert_called_once()
         assert proxy_mod.DETAILS["initialized"] is True
 
-    @patch("saltext.saltext_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
+    @patch("saltext.openwrt_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_default_username(self, mock_client_cls):
         """init() without explicit username defaults to salt-agent."""
         mock_instance = MagicMock()
@@ -132,7 +132,7 @@ class TestInit:
             session_timeout=300,
         )
 
-    @patch("saltext.saltext_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
+    @patch("saltext.openwrt_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_fetches_grains_on_init(self, mock_client_cls):
         mock_instance = MagicMock()
         mock_instance.session_timeout = 300
@@ -154,7 +154,7 @@ class TestInit:
         assert grains["osrelease"] == "24.10.5"
         assert grains["model"] == "Netgear WNDR3800"
 
-    @patch("saltext.saltext_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
+    @patch("saltext.openwrt_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_pillar_session_timeout(self, mock_client_cls):
         """session_timeout pillar overrides the default."""
         mock_instance = MagicMock()
@@ -182,8 +182,8 @@ class TestInit:
             session_timeout=600,
         )
 
-    @patch("saltext.saltext_ubus.proxy.ubus_jsonrpc.time")
-    @patch("saltext.saltext_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
+    @patch("saltext.openwrt_ubus.proxy.ubus_jsonrpc.time")
+    @patch("saltext.openwrt_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_rpcd_timeout_bumped_when_low(self, mock_client_cls, mock_time):
         """init() updates rpcd invoke timeout via UCI when too low."""
         rpcd_low = {
@@ -229,7 +229,7 @@ class TestInit:
         assert len(commit_calls) == 1
         mock_time.sleep.assert_called_once_with(2)
 
-    @patch("saltext.saltext_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
+    @patch("saltext.openwrt_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_rpcd_timeout_skipped_when_sufficient(self, mock_client_cls):
         """init() does not touch rpcd config when timeout is already sufficient."""
         mock_instance = MagicMock()

@@ -1,10 +1,10 @@
-.. all-saltext.saltext-ubus.proxy:
+.. all-saltext.openwrt-ubus.proxy:
 
 _____________
 Proxy Modules
 _____________
 
-.. currentmodule:: saltext.saltext_ubus.proxy
+.. currentmodule:: saltext.openwrt_ubus.proxy
 
 .. autosummary::
     :toctree:

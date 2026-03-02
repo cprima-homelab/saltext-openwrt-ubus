@@ -1,5 +1,5 @@
-``saltext-ubus``: Integrate Salt with OpenWrt via ubus
-==========================================================
+``saltext-openwrt-ubus``: Integrate Salt with OpenWrt via ubus
+================================================================
 
 Salt extension for OpenWrt configuration management via ubus
 

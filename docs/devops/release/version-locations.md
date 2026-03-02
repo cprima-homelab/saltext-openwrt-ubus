@@ -7,7 +7,7 @@ Where version numbers live in this project. Update these when cutting a release.
 | Location | Mechanism |
 |----------|-----------|
 | Python package version | `setuptools_scm` derives from git tags |
-| `saltext_saltext_ubus-*.dist-info/` | Built by pip from setuptools_scm |
+| `saltext_openwrt_ubus-*.dist-info/` | Built by pip from setuptools_scm |
 
 Tag a release with `git tag v0.2.1` and the version propagates automatically.
 
@@ -29,8 +29,8 @@ Only update if the meaning has changed.
 | `docs/devops/plan/10-jsonrpc-vs-cli.md:19` | `v0.2 Approach` | Historical: describes when JSON-RPC was adopted |
 | `docs/devops/plan/10-jsonrpc-vs-cli.md:147` | `Recommendation for v0.2` | Historical |
 | `docs/devops/code/07-ubus-object-inventory.md:105` | `Primary (v0.2 scope)` | Historical |
-| `src/saltext/saltext_ubus/states/saltext_ubus.py:8` | `deferred to v0.3` | Future: anonymous section support |
-| `src/saltext/saltext_ubus/states/saltext_ubus.py:266` | `planned for v0.3` | Future: anonymous section support |
+| `src/saltext/openwrt_ubus/states/saltext_ubus.py:8` | `deferred to v0.3` | Future: anonymous section support |
+| `src/saltext/openwrt_ubus/states/saltext_ubus.py:266` | `planned for v0.3` | Future: anonymous section support |
 | `openwrt/ROADMAP.md` | `v0.2.0`, `v0.3.0`, `v1.0.0` | OpenWrt package milestones (separate from saltext version) |
 
 ## Not project versions (ignore)

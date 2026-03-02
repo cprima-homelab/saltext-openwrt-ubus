@@ -7,11 +7,11 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
-write_to = "src/saltext/saltext_ubus/version.py"
+write_to = "src/saltext/openwrt_ubus/version.py"
 write_to_template = "__version__ = \"{version}\"\n"
 
 [project]
-name = "saltext.saltext-ubus"
+name = "saltext.openwrt-ubus"
 description = "Salt extension for OpenWrt configuration management via ubus"
 authors = [
     {name = "Christian Prior-Mamulyan", email = "cprior@gmail.com"},
@@ -41,10 +41,10 @@ file = "README.md"
 content-type = "text/markdown"
 
 [project.urls]
-Homepage = "https://github.com/cprima-homelab/saltext-ubus"
-Documentation = "https://cprima-homelab.github.io/saltext-ubus"
-Source = "https://github.com/cprima-homelab/saltext-ubus"
-Tracker = "https://github.com/cprima-homelab/saltext-ubus/issues"
+Homepage = "https://github.com/cprima-homelab/saltext-openwrt-ubus"
+Documentation = "https://cprima-homelab.github.io/saltext-openwrt-ubus"
+Source = "https://github.com/cprima-homelab/saltext-openwrt-ubus"
+Tracker = "https://github.com/cprima-homelab/saltext-openwrt-ubus/issues"
 
 [project.optional-dependencies]
 changelog = ["towncrier==25.8.0"]
@@ -84,7 +84,7 @@ tests = [
 ]
 
 [project.entry-points."salt.loader"]
-"saltext.saltext-ubus" = "saltext.saltext_ubus"
+"saltext.openwrt-ubus" = "saltext.openwrt_ubus"
 
 [tool.uv]
 # Salt's legacy setup.py requires old setuptools.
@@ -117,19 +117,19 @@ line-length = 100
 
 [tool.isort]
 force_single_line = true
-skip = ["src/saltext/saltext_ubus/__init__.py"]
+skip = ["src/saltext/openwrt_ubus/__init__.py"]
 profile = "black"
 line_length = 100
 
 [tool.towncrier]
-package = "saltext.saltext_ubus"
+package = "saltext.openwrt_ubus"
 filename = "CHANGELOG.md"
 template = "changelog/.template.jinja"
 directory = "changelog/"
 start_string = "# Changelog\n"
 underlines = ["", "", ""]
 title_format = "## {version} ({project_date})"
-issue_format = "[#{issue}](https://github.com/cprima-homelab/saltext-ubus/issues/{issue})"
+issue_format = "[#{issue}](https://github.com/cprima-homelab/saltext-openwrt-ubus/issues/{issue})"
 
 [[tool.towncrier.type]]
 directory = "breaking"

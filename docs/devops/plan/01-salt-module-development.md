@@ -236,7 +236,7 @@ The proxy re-authenticates transparently via `_ensure_session()` when the sessio
 ## File Locations
 
 ```
-src/saltext/saltext_ubus/
+src/saltext/openwrt_ubus/
   __init__.py
   version.py
   grains/

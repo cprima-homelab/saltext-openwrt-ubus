@@ -1,10 +1,10 @@
-.. all-saltext.saltext-ubus.utils:
+.. all-saltext.openwrt-ubus.utils:
 
 _________
 Utilities
 _________
 
-.. currentmodule:: saltext.saltext_ubus.utils
+.. currentmodule:: saltext.openwrt_ubus.utils
 
 .. autosummary::
     :toctree:

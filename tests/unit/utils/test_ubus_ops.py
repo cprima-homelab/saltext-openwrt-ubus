@@ -1,8 +1,8 @@
 """
-Tests for saltext.saltext_ubus.utils.ubus_ops
+Tests for saltext.openwrt_ubus.utils.ubus_ops
 """
 
-from saltext.saltext_ubus.utils import ubus_ops
+from saltext.openwrt_ubus.utils import ubus_ops
 
 
 class TestTransformSection:

@@ -1,10 +1,11 @@
 """
-Salt execution module for OpenWrt configuration via ubus over SSH.
+Salt execution module for OpenWrt configuration via local ubus.
 
-Requires the ``openwrt_ubus_ssh`` proxy module to be configured and
-running. Delegates all ubus calls through the proxy's ``call()``
-function, which runs ``ubus call`` over SSH and returns parsed JSON --
-the same structured data as the JSON-RPC adapter.
+For devices with Python3 and ubusd running, managed via salt-ssh.
+Calls ``ubus call`` directly via subprocess -- no proxy module needed.
+
+The JSON output is identical to what the JSON-RPC and SSH adapters
+return, so the state module works unchanged.
 
 UCI metadata fields are returned with underscore prefixes to avoid
 collision with UCI option names::
@@ -12,14 +13,18 @@ collision with UCI option names::
     .type -> _type, .name -> _name, .anonymous -> _anonymous, .index -> _index
 """
 
+import json
 import logging
+import subprocess
 
-from saltext.saltext_ubus.utils import ubus_ops
+import salt.utils.path
+from salt.exceptions import CommandExecutionError
+
+from saltext.openwrt_ubus.utils import ubus_ops
 
 log = logging.getLogger(__name__)
 
 __virtualname__ = "openwrt_ubus"
-__proxyenabled__ = ["openwrt_ubus_ssh"]
 
 __func_alias__ = {
     "set_": "set",
@@ -28,16 +33,37 @@ __func_alias__ = {
 
 
 def __virtual__():
-    if "proxy" not in __opts__:
-        return False, "Not a proxy minion"
-    if __opts__.get("proxy", {}).get("proxytype") != "openwrt_ubus_ssh":
-        return False, "proxytype is not openwrt_ubus_ssh"
+    if __opts__.get("proxy"):
+        return False, "Running as proxy minion -- use the proxy execution module instead"
+    if not salt.utils.path.which("ubus"):
+        return False, "ubus binary not found"
     return __virtualname__
 
 
 def _call(ubus_object, ubus_method, params=None):
-    """Forward a ubus call through the proxy module."""
-    return __proxy__["openwrt_ubus_ssh.call"](ubus_object, ubus_method, params)
+    """Execute a local ubus call and return parsed JSON."""
+    args = ["ubus", "call", ubus_object, ubus_method]
+    if params is not None:
+        args.append(json.dumps(params))
+
+    result = subprocess.run(
+        args,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=30,
+    )
+
+    if result.returncode != 0:
+        raise CommandExecutionError(
+            f"ubus call {ubus_object} {ubus_method} failed "
+            f"(rc={result.returncode}): {result.stderr.strip()}"
+        )
+
+    output = result.stdout.strip()
+    if not output:
+        return None
+    return json.loads(output)
 
 
 # --- Read operations ---
@@ -45,7 +71,7 @@ def _call(ubus_object, ubus_method, params=None):
 
 def get(config, section=None, option=None):
     """
-    Read UCI configuration via ``ubus call uci get`` over SSH.
+    Read UCI configuration via local ``ubus call uci get``.
 
     Returns the full config, a single section, or a single option value.
     UCI metadata fields (.type, .name, .anonymous, .index) are returned
@@ -55,9 +81,9 @@ def get(config, section=None, option=None):
 
     .. code-block:: bash
 
-        salt router openwrt_ubus.get network
-        salt router openwrt_ubus.get network lan
-        salt router openwrt_ubus.get network lan proto
+        salt device openwrt_ubus.get network
+        salt device openwrt_ubus.get network lan
+        salt device openwrt_ubus.get network lan proto
     """
     return ubus_ops.get(_call, config, section, option)
 
@@ -70,7 +96,7 @@ def configs():
 
     .. code-block:: bash
 
-        salt router openwrt_ubus.configs
+        salt device openwrt_ubus.configs
     """
     return ubus_ops.configs(_call)
 
@@ -83,7 +109,7 @@ def changes(config):
 
     .. code-block:: bash
 
-        salt router openwrt_ubus.changes network
+        salt device openwrt_ubus.changes network
     """
     return ubus_ops.changes(_call, config)
 
@@ -99,7 +125,7 @@ def set_(config, section, values):
 
     .. code-block:: bash
 
-        salt router openwrt_ubus.set network lan '{"proto": "static"}'
+        salt device openwrt_ubus.set network lan '{"proto": "static"}'
     """
     return ubus_ops.set_(_call, config, section, values)
 
@@ -112,7 +138,7 @@ def add(config, type_, name=None, values=None):
 
     .. code-block:: bash
 
-        salt router openwrt_ubus.add network interface name=wan2
+        salt device openwrt_ubus.add network interface name=wan2
     """
     return ubus_ops.add(_call, config, type_, name, values)
 
@@ -125,8 +151,8 @@ def delete(config, section, option=None):
 
     .. code-block:: bash
 
-        salt router openwrt_ubus.delete network wan2
-        salt router openwrt_ubus.delete network lan dns
+        salt device openwrt_ubus.delete network wan2
+        salt device openwrt_ubus.delete network lan dns
     """
     return ubus_ops.delete(_call, config, section, option)
 
@@ -142,8 +168,8 @@ def apply_(rollback=90):  # pylint: disable=redefined-outer-name
 
     .. code-block:: bash
 
-        salt router openwrt_ubus.apply
-        salt router openwrt_ubus.apply rollback=120
+        salt device openwrt_ubus.apply
+        salt device openwrt_ubus.apply rollback=120
     """
     return ubus_ops.apply_(_call, rollback)
 
@@ -156,7 +182,7 @@ def confirm():
 
     .. code-block:: bash
 
-        salt router openwrt_ubus.confirm
+        salt device openwrt_ubus.confirm
     """
     return ubus_ops.confirm(_call)
 
@@ -169,7 +195,7 @@ def rollback():
 
     .. code-block:: bash
 
-        salt router openwrt_ubus.rollback
+        salt device openwrt_ubus.rollback
     """
     return ubus_ops.rollback(_call)
 
@@ -182,7 +208,7 @@ def revert(config):
 
     .. code-block:: bash
 
-        salt router openwrt_ubus.revert network
+        salt device openwrt_ubus.revert network
     """
     return ubus_ops.revert(_call, config)
 
@@ -195,7 +221,7 @@ def commit(config):
 
     .. code-block:: bash
 
-        salt router openwrt_ubus.commit network
+        salt device openwrt_ubus.commit network
     """
     return ubus_ops.commit(_call, config)
 
@@ -208,8 +234,8 @@ def state(config, section=None):
 
     .. code-block:: bash
 
-        salt router openwrt_ubus.state network
-        salt router openwrt_ubus.state network lan
+        salt device openwrt_ubus.state network
+        salt device openwrt_ubus.state network lan
     """
     return ubus_ops.state(_call, config, section)
 
@@ -225,7 +251,7 @@ def system_board():
 
     .. code-block:: bash
 
-        salt router openwrt_ubus.system_board
+        salt device openwrt_ubus.system_board
     """
     return ubus_ops.system_board(_call)
 
@@ -238,7 +264,7 @@ def system_info():
 
     .. code-block:: bash
 
-        salt router openwrt_ubus.system_info
+        salt device openwrt_ubus.system_info
     """
     return ubus_ops.system_info(_call)
 
@@ -251,7 +277,7 @@ def network_dump():
 
     .. code-block:: bash
 
-        salt router openwrt_ubus.network_dump
+        salt device openwrt_ubus.network_dump
     """
     return ubus_ops.network_dump(_call)
 
@@ -267,7 +293,7 @@ def service_list(verbose=False):
 
     .. code-block:: bash
 
-        salt router openwrt_ubus.service_list
-        salt router openwrt_ubus.service_list verbose=True
+        salt device openwrt_ubus.service_list
+        salt device openwrt_ubus.service_list verbose=True
     """
     return ubus_ops.service_list(_call, verbose)

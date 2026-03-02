@@ -23,7 +23,7 @@ import logging
 import time
 import urllib.error
 
-from saltext.saltext_ubus.utils.rpc import UbusRpcClient
+from saltext.openwrt_ubus.utils.rpc import UbusRpcClient
 
 log = logging.getLogger(__name__)
 

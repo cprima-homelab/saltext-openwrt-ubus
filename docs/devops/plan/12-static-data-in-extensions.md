@@ -27,7 +27,7 @@ uneditable by the operator. If it is so static it should never change
 from server to server, just put it in a Python variable in the module.
 If it needs to vary per minion, it belongs in pillar SLS on the master.
 
-## How saltext-ubus handles this
+## How saltext-openwrt-ubus handles this
 
 The codebase has three categories of data and each lives in a different
 place:
@@ -157,7 +157,7 @@ to a Salt extension:
 - There is no mechanism to ship pillar YAML inside an extension, and
   there should not be
 
-saltext-ubus was never a formula, so this conversion did not apply.
+saltext-openwrt-ubus was never a formula, so this conversion did not apply.
 The guidance above is from a Salt community discussion and is included
 for reference since the copier scaffold creates pillar module stubs
 that can be misleading.

@@ -1,5 +1,5 @@
 """
-Unit tests for the saltext_ubus SSH proxy module.
+Unit tests for the openwrt_ubus SSH proxy module.
 
 All tests mock the SshRunner. No SSH connections are made.
 """
@@ -12,8 +12,8 @@ from unittest.mock import patch
 
 import pytest
 
-import saltext.saltext_ubus.proxy.uci_ssh as proxy_mod
-from saltext.saltext_ubus.utils.ssh import SshCommandError
+import saltext.openwrt_ubus.proxy.uci_ssh as proxy_mod
+from saltext.openwrt_ubus.utils.ssh import SshCommandError
 
 BOARD_RESPONSE = {
     "kernel": "6.6.86",
@@ -67,7 +67,7 @@ def mock_runner():
 
 
 class TestInit:
-    @patch("saltext.saltext_ubus.proxy.uci_ssh.SshRunner")
+    @patch("saltext.openwrt_ubus.proxy.uci_ssh.SshRunner")
     def test_creates_runner_and_verifies(self, mock_runner_cls):
         mock_instance = MagicMock()
         mock_instance.run.side_effect = _mock_runner_run
@@ -96,7 +96,7 @@ class TestInit:
         mock_instance.test_connection.assert_called_once()
         assert proxy_mod.DETAILS["initialized"] is True
 
-    @patch("saltext.saltext_ubus.proxy.uci_ssh.SshRunner")
+    @patch("saltext.openwrt_ubus.proxy.uci_ssh.SshRunner")
     def test_default_ssh_options(self, mock_runner_cls):
         """init() without explicit ssh_options uses _DEFAULT_SSH_OPTIONS."""
         mock_instance = MagicMock()
@@ -127,7 +127,7 @@ class TestInit:
             timeout=30,
         )
 
-    @patch("saltext.saltext_ubus.proxy.uci_ssh.SshRunner")
+    @patch("saltext.openwrt_ubus.proxy.uci_ssh.SshRunner")
     def test_ssh_key_prepends_identity_file(self, mock_runner_cls):
         """ssh_key in pillar prepends IdentityFile= to ssh_options."""
         mock_instance = MagicMock()
@@ -148,7 +148,7 @@ class TestInit:
         assert call_kwargs["ssh_options"][0] == "IdentityFile=/root/.ssh/openwrt_ed25519"
         assert call_kwargs["ssh_options"][1:] == proxy_mod._DEFAULT_SSH_OPTIONS
 
-    @patch("saltext.saltext_ubus.proxy.uci_ssh.SshRunner")
+    @patch("saltext.openwrt_ubus.proxy.uci_ssh.SshRunner")
     def test_explicit_ssh_options_replace_defaults(self, mock_runner_cls):
         """Explicit ssh_options in pillar fully replace the defaults."""
         mock_instance = MagicMock()
@@ -193,7 +193,7 @@ class TestInit:
         with pytest.raises(ValueError, match="required pillar key 'ssh_key'"):
             proxy_mod.init(opts)
 
-    @patch("saltext.saltext_ubus.proxy.uci_ssh.SshRunner")
+    @patch("saltext.openwrt_ubus.proxy.uci_ssh.SshRunner")
     def test_connection_failure_raises(self, mock_runner_cls):
         mock_instance = MagicMock()
         mock_instance.test_connection.return_value = False
@@ -209,7 +209,7 @@ class TestInit:
         with pytest.raises(ConnectionError, match="Cannot connect"):
             proxy_mod.init(opts)
 
-    @patch("saltext.saltext_ubus.proxy.uci_ssh.SshRunner")
+    @patch("saltext.openwrt_ubus.proxy.uci_ssh.SshRunner")
     def test_fetches_grains_on_init(self, mock_runner_cls):
         mock_instance = MagicMock()
         mock_instance.run.side_effect = _mock_runner_run

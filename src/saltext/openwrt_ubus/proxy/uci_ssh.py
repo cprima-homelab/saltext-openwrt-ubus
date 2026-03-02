@@ -32,8 +32,8 @@ import logging
 import shlex
 import subprocess
 
-from saltext.saltext_ubus.utils.ssh import SshCommandError
-from saltext.saltext_ubus.utils.ssh import SshRunner
+from saltext.openwrt_ubus.utils.ssh import SshCommandError
+from saltext.openwrt_ubus.utils.ssh import SshRunner
 
 log = logging.getLogger(__name__)
 

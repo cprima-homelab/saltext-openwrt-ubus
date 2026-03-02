@@ -2,7 +2,7 @@
 
 > Last reviewed against: v0.3.0
 
-Design and planning documents for saltext-ubus.
+Design and planning documents for saltext-openwrt-ubus.
 
 ## Documents
 

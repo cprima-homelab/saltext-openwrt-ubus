@@ -178,7 +178,7 @@ The extension works across two sides:
 ```
 Salt master (WSL / Linux)              OpenWrt device (austru)
 ─────────────────────────              ─────────────────────────
-saltext-ubus (pip/uv)                 salt-agent-ubus (opkg)
+saltext-openwrt-ubus (pip/uv)                 salt-agent-ubus (opkg)
   modules/ubus_jsonrpc.py  ──HTTPS──>   rpcd + salt-agent user
   states/saltext_ubus.py                 salt-agent-ubus.json ACL
   proxy/ubus_jsonrpc.py                salt-openwrt (opkg)

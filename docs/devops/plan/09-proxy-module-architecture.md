@@ -119,9 +119,9 @@ proxy:
 
 | File | Purpose |
 |------|---------|
-| `src/saltext/saltext_ubus/proxy/ubus_jsonrpc.py` | JSON-RPC proxy module |
-| `src/saltext/saltext_ubus/proxy/uci_ssh.py` | SSH proxy module |
-| `src/saltext/saltext_ubus/utils/rpc.py` | `UbusRpcClient` (HTTPS transport) |
-| `src/saltext/saltext_ubus/utils/ssh.py` | `SshRunner` (SSH transport) |
+| `src/saltext/openwrt_ubus/proxy/ubus_jsonrpc.py` | JSON-RPC proxy module |
+| `src/saltext/openwrt_ubus/proxy/uci_ssh.py` | SSH proxy module |
+| `src/saltext/openwrt_ubus/utils/rpc.py` | `UbusRpcClient` (HTTPS transport) |
+| `src/saltext/openwrt_ubus/utils/ssh.py` | `SshRunner` (SSH transport) |
 | `tests/unit/proxy/test_ubus_jsonrpc.py` | JSON-RPC proxy tests |
 | `tests/unit/proxy/test_uci_ssh.py` | SSH proxy tests |

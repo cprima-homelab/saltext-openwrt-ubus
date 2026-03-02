@@ -1,12 +1,12 @@
 """
-Unit tests for the saltext_ubus grains module.
+Unit tests for the openwrt_ubus grains module.
 """
 
 from unittest.mock import MagicMock
 
 import pytest
 
-import saltext.saltext_ubus.grains.saltext_ubus as grains_mod
+import saltext.openwrt_ubus.grains.saltext_ubus as grains_mod
 
 
 @pytest.fixture(autouse=True)

@@ -4,7 +4,7 @@
 
 ## Preface
 
-This document addresses a fundamental gap in saltext-ubus: the extension
+This document addresses a fundamental gap in saltext-openwrt-ubus: the extension
 will manage any UCI package without question. There is no mechanism to
 declare which packages have been validated, tested, or are even
 structurally compatible with the current state module.
@@ -44,7 +44,7 @@ out of the device.
 
 This document proposes three alternatives for adding a second dimension
 -- **support tiers** -- that declares which UCI packages and section
-types each version of saltext-ubus has been validated for. The two
+types each version of saltext-openwrt-ubus has been validated for. The two
 dimensions are orthogonal and use non-clashing vocabulary:
 
 - **Mode** (existing, device-controlled): audit / autoverified /
@@ -59,7 +59,7 @@ dimensions are orthogonal and use non-clashing vocabulary:
 
 UCI is a uniform configuration system. Every UCI package follows the
 same structure: packages contain sections, sections contain options.
-The saltext-ubus execution module exploits this uniformity -- a single
+The saltext-openwrt-ubus execution module exploits this uniformity -- a single
 `get()` / `set_()` / `commit()` implementation works for every package.
 
 This uniformity is both the extension's strength and its risk:
@@ -207,7 +207,7 @@ whitelist and schema metadata for future features.
 #### File structure
 
 ```
-src/saltext/saltext_ubus/utils/
+src/saltext/openwrt_ubus/utils/
     packages/
         __init__.py          # auto-discovers package modules
         _registry.py         # lookup functions
@@ -273,7 +273,7 @@ pkg_tier = registry.tier(config)
 if pkg_tier is None:
     ret["result"] = False
     ret["comment"] = (
-        f"{config}: not supported by saltext-ubus. "
+        f"{config}: not supported by saltext-openwrt-ubus. "
         f"Supported: {registry.supported_packages()}"
     )
     return ret
@@ -315,7 +315,7 @@ that achieves the tier goal.
 #### File structure
 
 ```
-src/saltext/saltext_ubus/utils/
+src/saltext/openwrt_ubus/utils/
     scope.py               # single file, ~30 lines
 ```
 
@@ -324,7 +324,7 @@ src/saltext/saltext_ubus/utils/
 ```python
 # utils/scope.py
 """
-Package support tiers for saltext-ubus.
+Package support tiers for saltext-openwrt-ubus.
 
 Packages not listed here cannot be managed by the managed() state.
 """
@@ -405,7 +405,7 @@ handling category and its quality tier.
 #### File structure
 
 ```
-src/saltext/saltext_ubus/utils/
+src/saltext/openwrt_ubus/utils/
     scope.py               # section-type registry + lookup functions
 ```
 
@@ -414,7 +414,7 @@ src/saltext/saltext_ubus/utils/
 ```python
 # utils/scope.py
 """
-Section-type support registry for saltext-ubus.
+Section-type support registry for saltext-openwrt-ubus.
 
 Each entry maps a (uci_package, section_type) pair to a handling
 category and a quality tier. The managed() state uses this to decide
@@ -491,7 +491,7 @@ diff loop.
 # Package-level gate (same position as A and B)
 pkg_tier = scope.package_tier(config)
 if pkg_tier is None:
-    return _refuse(ret, f"{config}: not in saltext-ubus scope")
+    return _refuse(ret, f"{config}: not in saltext-openwrt-ubus scope")
 if pkg_tier == "experimental" and not allow_experimental:
     return _refuse(ret, f"{config}: experimental, opt in required")
 

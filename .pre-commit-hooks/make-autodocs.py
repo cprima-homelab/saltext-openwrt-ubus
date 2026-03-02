@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 
 repo_path = Path(subprocess.check_output(["git", "rev-parse", "--show-toplevel"]).decode().strip())
-src_dir = repo_path / "src" / "saltext" / "saltext_ubus"
+src_dir = repo_path / "src" / "saltext" / "openwrt_ubus"
 doc_dir = repo_path / "docs"
 
 docs_by_kind = {}
@@ -77,7 +77,7 @@ def write_index(index_rst, import_paths, kind):
         common_path = import_paths[0][: import_paths[0].rfind(".")]
     header = f"{'_'*len(header_text)}\n{header_text.title()}\n{'_'*len(header_text)}"
     index_contents = f"""\
-.. all-saltext.saltext-ubus.{kind}:
+.. all-saltext.openwrt-ubus.{kind}:
 
 {header}
 
