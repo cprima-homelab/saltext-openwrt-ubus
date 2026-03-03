@@ -1,0 +1,12 @@
+description: "Replace tag list on named camera (add third element)"
+function: openwrt_ubus.managed
+kwargs:
+  config: testcorpus
+  sections:
+    heckle_cam:
+      _type: camera
+      tag:
+        - 'fishtank'
+        - 'wide'
+        - 'highlight'
+expect: changed

@@ -1,0 +1,203 @@
+config studio
+	option name 'The Basement'
+	option ip '10.99.42.1'
+	option netmask '255.255.255.0'
+	option gateway '10.99.42.254'
+	option timezone 'America/Chicago'
+	option ttl '3600'
+	option enabled '1'
+	list dns '10.99.42.1'
+	list dns '1.1.1.1'
+
+config camera 'heckle_cam'
+	option ip '10.99.42.10'
+	option mac 'DE:AD:BE:EF:00:01'
+	option resolution '1920 1080'
+	option port '8554'
+	option bitrate '10000'
+	option enabled '1'
+	option model 'Sony A7IV Heckle Angle'
+	list tag 'fishtank'
+	list tag 'wide'
+
+config camera 'overhead_cam'
+	option ip '10.99.42.11'
+	option mac 'DE:AD:BE:EF:00:02'
+	option resolution '3840 2160'
+	option port '8554'
+	option bitrate '20000'
+	option enabled '1'
+	option model 'Overhead Doc Cam'
+	list tag 'overhead'
+
+config camera 'face_cam'
+	option ip '10.99.42.12'
+	list mac 'DE:AD:BE:EF:00:03'
+	option resolution '1920 1080'
+	option port '8554'
+	option enabled '1'
+	list tag 'talent'
+	list tag 'primary'
+
+config mic 'aj_lav'
+	option ip '10.99.42.20'
+	option mac 'DE:AD:BE:EF:01:01'
+	option sample_rate '48000'
+	option channels '2'
+	option enabled '1'
+	option phantom_power '0'
+
+config mic 'heckle_hydrophone'
+	option ip '10.99.42.21'
+	option mac 'DE:AD:BE:EF:01:02'
+	option sample_rate '48000'
+	option channels '2'
+	option enabled '1'
+	option phantom_power '1'
+	option note 'underwater mic for maximum sass'
+
+config light
+	option ip '10.99.42.30'
+	option mac 'DE:AD:BE:EF:02:01'
+	option wattage '120'
+	option color_temp '5600'
+	option enabled '1'
+
+config light
+	option ip '10.99.42.31'
+	option mac 'DE:AD:BE:EF:02:02'
+	option wattage '60'
+	option color_temp '3200'
+	option enabled '1'
+
+config light
+	option ip '10.99.42.32'
+	option mac 'DE:AD:BE:EF:02:03'
+	option wattage '60'
+	option color_temp '5600'
+	option enabled '0'
+	option note 'spare key light on shelf'
+
+config fish 'hecklefish'
+	option species 'Amphiprion ocellaris'
+	option role 'commentary'
+	option ip '10.99.42.50'
+	option mac 'DE:AD:BE:EF:F1:01'
+	option ttl '9999'
+	option enabled '1'
+	list tag 'talent'
+	list tag 'snarky'
+	list tag 'irreplaceable'
+
+config fish
+	option species 'Neon tetra'
+	option role 'background ambiance'
+	option enabled '1'
+
+config fish
+	option species 'Corydoras panda'
+	option role 'background ambiance'
+	option enabled '1'
+	option note 'mostly hides behind the castle'
+
+config encoder 'obs_box'
+	option ip '10.99.42.40'
+	option mac 'DE:AD:BE:EF:03:01'
+	option port '1935'
+	option enabled '1'
+	option recording '0'
+	option streaming '1'
+	option protocol 'rtmp'
+	option dest 'rtmp://a.rtmp.youtube.com/live2'
+	list resolution '1920 1080'
+	list resolution '1280 720'
+
+config host
+	option name 'heckle_cam'
+	option mac 'DE:AD:BE:EF:00:01'
+	option ip '10.99.42.10'
+	option leasetime '12h'
+
+config host
+	option name 'overhead_cam'
+	option mac 'DE:AD:BE:EF:00:02'
+	option ip '10.99.42.11'
+	option leasetime '12h'
+
+config host
+	option name 'face_cam'
+	option mac 'DE:AD:BE:EF:00:03'
+	option ip '10.99.42.12'
+	option leasetime '12h'
+
+config host
+	option name 'aj_lav'
+	option mac 'DE:AD:BE:EF:01:01'
+	option ip '10.99.42.20'
+	option leasetime '12h'
+
+config host
+	option name 'heckle_hydrophone'
+	option mac 'DE:AD:BE:EF:01:02'
+	option ip '10.99.42.21'
+	option leasetime '12h'
+
+config host
+	option name 'obs_box'
+	option mac 'DE:AD:BE:EF:03:01'
+	option ip '10.99.42.40'
+	option leasetime 'infinite'
+
+config host
+	option name 'hecklefish_tank'
+	option mac 'DE:AD:BE:EF:F1:01'
+	option ip '10.99.42.50'
+	option leasetime 'infinite'
+	option tag 'iot'
+
+config rule
+	option name 'Allow Hecklefish RTSP'
+	option src 'fishtank'
+	option dest 'studio'
+	option dest_port '8554'
+	option proto 'tcp'
+	option target 'ACCEPT'
+	option enabled '1'
+
+config rule
+	option name 'Allow AJ mic audio'
+	option src 'studio'
+	option dest 'studio'
+	option dest_port '48000'
+	option proto 'udp'
+	option target 'ACCEPT'
+	option enabled '1'
+
+config rule
+	option name 'Block sponsor telemetry'
+	option src 'studio'
+	option dest 'wan'
+	option dest_ip '203.0.113.0/24'
+	option proto 'all'
+	option target 'REJECT'
+	option enabled '1'
+
+config rule
+	option name 'Rate-limit chat bot'
+	option src 'studio'
+	option dest 'wan'
+	option dest_port '443'
+	option proto 'tcp'
+	option target 'ACCEPT'
+	option limit '10/sec'
+	option enabled '1'
+
+config rule
+	option name 'Drop everything else'
+	option src '*'
+	option dest '*'
+	option proto 'all'
+	option target 'DROP'
+	option enabled '1'
+
+config sponsor 'raid_shadow_legends'

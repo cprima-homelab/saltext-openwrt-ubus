@@ -1,0 +1,9 @@
+description: "Change timezone on anonymous studio singleton via _type resolution"
+function: openwrt_ubus.managed
+kwargs:
+  config: testcorpus
+  sections:
+    _studio:
+      _type: studio
+      timezone: 'America/New_York'
+expect: changed

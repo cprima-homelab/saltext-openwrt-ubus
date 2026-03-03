@@ -2,6 +2,9 @@
 
 > Last reviewed against: v0.3.0
 
+See also: [10-uci-data-model.md](10-uci-data-model.md) for the UCI data model
+(section types, value types, naming patterns, scalar-vs-list ambiguity).
+
 Observations from a live OpenWrt router (Netgear WNDR3800, netifd 2025.05.23).
 These inform parsing and test fixture design.
 

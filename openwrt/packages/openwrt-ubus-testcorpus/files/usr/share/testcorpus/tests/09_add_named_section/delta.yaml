@@ -1,0 +1,13 @@
+description: "Add a new named camera section"
+function: openwrt_ubus.add
+kwargs:
+  config: testcorpus
+  type_: camera
+  name: roaming_cam
+  values:
+    ip: '10.99.42.15'
+    mac: 'DE:AD:BE:EF:00:05'
+    resolution: '1920 1080'
+    port: '8554'
+    enabled: '1'
+expect: changed

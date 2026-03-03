@@ -77,13 +77,19 @@ def managed(name, config, sections, apply_rollback=None, revert_pending=False):
         return ret
 
     # 3. Read current state and resolve sections
-    current, resolved = _read_and_resolve(ret, config, sections)
+    current, resolved, prune_targets = _read_and_resolve(ret, config, sections)
     if ret["result"] is False:
         return ret
 
     # 4. Diff: compare desired against current (partial)
     all_changes = {}
     for section_name, desired in resolved.items():
+        # Whole-section absence: mark for deletion
+        if desired == "_absent":
+            if section_name in current:
+                all_changes[section_name] = {"_action": "delete"}
+            continue
+
         current_section = current.get(section_name, {})
 
         # Type mismatch guard: catch it before any changes are staged
@@ -102,6 +108,10 @@ def managed(name, config, sections, apply_rollback=None, revert_pending=False):
         section_changes = _diff_section(desired, current_section)
         if section_changes:
             all_changes[section_name] = section_changes
+
+    # 4b. Mark pruned sections for deletion
+    for section_name in prune_targets:
+        all_changes[section_name] = {"_action": "delete"}
 
     if not all_changes:
         if mode == "audit":
@@ -284,28 +294,64 @@ def _check_pending(ret, config, revert_pending):
 
 
 def _read_and_resolve(ret, config, sections):
-    """Read current config and resolve singleton anonymous sections."""
+    """Read current config and resolve anonymous sections."""
     try:
         current = __salt__["openwrt_ubus.get"](config)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = f"Failed to read {config}: {exc}"
-        return {}, {}
+        return {}, {}, []
 
     try:
-        resolved = _resolve_sections(config, sections, current)
+        resolved, prune_targets = _resolve_sections(config, sections, current)
     except ValueError as exc:
         ret["result"] = False
         ret["comment"] = str(exc)
-        return {}, {}
+        return {}, {}, []
 
-    return current, resolved
+    return current, resolved, prune_targets
 
 
 def _stage_changes(ret, config, all_changes, resolved, current):
-    """Issue uci.add and uci.set calls for changed sections."""
+    """Issue uci.add, uci.set, and uci.delete calls for changed sections.
+
+    Processes deletions before additions to avoid section count limits
+    during reorder operations. Handles:
+
+    - Section deletion (``_action: delete`` from prune or ``_absent``)
+    - Anonymous section creation (``_anonymous_new`` flag in resolved)
+    - Named section creation (existing behavior)
+    - Option-level ``_absent`` (delete individual options)
+    - Normal option updates (uci.set)
+    """
     try:
-        for section_name, section_changes in all_changes.items():
+        # Split into deletes and updates; process deletes first
+        deletes = {
+            k: v
+            for k, v in all_changes.items()
+            if isinstance(v, dict) and v.get("_action") == "delete"
+        }
+        updates = {
+            k: v
+            for k, v in all_changes.items()
+            if not (isinstance(v, dict) and v.get("_action") == "delete")
+        }
+
+        # 1. Deletions (prune, _absent whole-section, reorder tear-down)
+        for section_name in deletes:
+            __salt__["openwrt_ubus.delete"](config, section_name)
+
+        # 2. Creates and updates
+        for section_name, section_changes in updates.items():
+            # Separate normal values from _absent options
+            values = {}
+            absent_opts = []
+            for opt, change in section_changes.items():
+                if change["new"] == "_absent":
+                    absent_opts.append(opt)
+                else:
+                    values[opt] = change["new"]
+
             if section_name not in current:
                 desired = resolved[section_name]
                 type_ = desired.get("_type")
@@ -316,13 +362,32 @@ def _stage_changes(ret, config, all_changes, resolved, current):
                         f"and no _type specified for creation"
                     )
                     return
-                __salt__["openwrt_ubus.add"](config, type_, name=section_name)
 
-            values = {opt: change["new"] for opt, change in section_changes.items()}
-            __salt__["openwrt_ubus.set"](config, section_name, values)
+                if desired.get("_anonymous_new"):
+                    # Anonymous: add without name, get generated name back
+                    result = __salt__["openwrt_ubus.add"](config, type_)
+                    generated = result if isinstance(result, str) else result.get("section", result)
+                    if values:
+                        __salt__["openwrt_ubus.set"](config, generated, values)
+                    for opt in absent_opts:
+                        __salt__["openwrt_ubus.delete"](config, generated, opt)
+                else:
+                    # Named: add with name
+                    __salt__["openwrt_ubus.add"](config, type_, name=section_name)
+                    if values:
+                        __salt__["openwrt_ubus.set"](config, section_name, values)
+                    for opt in absent_opts:
+                        __salt__["openwrt_ubus.delete"](config, section_name, opt)
+            else:
+                # Existing section: set changed values, delete absent options
+                if values:
+                    __salt__["openwrt_ubus.set"](config, section_name, values)
+                for opt in absent_opts:
+                    __salt__["openwrt_ubus.delete"](config, section_name, opt)
+
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
-        ret["comment"] = f"Failed to set values on {config}: {exc}"
+        ret["comment"] = f"Failed to stage changes on {config}: {exc}"
 
 
 def _commit_or_apply(ret, config, all_changes, apply_rollback):
@@ -374,17 +439,40 @@ def _apply_and_confirm(ret, config, all_changes, apply_rollback):
         return
 
     for section_name, section_changes in all_changes.items():
-        new_section = new_state.get(section_name, {})
-        for option, change in section_changes.items():
-            actual = new_section.get(option)
-            if actual != change["new"]:
+        # Deleted sections should be gone
+        if isinstance(section_changes, dict) and section_changes.get("_action") == "delete":
+            if section_name in new_state:
                 ret["result"] = False
                 ret["comment"] = (
-                    f"Verification failed: {config}.{section_name}.{option} "
-                    f"expected {change['new']!r}, got {actual!r}. "
+                    f"Verification failed: {config}.{section_name} "
+                    f"expected deleted, still exists. "
                     f"Rollback will revert in {apply_rollback}s."
                 )
                 return
+            continue
+
+        new_section = new_state.get(section_name, {})
+        for option, change in section_changes.items():
+            if change["new"] == "_absent":
+                # Option should be gone
+                if option in new_section:
+                    ret["result"] = False
+                    ret["comment"] = (
+                        f"Verification failed: {config}.{section_name}.{option} "
+                        f"expected absent, still exists. "
+                        f"Rollback will revert in {apply_rollback}s."
+                    )
+                    return
+            else:
+                actual = new_section.get(option)
+                if actual != change["new"]:
+                    ret["result"] = False
+                    ret["comment"] = (
+                        f"Verification failed: {config}.{section_name}.{option} "
+                        f"expected {change['new']!r}, got {actual!r}. "
+                        f"Rollback will revert in {apply_rollback}s."
+                    )
+                    return
 
     # Check that services recovered after apply
     all_ok, down = _wait_for_services(snapshot, apply_rollback)
@@ -481,35 +569,145 @@ def _resolve_sections(config, sections, current):
     """
     Resolve pillar section names to actual UCI section names.
 
-    A pillar key starting with ``_`` with a ``_type`` field triggers
-    singleton anonymous section lookup: find the one anonymous section
-    of that type in the current config. Fails if zero or more than one
-    match.
+    Handles three cases for ``_``-prefixed pillar keys:
+
+    1. **_absent**: Section should not exist. Passed through as the
+       string ``"_absent"`` for the caller to handle deletion.
+    2. **Multi-instance** (``_items`` present): Multiple anonymous
+       sections matched by ``_match`` key. Delegates to
+       ``_resolve_multi_instance()``.
+    3. **Singleton**: One anonymous section of a given type.
+
+    Returns ``(resolved, prune_targets)`` where ``prune_targets`` is a
+    list of device section names to delete (from ``_prune: true``
+    multi-instance specs or reorder operations).
     """
     resolved = {}
+    prune_targets = []
     for pillar_name, desired in sections.items():
-        if pillar_name.startswith("_") and "_type" in desired:
-            target_type = desired["_type"]
-            matches = [
-                name
-                for name, data in current.items()
-                if data.get("_anonymous") and data.get("_type") == target_type
-            ]
-            if len(matches) == 0:
-                raise ValueError(
-                    f"No anonymous section of type '{target_type}' " f"found in {config}"
+        # Whole-section absence
+        if desired == "_absent":
+            resolved[pillar_name] = "_absent"
+            continue
+
+        if pillar_name.startswith("_") and isinstance(desired, dict) and "_type" in desired:
+            if "_items" in desired:
+                # Multi-instance anonymous sections
+                _resolve_multi_instance(
+                    config, pillar_name, desired, current, resolved, prune_targets
                 )
-            if len(matches) > 1:
-                raise ValueError(
-                    f"Multiple anonymous sections of type '{target_type}' "
-                    f"found in {config}: {matches}. "
-                    f"Singleton lookup requires exactly one. "
-                    f"Full anonymous section support is planned for v0.3."
-                )
-            resolved[matches[0]] = desired
+            else:
+                # Singleton anonymous section lookup
+                target_type = desired["_type"]
+                matches = [
+                    name
+                    for name, data in current.items()
+                    if data.get("_anonymous") and data.get("_type") == target_type
+                ]
+                if len(matches) == 0:
+                    raise ValueError(
+                        f"No anonymous section of type '{target_type}' found in {config}"
+                    )
+                if len(matches) > 1:
+                    raise ValueError(
+                        f"Multiple anonymous sections of type '{target_type}' "
+                        f"found in {config}: {matches}. "
+                        f"Singleton lookup requires exactly one. "
+                        f"Use _items for multi-instance management."
+                    )
+                resolved[matches[0]] = desired
         else:
             resolved[pillar_name] = desired
-    return resolved
+    return resolved, prune_targets
+
+
+def _resolve_multi_instance(_config, _pillar_name, spec, current, resolved, prune_targets):
+    """
+    Resolve a multi-instance anonymous section spec to device sections.
+
+    Matches pillar items to device sections by ``_match`` key(s).
+    Unmatched pillar items are flagged for anonymous creation.
+    If ``_prune`` is true, unmatched device sections are added to
+    ``prune_targets`` for deletion. If device order differs from
+    pillar order, all matched sections are deleted and re-added.
+    """
+    type_ = spec["_type"]
+    match_keys = spec["_match"]
+    if isinstance(match_keys, str):
+        match_keys = [match_keys]
+    items = spec["_items"]
+    prune = spec.get("_prune", False)
+
+    # 1. Index device sections of this type by match key
+    device_index = {}  # {match_tuple: section_name}
+    device_sections = []  # [(section_name, data), ...]
+    for name, data in current.items():
+        if data.get("_type") == type_ and data.get("_anonymous"):
+            key = tuple(data.get(k) for k in match_keys)
+            device_index[key] = name
+            device_sections.append((name, data))
+
+    # 2. Resolve each pillar item to a device section or mark for creation
+    matched_device_names = set()
+    for idx, item in enumerate(items):
+        key = tuple(item.get(k) for k in match_keys)
+        device_name = device_index.get(key)
+        if device_name:
+            resolved[device_name] = {"_type": type_, **item}
+            matched_device_names.add(device_name)
+        else:
+            placeholder = f"_new_{type_}_{idx}"
+            resolved[placeholder] = {"_type": type_, "_anonymous_new": True, **item}
+
+    # 3. Check order -- if device order differs from pillar, reorder
+    if len(matched_device_names) > 1:
+        ordered_device = sorted(
+            [(n, d) for n, d in device_sections if n in matched_device_names],
+            key=lambda nd: nd[1].get("_index", 0),
+        )
+        if not _check_order(items, match_keys, ordered_device):
+            # Delete all existing, re-add all in pillar order
+            for name in matched_device_names:
+                prune_targets.append(name)
+                if name in resolved:
+                    del resolved[name]
+            for idx, item in enumerate(items):
+                placeholder = f"_new_{type_}_{idx}"
+                if placeholder not in resolved:
+                    resolved[placeholder] = {"_type": type_, "_anonymous_new": True, **item}
+
+    # 4. Prune unmatched device sections of this type
+    if prune:
+        for name, _data in device_sections:
+            if name not in matched_device_names:
+                prune_targets.append(name)
+
+
+def _check_order(items, match_keys, device_sections_ordered):
+    """
+    Compare pillar item order against device section order.
+
+    Returns True if the relative order of matched items on the device
+    matches the pillar list order.
+    """
+    device_order = []
+    for _name, data in device_sections_ordered:
+        key = tuple(data.get(k) for k in match_keys)
+        device_order.append(key)
+
+    pillar_order = []
+    for item in items:
+        key = tuple(item.get(k) for k in match_keys)
+        pillar_order.append(key)
+
+    # Filter both lists to only keys present in the other,
+    # so new pillar items (not yet on device) don't cause a false mismatch.
+    pillar_set = set(pillar_order)
+    device_set = set(device_order)
+    device_matched = [k for k in device_order if k in pillar_set]
+    pillar_matched = [k for k in pillar_order if k in device_set]
+
+    return device_matched == pillar_matched
 
 
 def _diff_section(desired, current):
@@ -518,10 +716,15 @@ def _diff_section(desired, current):
 
     Only checks options listed in desired (partial semantics).
     Keys starting with ``_`` are metadata and skipped.
+    The sentinel value ``"_absent"`` marks an option for deletion.
     """
     changes = {}
     for option, desired_value in desired.items():
         if option.startswith("_"):
+            continue
+        if desired_value == "_absent":
+            if option in current:
+                changes[option] = {"old": current[option], "new": "_absent"}
             continue
         current_value = current.get(option)
         if current_value != desired_value:

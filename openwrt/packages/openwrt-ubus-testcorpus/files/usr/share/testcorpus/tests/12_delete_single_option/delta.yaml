@@ -1,0 +1,7 @@
+description: "Delete the note option from heckle_hydrophone"
+function: openwrt_ubus.delete
+kwargs:
+  config: testcorpus
+  section: heckle_hydrophone
+  option: note
+expect: changed

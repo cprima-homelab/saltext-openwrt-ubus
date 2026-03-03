@@ -1,0 +1,9 @@
+description: "Change bitrate on named camera section"
+function: openwrt_ubus.managed
+kwargs:
+  config: testcorpus
+  sections:
+    heckle_cam:
+      _type: camera
+      bitrate: '8000'
+expect: changed

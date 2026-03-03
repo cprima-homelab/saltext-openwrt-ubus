@@ -549,14 +549,16 @@ class TestDiffSection:
 class TestResolveSections:
     def test_named_sections_pass_through(self):
         sections = {"lan": {"proto": "static"}, "wan": {"proto": "dhcp"}}
-        resolved = state_mod._resolve_sections("network", sections, NETWORK_STATE)
+        resolved, prune = state_mod._resolve_sections("network", sections, NETWORK_STATE)
         assert resolved == sections
+        assert not prune
 
     def test_singleton_resolves(self):
         sections = {"_system": {"_type": "system", "hostname": "newname"}}
-        resolved = state_mod._resolve_sections("system", sections, SYSTEM_STATE)
+        resolved, prune = state_mod._resolve_sections("system", sections, SYSTEM_STATE)
         assert "cfg01e48a" in resolved
         assert "_system" not in resolved
+        assert not prune
 
     def test_singleton_no_match_raises(self):
         sections = {"_dnsmasq": {"_type": "dnsmasq"}}
@@ -875,3 +877,508 @@ class TestApplied:
         assert ret["result"] is True
         assert "applied and confirmed" in ret["comment"]
         patch_dunders["openwrt_ubus.confirm"].assert_called_once()
+
+
+# --- Multi-instance anonymous section management ---
+
+# Device state simulating DHCP hosts (anonymous sections matched by 'name')
+DHCP_STATE = {
+    "cfg0a": {
+        "_type": "host",
+        "_name": "cfg0a",
+        "_anonymous": True,
+        "_index": 0,
+        "name": "heckle_cam",
+        "mac": "DE:AD:BE:EF:00:01",
+        "ip": "10.99.42.10",
+        "leasetime": "12h",
+    },
+    "cfg0b": {
+        "_type": "host",
+        "_name": "cfg0b",
+        "_anonymous": True,
+        "_index": 1,
+        "name": "overhead_cam",
+        "mac": "DE:AD:BE:EF:00:02",
+        "ip": "10.99.42.11",
+        "leasetime": "12h",
+    },
+    "cfg0c": {
+        "_type": "host",
+        "_name": "cfg0c",
+        "_anonymous": True,
+        "_index": 2,
+        "name": "face_cam",
+        "mac": "DE:AD:BE:EF:00:03",
+        "ip": "10.99.42.12",
+        "leasetime": "12h",
+    },
+    "lan": {
+        "_type": "dhcp",
+        "_name": "lan",
+        "_anonymous": False,
+        "_index": 3,
+        "interface": "lan",
+    },
+}
+
+# Device state simulating firewall forwardings (composite match key)
+FIREWALL_FWD_STATE = {
+    "cfg10": {
+        "_type": "forwarding",
+        "_name": "cfg10",
+        "_anonymous": True,
+        "_index": 0,
+        "src": "lan",
+        "dest": "wan",
+    },
+    "cfg11": {
+        "_type": "forwarding",
+        "_name": "cfg11",
+        "_anonymous": True,
+        "_index": 1,
+        "src": "guest",
+        "dest": "wan",
+    },
+}
+
+# Device state simulating firewall rules (order matters)
+FIREWALL_RULES_STATE = {
+    "cfg20": {
+        "_type": "rule",
+        "_name": "cfg20",
+        "_anonymous": True,
+        "_index": 0,
+        "name": "Allow SSH",
+        "src": "lan",
+        "dest_port": "22",
+        "target": "ACCEPT",
+    },
+    "cfg21": {
+        "_type": "rule",
+        "_name": "cfg21",
+        "_anonymous": True,
+        "_index": 1,
+        "name": "Block telemetry",
+        "src": "lan",
+        "dest_ip": "203.0.113.0/24",
+        "target": "REJECT",
+    },
+    "cfg22": {
+        "_type": "rule",
+        "_name": "cfg22",
+        "_anonymous": True,
+        "_index": 2,
+        "name": "Drop all",
+        "src": "*",
+        "target": "DROP",
+    },
+}
+
+
+class TestMultiInstanceResolve:
+    """Tests for _resolve_multi_instance() via _resolve_sections()."""
+
+    def test_match_single_key(self):
+        """Match anonymous sections by single 'name' option."""
+        sections = {
+            "_hosts": {
+                "_type": "host",
+                "_match": "name",
+                "_items": [
+                    {"name": "heckle_cam", "mac": "DE:AD:BE:EF:00:01", "ip": "10.99.42.10"},
+                    {"name": "overhead_cam", "mac": "DE:AD:BE:EF:00:02", "ip": "10.99.42.11"},
+                ],
+            }
+        }
+        resolved, prune = state_mod._resolve_sections("dhcp", sections, DHCP_STATE)
+        # Should resolve to actual device section names
+        assert "cfg0a" in resolved  # heckle_cam
+        assert "cfg0b" in resolved  # overhead_cam
+        assert "_hosts" not in resolved
+        assert not prune
+
+    def test_match_composite_key(self):
+        """Match anonymous sections by composite (src, dest) key."""
+        sections = {
+            "_forwardings": {
+                "_type": "forwarding",
+                "_match": ["src", "dest"],
+                "_items": [
+                    {"src": "lan", "dest": "wan"},
+                ],
+            }
+        }
+        resolved, prune = state_mod._resolve_sections("firewall", sections, FIREWALL_FWD_STATE)
+        assert "cfg10" in resolved  # lan->wan
+        assert "cfg11" not in resolved  # guest->wan not in pillar
+        assert not prune
+
+    def test_new_item_triggers_add(self):
+        """Pillar item with no device match creates placeholder for anonymous add."""
+        sections = {
+            "_hosts": {
+                "_type": "host",
+                "_match": "name",
+                "_items": [
+                    {"name": "heckle_cam", "mac": "DE:AD:BE:EF:00:01", "ip": "10.99.42.10"},
+                    {"name": "new_device", "mac": "AA:BB:CC:DD:EE:FF", "ip": "10.99.42.99"},
+                ],
+            }
+        }
+        resolved, _prune = state_mod._resolve_sections("dhcp", sections, DHCP_STATE)
+        assert "cfg0a" in resolved  # existing heckle_cam
+        # New item gets placeholder name
+        new_keys = [k for k in resolved if k.startswith("_new_")]
+        assert len(new_keys) == 1
+        assert resolved[new_keys[0]]["_anonymous_new"] is True
+        assert resolved[new_keys[0]]["name"] == "new_device"
+
+    def test_prune_false_default(self):
+        """Unmatched device sections left alone when _prune is not set."""
+        sections = {
+            "_hosts": {
+                "_type": "host",
+                "_match": "name",
+                "_items": [
+                    {"name": "heckle_cam", "mac": "DE:AD:BE:EF:00:01", "ip": "10.99.42.10"},
+                ],
+            }
+        }
+        _resolved, prune = state_mod._resolve_sections("dhcp", sections, DHCP_STATE)
+        # cfg0b (overhead) and cfg0c (face_cam) not in pillar but not pruned
+        assert not prune
+
+    def test_prune_true(self):
+        """Unmatched device sections are pruned when _prune=True."""
+        sections = {
+            "_hosts": {
+                "_type": "host",
+                "_match": "name",
+                "_prune": True,
+                "_items": [
+                    {"name": "heckle_cam", "mac": "DE:AD:BE:EF:00:01", "ip": "10.99.42.10"},
+                ],
+            }
+        }
+        _resolved, prune = state_mod._resolve_sections("dhcp", sections, DHCP_STATE)
+        # cfg0b and cfg0c should be pruned (unmatched host sections)
+        assert "cfg0b" in prune
+        assert "cfg0c" in prune
+        assert "cfg0a" not in prune  # matched, not pruned
+
+    def test_order_correct_no_reorder(self):
+        """No reorder when device section order matches pillar order."""
+        sections = {
+            "_rules": {
+                "_type": "rule",
+                "_match": "name",
+                "_items": [
+                    {"name": "Allow SSH", "target": "ACCEPT"},
+                    {"name": "Block telemetry", "target": "REJECT"},
+                    {"name": "Drop all", "target": "DROP"},
+                ],
+            }
+        }
+        resolved, prune = state_mod._resolve_sections("firewall", sections, FIREWALL_RULES_STATE)
+        # All matched to existing sections, no reorder
+        assert "cfg20" in resolved
+        assert "cfg21" in resolved
+        assert "cfg22" in resolved
+        assert not prune
+        # No _anonymous_new placeholders
+        assert not any(k.startswith("_new_") for k in resolved)
+
+    def test_order_correct_with_new_item(self):
+        """No reorder when existing items are in correct order and a new item is appended."""
+        sections = {
+            "_rules": {
+                "_type": "rule",
+                "_match": "name",
+                "_items": [
+                    {"name": "Allow SSH", "target": "ACCEPT"},
+                    {"name": "Block telemetry", "target": "REJECT"},
+                    {"name": "Drop all", "target": "DROP"},
+                    {"name": "New rule", "target": "ACCEPT"},  # new, not on device
+                ],
+            }
+        }
+        resolved, prune = state_mod._resolve_sections("firewall", sections, FIREWALL_RULES_STATE)
+        # Existing sections matched, no reorder
+        assert "cfg20" in resolved
+        assert "cfg21" in resolved
+        assert "cfg22" in resolved
+        assert not prune
+        # Only the new item should be a placeholder
+        new_keys = [k for k in resolved if k.startswith("_new_")]
+        assert len(new_keys) == 1
+        assert resolved[new_keys[0]]["_anonymous_new"] is True
+        assert resolved[new_keys[0]]["name"] == "New rule"
+
+    def test_order_wrong_triggers_reorder(self):
+        """Reorder via delete+re-add when device order differs from pillar."""
+        sections = {
+            "_rules": {
+                "_type": "rule",
+                "_match": "name",
+                "_items": [
+                    # Reversed order from device
+                    {"name": "Drop all", "target": "DROP"},
+                    {"name": "Block telemetry", "target": "REJECT"},
+                    {"name": "Allow SSH", "target": "ACCEPT"},
+                ],
+            }
+        }
+        resolved, prune = state_mod._resolve_sections("firewall", sections, FIREWALL_RULES_STATE)
+        # All existing sections should be in prune (deleted for reorder)
+        assert "cfg20" in prune
+        assert "cfg21" in prune
+        assert "cfg22" in prune
+        # All items should be new placeholders
+        new_keys = [k for k in resolved if k.startswith("_new_")]
+        assert len(new_keys) == 3
+        for k in new_keys:
+            assert resolved[k]["_anonymous_new"] is True
+
+    def test_idempotent_no_changes(self, patch_dunders):
+        """Second run with matching state produces no changes."""
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=DHCP_STATE)
+
+        ret = state_mod.managed(
+            "test",
+            "dhcp",
+            {
+                "_hosts": {
+                    "_type": "host",
+                    "_match": "name",
+                    "_items": [
+                        {
+                            "name": "heckle_cam",
+                            "mac": "DE:AD:BE:EF:00:01",
+                            "ip": "10.99.42.10",
+                            "leasetime": "12h",
+                        },
+                        {
+                            "name": "overhead_cam",
+                            "mac": "DE:AD:BE:EF:00:02",
+                            "ip": "10.99.42.11",
+                            "leasetime": "12h",
+                        },
+                        {
+                            "name": "face_cam",
+                            "mac": "DE:AD:BE:EF:00:03",
+                            "ip": "10.99.42.12",
+                            "leasetime": "12h",
+                        },
+                    ],
+                }
+            },
+        )
+        assert ret["result"] is True
+        assert "already in desired state" in ret["comment"]
+        assert not ret["changes"]
+
+    def test_mixed_named_and_anonymous(self, patch_dunders):
+        """Same config has both named and multi-instance sections."""
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=DHCP_STATE)
+
+        ret = state_mod.managed(
+            "test",
+            "dhcp",
+            {
+                # Named section (existing)
+                "lan": {"_type": "dhcp", "interface": "lan"},
+                # Multi-instance anonymous
+                "_hosts": {
+                    "_type": "host",
+                    "_match": "name",
+                    "_items": [
+                        {
+                            "name": "heckle_cam",
+                            "mac": "DE:AD:BE:EF:00:01",
+                            "ip": "10.99.42.10",
+                            "leasetime": "12h",
+                        },
+                    ],
+                },
+            },
+        )
+        assert ret["result"] is True
+        assert "already in desired state" in ret["comment"]
+
+
+# --- Absent sentinel tests ---
+
+
+class TestAbsentOption:
+    """Tests for _absent sentinel on options."""
+
+    def test_absent_option_detected(self):
+        """_absent on existing option produces a diff."""
+        desired = {"proto": "static", "netmask": "_absent"}
+        current = {
+            "_type": "interface",
+            "proto": "static",
+            "netmask": "255.255.255.0",
+        }
+        diff = state_mod._diff_section(desired, current)
+        assert "netmask" in diff
+        assert diff["netmask"]["old"] == "255.255.255.0"
+        assert diff["netmask"]["new"] == "_absent"
+
+    def test_absent_option_not_present(self):
+        """_absent on missing option produces no diff."""
+        desired = {"proto": "static", "netmask": "_absent"}
+        current = {"_type": "interface", "proto": "static"}
+        diff = state_mod._diff_section(desired, current)
+        assert "netmask" not in diff
+
+    def test_absent_section(self, patch_dunders):
+        """_absent on entire section marks it for deletion."""
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
+
+        sections = {
+            "lan": {"_type": "interface", "proto": "static", "ipaddr": "10.35.24.1"},
+            "wan": "_absent",
+        }
+        resolved, _prune = state_mod._resolve_sections("network", sections, NETWORK_STATE)
+        assert resolved["wan"] == "_absent"
+
+    def test_absent_section_not_present(self, patch_dunders):
+        """_absent on non-existent section produces no changes."""
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
+
+        ret = state_mod.managed(
+            "test",
+            "network",
+            {"nonexistent": "_absent"},
+        )
+        assert ret["result"] is True
+        assert "already in desired state" in ret["comment"]
+
+    def test_absent_section_exists_audit_mode(self, patch_dunders):
+        """_absent on existing section reports drift in audit mode."""
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(side_effect=[AGENT_AUDIT, NETWORK_STATE])
+
+        ret = state_mod.managed("test", "network", {"wan": "_absent"})
+        assert ret["result"] is True
+        assert "audit mode" in ret["comment"]
+        assert "wan" in ret["changes"]
+        assert ret["changes"]["wan"]["_action"] == "delete"
+
+    def test_absent_section_staged(self, patch_dunders):
+        """_absent on existing section triggers delete in autoverified mode."""
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(
+            side_effect=[AGENT_AUTOVERIFIED, NETWORK_STATE]
+        )
+        patch_dunders["openwrt_ubus.delete"] = MagicMock()
+
+        ret = state_mod.managed("test", "network", {"wan": "_absent"})
+        assert ret["result"] is True
+        patch_dunders["openwrt_ubus.delete"].assert_called_once_with("network", "wan")
+
+
+# --- Stage changes tests ---
+
+
+class TestStageChanges:
+    """Tests for _stage_changes() with new action types."""
+
+    def test_anonymous_add(self, patch_dunders):
+        """Anonymous section creation calls add() without name."""
+        patch_dunders["openwrt_ubus.add"] = MagicMock(return_value="cfg0f")
+        patch_dunders["openwrt_ubus.set"] = MagicMock()
+
+        resolved = {
+            "_new_host_0": {
+                "_type": "host",
+                "_anonymous_new": True,
+                "name": "new_dev",
+                "mac": "AA:BB:CC:DD:EE:FF",
+            }
+        }
+        all_changes = {
+            "_new_host_0": {
+                "name": {"old": None, "new": "new_dev"},
+                "mac": {"old": None, "new": "AA:BB:CC:DD:EE:FF"},
+            }
+        }
+        ret = {"result": True, "comment": ""}
+        state_mod._stage_changes(ret, "dhcp", all_changes, resolved, current={})
+        assert ret["result"] is True
+        patch_dunders["openwrt_ubus.add"].assert_called_once_with("dhcp", "host")
+        patch_dunders["openwrt_ubus.set"].assert_called_once_with(
+            "dhcp", "cfg0f", {"name": "new_dev", "mac": "AA:BB:CC:DD:EE:FF"}
+        )
+
+    def test_section_delete(self, patch_dunders):
+        """Section deletion calls delete() on the section."""
+        patch_dunders["openwrt_ubus.delete"] = MagicMock()
+
+        all_changes = {"cfg0b": {"_action": "delete"}}
+        ret = {"result": True, "comment": ""}
+        state_mod._stage_changes(ret, "dhcp", all_changes, resolved={}, current=DHCP_STATE)
+        assert ret["result"] is True
+        patch_dunders["openwrt_ubus.delete"].assert_called_once_with("dhcp", "cfg0b")
+
+    def test_option_absent_delete(self, patch_dunders):
+        """_absent option calls delete() on the option."""
+        patch_dunders["openwrt_ubus.set"] = MagicMock()
+        patch_dunders["openwrt_ubus.delete"] = MagicMock()
+
+        all_changes = {
+            "lan": {
+                "ipaddr": {"old": "10.35.24.1", "new": "10.35.24.2"},
+                "netmask": {"old": "255.255.255.0", "new": "_absent"},
+            }
+        }
+        ret = {"result": True, "comment": ""}
+        state_mod._stage_changes(ret, "network", all_changes, resolved={}, current=NETWORK_STATE)
+        assert ret["result"] is True
+        patch_dunders["openwrt_ubus.set"].assert_called_once_with(
+            "network", "lan", {"ipaddr": "10.35.24.2"}
+        )
+        patch_dunders["openwrt_ubus.delete"].assert_called_once_with("network", "lan", "netmask")
+
+    def test_deletes_before_adds(self, patch_dunders):
+        """Deletions are processed before additions (for reorder)."""
+        call_order = []
+        patch_dunders["openwrt_ubus.delete"] = MagicMock(
+            side_effect=lambda *a, **kw: call_order.append(("delete", a))
+        )
+        patch_dunders["openwrt_ubus.add"] = MagicMock(
+            side_effect=lambda *a, **kw: (call_order.append(("add", a)), "cfg_new")[1]
+        )
+        patch_dunders["openwrt_ubus.set"] = MagicMock(
+            side_effect=lambda *a, **kw: call_order.append(("set", a))
+        )
+
+        resolved = {
+            "_new_rule_0": {
+                "_type": "rule",
+                "_anonymous_new": True,
+                "name": "Allow SSH",
+                "target": "ACCEPT",
+            }
+        }
+        all_changes = {
+            "cfg20": {"_action": "delete"},
+            "_new_rule_0": {
+                "name": {"old": None, "new": "Allow SSH"},
+                "target": {"old": None, "new": "ACCEPT"},
+            },
+        }
+        current = {"cfg20": FIREWALL_RULES_STATE["cfg20"]}
+        ret = {"result": True, "comment": ""}
+        state_mod._stage_changes(ret, "firewall", all_changes, resolved, current)
+
+        # First call should be delete, then add
+        assert call_order[0][0] == "delete"
+        add_idx = next(i for i, (op, _) in enumerate(call_order) if op == "add")
+        assert add_idx > 0

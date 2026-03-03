@@ -1,0 +1,10 @@
+description: "Add options to empty sponsor section"
+function: openwrt_ubus.managed
+kwargs:
+  config: testcorpus
+  sections:
+    raid_shadow_legends:
+      _type: sponsor
+      url: 'https://example.com/raid'
+      tier: 'gold'
+expect: changed

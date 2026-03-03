@@ -1,0 +1,11 @@
+description: "Add a new anonymous static DHCP lease"
+function: openwrt_ubus.add
+kwargs:
+  config: testcorpus
+  type_: host
+  values:
+    name: 'roaming_cam'
+    mac: 'DE:AD:BE:EF:00:05'
+    ip: '10.99.42.15'
+    leasetime: '12h'
+expect: changed

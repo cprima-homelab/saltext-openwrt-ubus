@@ -4,6 +4,32 @@ This project uses [Semantic Versioning](https://semver.org/) - MAJOR.MINOR.PATCH
 
 # Changelog
 
+## 0.4.0 (2026-03-03)
+
+### Added
+
+- Multi-instance anonymous section management in `managed()`: pillar entries
+  with `_type`, `_match`, and `_items` resolve multiple anonymous UCI sections
+  (e.g., DHCP hosts, firewall rules) by identity key matching.
+- Order enforcement for anonymous sections: when device order differs from
+  pillar `_items` order, sections are deleted and re-added in the correct
+  sequence.
+- `_absent` sentinel for option and section deletion: setting an option to
+  `_absent` deletes it from the device; setting a whole section to `_absent`
+  deletes the section.
+- `_prune` flag for multi-instance specs: when true, device sections of the
+  managed type with no matching pillar item are deleted.
+- Testcorpus package (`openwrt-ubus-testcorpus`) with 12 delta scenarios
+  covering scalars, lists, anonymous singletons, multi-instance sections,
+  section/option creation and deletion, and idempotence.
+
+### Changed
+
+- `_resolve_sections()` returns `(resolved, prune_targets)` tuple instead of
+  just `resolved`.
+- `_stage_changes()` processes deletions before additions to support reorder
+  operations without hitting section count limits.
+
 ## 0.3.1 (2026-03-02)
 
 ### Changed
