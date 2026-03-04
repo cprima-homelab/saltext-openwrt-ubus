@@ -1,6 +1,6 @@
 # 05 -- Proxy Lifecycle
 
-> Last reviewed against: v0.3.0
+> Last reviewed against: v0.4.0
 
 How the two proxy modules manage connections, sessions, and the
 relationship between proxy and state module.

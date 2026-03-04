@@ -1,6 +1,6 @@
 # 09 -- Proxy Module Architecture
 
-> Last reviewed against: v0.3.0
+> Last reviewed against: v0.4.0
 
 ## Problem
 

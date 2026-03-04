@@ -1,6 +1,6 @@
 # 04 -- LLM Coding Policy
 
-> Last reviewed against: v0.3.0
+> Last reviewed against: v0.4.0
 
 ## Purpose
 
@@ -124,8 +124,9 @@ def managed(name, config, sections, ...):
 2. **Use partial semantics.** Only options listed in the pillar are managed.
    Other options on the same section are left untouched.
 3. **Handle anonymous sections carefully.** Singleton anonymous sections
-   can be resolved by `_type` match. Multi-instance anonymous section
-   management is not yet implemented.
+   resolve by `_type` match. Multi-instance anonymous sections use
+   `_match`/`_items` pillar syntax. The `_absent` sentinel deletes
+   options or sections.
 4. **Use the apply/confirm cycle for safety.** `ubus call uci apply`
    with rollback ensures connectivity-breaking changes auto-revert.
 5. **Check for uncommitted changes before staging.** The state module

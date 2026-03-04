@@ -1,6 +1,6 @@
 # 02 -- Config Reader (not yet implemented)
 
-> Last reviewed against: v0.3.0
+> Last reviewed against: v0.4.0
 
 ## Goal
 
@@ -28,7 +28,7 @@ formatter.
 - Use `openwrt_ubus.get(config)` as the data source (ubus, not `uci show`)
 - Transform the returned dict into the pillar YAML structure used by the
   state module (`uci:` -> `config:` -> `section:` -> `{options}`)
-- Anonymous sections: include with their auto-generated names for now;
-  `_match_on` matching deferred until anonymous section support lands
+- Anonymous sections: emit `_match`/`_items` pillar syntax for
+  multi-instance types; use singleton `_type` for single-instance types
 - No standalone CLI; the execution module function is sufficient
   (`salt 'austru' openwrt_ubus.dump network format=pillar`)

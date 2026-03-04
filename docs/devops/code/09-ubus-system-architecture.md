@@ -1,6 +1,6 @@
 # 09 -- ubus System Architecture
 
-> Last reviewed against: v0.3.0
+> Last reviewed against: v0.4.0
 
 How OpenWrt's inter-process communication bus works, how objects get
 registered, and where rpcd adds authentication and ACLs on top.

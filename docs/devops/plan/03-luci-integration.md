@@ -1,6 +1,6 @@
 # 03 -- LuCI Integration (not yet implemented)
 
-> Last reviewed against: v0.3.0
+> Last reviewed against: v0.4.0
 
 ## Goal
 

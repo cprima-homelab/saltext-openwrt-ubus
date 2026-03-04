@@ -1,6 +1,6 @@
 # 01 -- Adapter Pattern
 
-> Last reviewed against: v0.3.0
+> Last reviewed against: v0.4.0
 
 How three execution modules share one virtualname and one business logic
 layer through dependency injection.
@@ -189,8 +189,9 @@ Before: `{".type": "interface", ".name": "lan", "proto": "static"}`
 After:  `{"_type": "interface", "_name": "lan", "proto": "static"}`
 
 This convention carries through to pillar keys (`_type` in desired
-state is metadata, skipped during diff) and singleton resolution
-(`_type` used to match anonymous sections by type).
+state is metadata, skipped during diff) and anonymous section
+resolution (`_type` for singletons, `_match`/`_items` for
+multi-instance, `_absent` for deletion).
 
 ## Function inventory
 

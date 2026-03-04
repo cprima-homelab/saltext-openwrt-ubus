@@ -1,6 +1,6 @@
 # 03 -- State Module Logic
 
-> Last reviewed against: v0.3.0
+> Last reviewed against: v0.4.0
 
 How the state module (`states/saltext_ubus.py`, 530 lines) achieves
 idempotent configuration management with rollback safety.
@@ -103,11 +103,15 @@ Result: no drift. `_type` is skipped (metadata), `netmask` and
 This matches LuCI's option-by-option model. Salt doesn't replace
 the entire section -- it manages only the options you declare.
 
-## Singleton anonymous section resolution
+## Anonymous section resolution
 
 UCI anonymous sections have auto-generated IDs (e.g., `cfg040f15`) that
-change across reboots. To manage them from pillar, use a `_` prefix
-with a `_type` field:
+change across reboots. The resolver (`_resolve_sections()`) handles
+three cases and returns a `(resolved, prune_targets)` tuple:
+
+### Singleton anonymous sections
+
+Use a `_` prefix with a `_type` field:
 
 ```yaml
 sections:
@@ -117,34 +121,52 @@ sections:
     leasefile: /tmp/dhcp.leases
 ```
 
-The resolver finds the one anonymous section of that type:
+The resolver finds the one anonymous section of that type. `_dhcp`
+resolves to e.g. `cfg040f15` if exactly one anonymous section of type
+`dhcp` exists. Fails explicitly if zero or multiple matches.
 
-```python
-# states/saltext_ubus.py:480-512
-def _resolve_sections(config, sections, current):
-    resolved = {}
-    for pillar_name, desired in sections.items():
-        if pillar_name.startswith("_") and "_type" in desired:
-            target_type = desired["_type"]
-            matches = [
-                name for name, data in current.items()
-                if data.get("_anonymous") and data.get("_type") == target_type
-            ]
-            if len(matches) == 0:
-                raise ValueError(f"No anonymous section of type '{target_type}' found in {config}")
-            if len(matches) > 1:
-                raise ValueError(
-                    f"Multiple anonymous sections of type '{target_type}' found in {config}: "
-                    f"{matches}. Singleton lookup requires exactly one."
-                )
-            resolved[matches[0]] = desired
-        else:
-            resolved[pillar_name] = desired
-    return resolved
+### Multi-instance anonymous sections (`_items`)
+
+For packages with multiple anonymous sections of the same type (e.g.,
+firewall rules, DHCP hosts), use `_match` and `_items`:
+
+```yaml
+sections:
+  firewall_rules:
+    _type: rule
+    _match: name
+    _items:
+      - name: Allow-SSH
+        src: wan
+        dest_port: "22"
+        target: ACCEPT
+      - name: Allow-HTTPS
+        src: wan
+        dest_port: "443"
+        target: ACCEPT
 ```
 
-`_dhcp` resolves to e.g. `cfg040f15` if exactly one anonymous section
-of type `dhcp` exists. Fails explicitly if zero or multiple matches.
+`_resolve_multi_instance()` matches each item against existing
+anonymous sections using the `_match` field as a key. Unmatched items
+are created as new sections.
+
+When `_prune: true` is set, existing anonymous sections of the same
+type that are not present in `_items` are marked for deletion and
+returned in the `prune_targets` list.
+
+### Order enforcement (`_check_order`)
+
+After resolving multi-instance sections, `_check_order()` verifies that
+the on-device order of anonymous sections matches the pillar order. If
+sections are out of order, they are deleted and re-added in the correct
+sequence (delete+re-add strategy), since UCI has no reorder primitive.
+
+### `_absent` sentinel
+
+The `_absent` sentinel in `_diff_section()` marks options or entire
+sections for deletion. Setting an option to `_absent` removes it from
+the section; setting the entire section value to `_absent` deletes the
+section.
 
 ## Type-mismatch guard
 

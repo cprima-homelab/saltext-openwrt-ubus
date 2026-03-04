@@ -1,6 +1,6 @@
 # Development Plan
 
-> Last reviewed against: v0.3.0
+> Last reviewed against: v0.4.0
 
 Design and planning documents for saltext-openwrt-ubus.
 
@@ -29,7 +29,7 @@ Implementation details live in [`docs/devops/code/`](../code/):
 | [00-uci-runtime-behavior](../code/00-uci-runtime-behavior.md) | UCI output formats, netifd schema, captured from live router |
 | [01-adapter-pattern](../code/01-adapter-pattern.md) | Three adapters, one virtualname, dependency injection via `_call` |
 | [02-salt-coding-patterns](../code/02-salt-coding-patterns.md) | Salt dunders, DETAILS dict, proxy parameter injection, progressive defaults |
-| [03-state-module-logic](../code/03-state-module-logic.md) | Partial diff, singleton resolution, rollback safety, agent modes |
+| [03-state-module-logic](../code/03-state-module-logic.md) | Partial diff, singleton & multi-instance resolution, rollback safety, agent modes |
 | [04-ubus-jsonrpc-api](../code/04-ubus-jsonrpc-api.md) | Complete ubus JSON-RPC method signatures and response formats |
 | [05-proxy-lifecycle](../code/05-proxy-lifecycle.md) | Session persistence, dead detection, rpcd timeout, error layers |
 | [06-openwrt-device-packages](../code/06-openwrt-device-packages.md) | opkg packages: rpcd ACL, agent config, LuCI app, dual-sided architecture |

@@ -170,11 +170,11 @@ Only options listed in the `sections` dict are managed. Other options on the sam
 
 ### Anonymous Section Resolution
 
-`_resolve_sections(config, sections, current)` handles singleton anonymous sections:
+`_resolve_sections(config, sections, current)` returns a `(resolved, prune_targets)` tuple and handles three cases:
 
-- If the pillar key starts with `_` and has a `_type` field, search for anonymous sections (`_anonymous=True`) matching that type
-- Exactly 1 match: use that section's actual name
-- 0 or >1 matches: raise `ValueError` (full anonymous section support planned for a future release)
+- **Singleton**: pillar key starts with `_` and has a `_type` field -- search for anonymous sections (`_anonymous=True`) matching that type. Exactly 1 match required.
+- **Multi-instance**: `_match` + `_items` pillar syntax -- each item is matched against existing anonymous sections by the `_match` key. Unmatched items are created. `_prune: true` removes unmatched existing sections.
+- **`_absent`**: pass-through for section deletion, no resolution needed.
 
 ### What Gets Staged
 

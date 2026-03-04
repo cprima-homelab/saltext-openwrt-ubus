@@ -1,6 +1,6 @@
 # ubus Object Inventory (austru)
 
-> Last reviewed against: v0.3.0
+> Last reviewed against: v0.4.0
 
 Complete list of ubus objects available on austru (OpenWrt 24.10.5,
 Netgear WNDR3800, LuCI installed). Captured via `ubus list`.

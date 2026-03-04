@@ -1,14 +1,12 @@
 """
 Salt state module for OpenWrt configuration management via ubus.
 
-Ensures named UCI sections match a desired state using partial
-semantics: only options present in pillar are managed, unmanaged
-options are left untouched. Matches LuCI's option-by-option model.
-
-Anonymous section management is deferred to v0.3, with one exception:
-singleton anonymous sections (exactly one section of a given type in
-a package) can be addressed by ``_<type>`` pillar key with a ``_type``
-field.
+Ensures UCI sections match a desired state using partial semantics:
+only options present in pillar are managed, unmanaged options are
+left untouched. Supports named sections, singleton anonymous
+sections (``_type`` match), and multi-instance anonymous sections
+(``_match``/``_items`` with order enforcement and ``_prune``).
+The ``_absent`` sentinel deletes options or entire sections.
 """
 
 import logging

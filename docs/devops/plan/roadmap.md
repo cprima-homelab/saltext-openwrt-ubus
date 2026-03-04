@@ -1,6 +1,6 @@
 # Roadmap
 
-> Last reviewed against: v0.3.0
+> Last reviewed against: v0.4.0
 
 ## Resolved
 
@@ -30,13 +30,19 @@
 - Add `openwrt` shorthand alias modules
 - Proxy virtualnames: `openwrt_ubus_jsonrpc`, `openwrt_ubus_ssh`
 
+### v0.4 -- Anonymous section management
+
+- Multi-instance anonymous sections via `_match`/`_items` pillar syntax
+- `_absent` sentinel for deleting options or entire sections
+- `_prune` flag for removing unmanaged anonymous sections
+- Order enforcement (delete+re-add strategy)
+- 12/12 testcorpus validation
+
 ## Planned
 
 - **Config reader / pillar generator** -- read device config via ubus,
   output Salt pillar YAML for onboarding existing routers.
   See [02-cli-config-reader.md](02-cli-config-reader.md).
-- **Anonymous section management** -- address anonymous sections by type
-  and match criteria, beyond the current singleton-only support.
 - **Integration tests** -- containerized OpenWrt with rpcd for
   end-to-end testing.
 - **LuCI staging visibility** -- explore making Salt-staged changes

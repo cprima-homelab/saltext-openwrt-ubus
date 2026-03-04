@@ -30,7 +30,7 @@ sequenceDiagram
     State->>UCI: get(config)
     UCI-->>State: current config state
 
-    Note over State: Resolve sections<br/>(singleton anonymous lookup)
+    Note over State: Resolve sections<br/>(singleton & multi-instance anonymous)
     Note over State: Diff desired vs current<br/>(partial semantics)
 
     alt No drift detected

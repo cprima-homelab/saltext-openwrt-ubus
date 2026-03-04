@@ -1,6 +1,6 @@
 # 06 -- OpenWrt Configuration Layers
 
-> Last reviewed against: v0.3.0
+> Last reviewed against: v0.4.0
 
 ## Overview
 

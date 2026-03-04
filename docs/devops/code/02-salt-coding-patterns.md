@@ -1,6 +1,6 @@
 # 02 -- Salt Coding Patterns
 
-> Last reviewed against: v0.3.0
+> Last reviewed against: v0.4.0
 
 Salt-specific conventions and dunder globals used throughout the
 extension. These are patterns a Salt developer needs to recognise; an

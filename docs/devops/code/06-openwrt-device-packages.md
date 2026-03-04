@@ -1,6 +1,6 @@
 # 06 -- OpenWrt Device Packages
 
-> Last reviewed against: v0.3.0
+> Last reviewed against: v0.4.0
 
 The device-side half of the extension: opkg packages that prepare an
 OpenWrt router for Salt management.

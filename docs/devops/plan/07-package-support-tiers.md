@@ -1,6 +1,6 @@
 # 07 -- Package Support Tiers
 
-> Last reviewed against: v0.3.0
+> Last reviewed against: v0.4.0
 
 ## Preface
 
@@ -82,12 +82,10 @@ currently supports:
 |--------------------|--------|-----------|
 | Named sections (`config type 'name'`) | Supported | Direct `uci set pkg.name.opt=val` |
 | Singleton anonymous sections | Supported | `_resolve_sections()` finds the one section of a given type |
-| Multiple anonymous sections | **Not supported** | Requires walk+match logic, not yet implemented |
+| Multiple anonymous sections | **Supported** (v0.4.0) | `_match`/`_items` pillar syntax with order enforcement |
 
-This means packages like `firewall` (mostly anonymous sections: rules,
-zones, forwardings) cannot be fully managed by the current state module,
-regardless of how much testing is done. Declaring support tiers makes
-this limitation explicit rather than leaving it as a runtime surprise.
+All section types are now supported (v0.4.0). Declaring support tiers
+remains useful for distinguishing validated packages from untested ones.
 
 ### What exists in planning docs
 
@@ -124,9 +122,9 @@ complexity tier:
 | `openvpn` | `openvpn` | 1 | named instances | **Yes** (VPN keys) |
 
 Tier 1 packages (all named sections) are structurally compatible with
-the current state module. Tier 2 packages work for their named and
-singleton anonymous sections. Tier 3 packages require the multi-instance anonymous
-section support that is not yet implemented.
+the state module. Tier 2 packages work for their named and singleton
+anonymous sections. Tier 3 packages (multi-instance anonymous sections)
+are supported since v0.4.0 -- all tiers are now structurally supported.
 
 ## The Two Dimensions
 
@@ -237,7 +235,7 @@ NAMED_SECTIONS = {
     },
 }
 
-# Not yet handled by managed() -- not yet implemented
+# Anonymous sections -- supported since v0.4.0
 ANONYMOUS_SECTIONS = {
     "device": {},
     "switch": {},
@@ -398,7 +396,7 @@ tier is derived from its section types.
 
 The state module's capabilities are per-section-type, not per-package.
 The `network` package has both named `interface` sections (fully
-handled) and anonymous `device` sections (not yet handled). Instead
+handled) and anonymous `device` sections (supported since v0.4.0). Instead
 of labeling the whole package, label each section type with both its
 handling category and its quality tier.
 
@@ -424,7 +422,7 @@ whether to proceed, warn, or refuse for each section.
 # Handling categories -- what the state module can do with this section type
 NAMED = "named"          # stable path: get, diff, set, apply
 SINGLETON = "singleton"  # anonymous but exactly one per package: supported
-ANONYMOUS = "anonymous"  # multiple anonymous: NOT YET supported
+ANONYMOUS = "anonymous"  # multiple anonymous: supported (v0.4.0)
 
 REGISTRY = {
     "network": {
@@ -506,21 +504,21 @@ for section_name, desired in resolved.items():
                 f"{config}.{section_name}: section type "
                 f"'{section_type}' not in scope")
         handling, tier = info
-        if handling == scope.ANONYMOUS:
+        if handling == scope.ANONYMOUS and tier == "experimental":
             return _refuse(ret,
                 f"{config}.{section_name}: anonymous section type "
-                f"'{section_type}' not yet supported")
+                f"'{section_type}' is experimental, opt in required")
 ```
 
 #### Interaction matrix
 
-The anonymous handling column is gated by **capability**, not just tier:
+Anonymous sections are now supported (v0.4.0). The gating is by tier only:
 
 ```
-              named+stable    singleton+stable    anonymous+experimental
-audit         observe         observe             observe (if opted in)
-autoverified  stage           stage               REFUSE (can't handle)
-oneshot       apply           apply               REFUSE (can't handle)
+              named+stable    singleton+stable    anonymous+stable    anonymous+experimental
+audit         observe         observe             observe             observe (if opted in)
+autoverified  stage           stage               stage               stage (if opted in)
+oneshot       apply           apply               apply               apply (if opted in)
 ```
 
 #### Pros
@@ -529,11 +527,10 @@ oneshot       apply           apply               REFUSE (can't handle)
   per-package
 - Makes the named-vs-anonymous distinction explicit and enforced
 - Clear error messages: "firewall.@rule: anonymous section type 'rule'
-  not yet supported" rather than "firewall is experimental"
-- Prevents the state module from attempting operations it structurally
-  cannot handle
-- Natural upgrade path: when anonymous section support lands, change
-  the handling category and the gate opens automatically
+  is experimental" rather than "firewall is experimental"
+- Makes the named-vs-anonymous distinction explicit for tier assignment
+- Now that anonymous sections are supported (v0.4.0), the handling
+  category drives tier granularity rather than capability gating
 - Single file, moderate complexity
 
 #### Cons
