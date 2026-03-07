@@ -63,6 +63,36 @@ def changes(config):
     return __salt__["openwrt_ubus.changes"](config)
 
 
+def dump(config, redact=True):
+    """
+    Read live UCI config and return a pillar-ready sections dict.
+    Alias for ``openwrt_ubus.dump``.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt austru openwrt.dump network
+        salt austru openwrt.dump wireless redact=False
+    """
+    return __salt__["openwrt_ubus.dump"](config, redact=redact)
+
+
+def dump_all(redact=True):
+    """
+    Dump all UCI config packages as a pillar-ready dict.
+    Alias for ``openwrt_ubus.dump_all``.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt austru openwrt.dump_all
+        salt austru openwrt.dump_all redact=False
+    """
+    return __salt__["openwrt_ubus.dump_all"](redact=redact)
+
+
 # --- Write operations ---
 
 

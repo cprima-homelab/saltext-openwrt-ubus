@@ -85,6 +85,39 @@ def changes(config):
     return ubus_ops.changes(_call, config)
 
 
+def dump(config, redact=True):
+    """
+    Read live UCI config and return a pillar-ready sections dict.
+
+    Transforms the device config into the format consumed by
+    ``openwrt_ubus.managed()``. Anonymous sections are emitted as
+    singleton (``_<type>``) or multi-instance (``_<type>s`` with
+    ``_match`` and ``_items``).
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt austru openwrt_ubus.dump network
+        salt austru openwrt_ubus.dump wireless redact=False
+    """
+    return ubus_ops.dump(_call, config, redact=redact)
+
+
+def dump_all(redact=True):
+    """
+    Dump all UCI config packages as a pillar-ready dict.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt austru openwrt_ubus.dump_all
+        salt austru openwrt_ubus.dump_all redact=False
+    """
+    return ubus_ops.dump_all(_call, redact=redact)
+
+
 # --- Write operations ---
 
 

@@ -1,6 +1,6 @@
-# 02 -- Config Reader (not yet implemented)
+# 02 -- Config Reader
 
-> Last reviewed against: v0.4.0
+> Last reviewed against: v0.5.0
 
 ## Goal
 
@@ -10,25 +10,31 @@ onboarding a router into Salt management.
 
 ## Status
 
-Not started. The execution module can already read full config via
-`openwrt_ubus.get(config)`, but there is no pillar-generation output
-formatter.
+Implemented. Available as `openwrt_ubus.dump(config)` and
+`openwrt_ubus.dump_all()` (also via `openwrt.dump` alias).
 
-## TODO
+## Implemented
 
-- [ ] Add `openwrt_ubus.dump(config, format="pillar")` execution module
-      function that reads live config and returns pillar-ready YAML
-- [ ] Handle secrets: replace known sensitive fields (password, key, psk,
-      secret, token) with Jinja2 pillar references
-- [ ] Add `openwrt_ubus.dump_all(format="pillar")` to iterate all configs
-- [ ] Optional: diff function to compare live config against declared pillar
+- [x] `openwrt_ubus.dump(config, redact=True)` -- reads live config,
+      returns pillar-ready sections dict
+- [x] `openwrt_ubus.dump_all(redact=True)` -- iterates all configs
+- [x] Sensitive field redaction via Jinja2 pillar references
+      (password, key, psk, secret, token, passphrase, credential)
+- [x] Auto-detection of `_match` keys for multi-instance anonymous
+      sections (prefers `name`, falls back to first unique option,
+      tries composite keys of 2)
+
+## Not implemented
+
+- [ ] Diff function to compare live config against declared pillar
 
 ## Design Notes
 
-- Use `openwrt_ubus.get(config)` as the data source (ubus, not `uci show`)
-- Transform the returned dict into the pillar YAML structure used by the
-  state module (`uci:` -> `config:` -> `section:` -> `{options}`)
-- Anonymous sections: emit `_match`/`_items` pillar syntax for
-  multi-instance types; use singleton `_type` for single-instance types
+- Data source: `openwrt_ubus.get(config)` (ubus, not `uci show`)
+- Returns a Python dict (Salt renders as YAML in CLI output)
+- Core logic in `utils/ubus_ops.py` (transport-agnostic)
+- Named sections: strip `_name`, `_anonymous`, `_index`; keep `_type`
+- Singleton anonymous: emit as `_<type>` with `_type` field
+- Multi-instance anonymous: emit as `_<type>s` with `_match` and `_items`
 - No standalone CLI; the execution module function is sufficient
-  (`salt 'austru' openwrt_ubus.dump network format=pillar`)
+  (`salt 'austru' openwrt_ubus.dump network`)
