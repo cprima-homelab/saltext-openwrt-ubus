@@ -10,5 +10,6 @@ _________
     :toctree:
 
     rpc
+    scope
     ssh
     ubus_ops

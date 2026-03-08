@@ -316,7 +316,12 @@ class TestSingletonResolution:
         patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
         patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=state_with_dupes)
 
-        ret = state_mod.managed("test", "firewall", {"_rule": {"_type": "rule", "name": "r1"}})
+        ret = state_mod.managed(
+            "test",
+            "firewall",
+            {"_rule": {"_type": "rule", "name": "r1"}},
+            allow_experimental=True,
+        )
         assert ret["result"] is False
         assert "Multiple anonymous sections" in ret["comment"]
 
@@ -1382,3 +1387,84 @@ class TestStageChanges:
         assert call_order[0][0] == "delete"
         add_idx = next(i for i, (op, _) in enumerate(call_order) if op == "add")
         assert add_idx > 0
+
+
+# --- Package scope gate ---
+
+
+class TestPackageScope:
+    """Tests for the package scope gate in managed()."""
+
+    def test_stable_package_proceeds(self, patch_dunders):
+        """Stable package (network) passes scope gate normally."""
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value=NETWORK_STATE)
+
+        ret = state_mod.managed(
+            "test",
+            "network",
+            {"lan": {"_type": "interface", "proto": "static", "ipaddr": "10.35.24.1"}},
+        )
+        assert ret["result"] is True
+        assert "already in desired state" in ret["comment"]
+
+    def test_experimental_without_optin_fails(self, patch_dunders):
+        """Experimental package without opt-in fails with guidance."""
+        patch_dunders["pillar.get"] = MagicMock(return_value=False)
+
+        ret = state_mod.managed(
+            "test", "firewall", {"_defaults": {"_type": "defaults", "input": "ACCEPT"}}
+        )
+        assert ret["result"] is False
+        assert "experimental support" in ret["comment"]
+        assert "allow_experimental=True" in ret["comment"]
+
+    def test_experimental_with_param_true_proceeds(self, patch_dunders):
+        """Experimental package with allow_experimental=True param proceeds."""
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value={})
+
+        ret = state_mod.managed(
+            "test",
+            "firewall",
+            {"_defaults": {"_type": "defaults", "input": "ACCEPT"}},
+            allow_experimental=True,
+        )
+        # Should get past scope gate (may fail later, but not on scope)
+        assert "experimental support" not in ret.get("comment", "")
+
+    def test_experimental_with_pillar_true_proceeds(self, patch_dunders):
+        """Experimental package with pillar openwrt:allow_experimental proceeds."""
+        patch_dunders["pillar.get"] = MagicMock(return_value=True)
+        patch_dunders["openwrt_ubus.changes"] = MagicMock(return_value=[])
+        patch_dunders["openwrt_ubus.get"] = MagicMock(return_value={})
+
+        ret = state_mod.managed(
+            "test",
+            "firewall",
+            {"_defaults": {"_type": "defaults", "input": "ACCEPT"}},
+        )
+        # Should get past scope gate
+        assert "experimental support" not in ret.get("comment", "")
+
+    def test_param_false_overrides_pillar_true(self, patch_dunders):
+        """Explicit allow_experimental=False overrides pillar True."""
+        patch_dunders["pillar.get"] = MagicMock(return_value=True)
+
+        ret = state_mod.managed(
+            "test",
+            "firewall",
+            {"_defaults": {"_type": "defaults", "input": "ACCEPT"}},
+            allow_experimental=False,
+        )
+        assert ret["result"] is False
+        assert "experimental support" in ret["comment"]
+        # pillar.get should NOT have been called
+        patch_dunders["pillar.get"].assert_not_called()
+
+    def test_unregistered_package_fails(self):
+        """Unregistered package fails with supported-packages list."""
+        ret = state_mod.managed("test", "uhttpd", {"main": {"listen_http": "0.0.0.0:80"}})
+        assert ret["result"] is False
+        assert "not in saltext-openwrt-ubus scope" in ret["comment"]
+        assert "network" in ret["comment"]  # listed in supported packages

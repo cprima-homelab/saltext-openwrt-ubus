@@ -1,6 +1,10 @@
 # 07 -- Package Support Tiers
 
 > Last reviewed against: v0.4.0
+>
+> **Status**: Alternative B implemented. Scope gate in `managed()`,
+> registry in `utils/scope.py`. STABLE: network, system, dhcp.
+> EXPERIMENTAL: wireless, firewall, dropbear.
 
 ## Preface
 

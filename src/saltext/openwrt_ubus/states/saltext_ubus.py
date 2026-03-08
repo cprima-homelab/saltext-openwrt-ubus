@@ -12,6 +12,7 @@ The ``_absent`` sentinel deletes options or entire sections.
 import logging
 import time
 
+from saltext.openwrt_ubus.utils import scope
 from saltext.openwrt_ubus.utils.ubus_ops import diff_section as _diff_section
 from saltext.openwrt_ubus.utils.ubus_ops import resolve_sections as _resolve_sections
 
@@ -30,7 +31,9 @@ def __virtual__():
     return __virtualname__
 
 
-def managed(name, config, sections, apply_rollback=None, revert_pending=False):
+def managed(  # pylint: disable=too-many-return-statements
+    name, config, sections, apply_rollback=None, revert_pending=False, allow_experimental=None
+):
     """
     Ensure named UCI sections match desired state.
 
@@ -50,6 +53,10 @@ def managed(name, config, sections, apply_rollback=None, revert_pending=False):
             before proceeding. If ``False`` (default), fail when pending
             deltas exist to prevent discarding someone else's staged
             changes.
+        allow_experimental: Controls access to experimental-tier packages.
+            ``True`` = allow, ``False`` = deny (overrides pillar),
+            ``None`` (default) = check pillar
+            ``openwrt:allow_experimental``.
 
     Example:
 
@@ -72,17 +79,22 @@ def managed(name, config, sections, apply_rollback=None, revert_pending=False):
         ret["comment"] = f"{config}: salt-openwrt disabled on device, skipping"
         return ret
 
-    # 2. Check for pending deltas
+    # 2. Check package scope
+    _check_scope(ret, config, allow_experimental)
+    if ret["result"] is False:
+        return ret
+
+    # 3. Check for pending deltas
     pending = _check_pending(ret, config, revert_pending)
     if ret["result"] is False:
         return ret
 
-    # 3. Read current state and resolve sections
+    # 4. Read current state and resolve sections
     current, resolved, prune_targets = _read_and_resolve(ret, config, sections)
     if ret["result"] is False:
         return ret
 
-    # 4. Diff: compare desired against current (partial)
+    # 5. Diff: compare desired against current (partial)
     all_changes = {}
     for section_name, desired in resolved.items():
         # Whole-section absence: mark for deletion
@@ -110,7 +122,7 @@ def managed(name, config, sections, apply_rollback=None, revert_pending=False):
         if section_changes:
             all_changes[section_name] = section_changes
 
-    # 4b. Mark pruned sections for deletion
+    # 5b. Mark pruned sections for deletion
     for section_name in prune_targets:
         all_changes[section_name] = {"_action": "delete"}
 
@@ -121,7 +133,7 @@ def managed(name, config, sections, apply_rollback=None, revert_pending=False):
             ret["comment"] = f"{config}: already in desired state"
         return ret
 
-    # 5. Audit mode -- report drift, never write
+    # 6. Audit mode -- report drift, never write
     if mode == "audit":
         ret["changes"] = all_changes
         ret["comment"] = (
@@ -129,15 +141,15 @@ def managed(name, config, sections, apply_rollback=None, revert_pending=False):
         )
         return ret
 
-    # 6. Autoverified / humanreviewed mode -- stage only, do not apply
+    # 7. Autoverified / humanreviewed mode -- stage only, do not apply
     if mode in ("autoverified", "humanreviewed"):
         apply_rollback = None
 
-    # 7. Resolve apply_rollback default for oneshot mode
+    # 8. Resolve apply_rollback default for oneshot mode
     if apply_rollback is None and mode == "oneshot":
         apply_rollback = rollback_timeout
 
-    # 8. Test mode
+    # 9. Test mode
     if __opts__["test"]:
         ret["result"] = None
         ret["changes"] = all_changes
@@ -148,12 +160,12 @@ def managed(name, config, sections, apply_rollback=None, revert_pending=False):
         ret["comment"] = f"{config}: {'; '.join(parts)}"
         return ret
 
-    # 9. Stage uci.set calls
+    # 10. Stage uci.set calls
     _stage_changes(ret, config, all_changes, resolved, current)
     if ret["result"] is False:
         return ret
 
-    # 10. Commit or apply
+    # 11. Commit or apply
     _commit_or_apply(ret, config, all_changes, apply_rollback)
     if ret["result"] is False:
         return ret
@@ -263,6 +275,28 @@ def _get_agent_mode():
     except (ValueError, TypeError):
         rollback_timeout = 120
     return enabled, mode, rollback_timeout
+
+
+def _check_scope(ret, config, allow_experimental):
+    """Check if the package is within the supported scope. Modifies ret in place."""
+    pkg_tier = scope.tier(config)
+    if pkg_tier is None:
+        ret["result"] = False
+        ret["comment"] = (
+            f"{config}: not in saltext-openwrt-ubus scope. "
+            f"Supported packages: {', '.join(scope.supported())}"
+        )
+        return
+    if pkg_tier == "experimental":
+        if allow_experimental is None:
+            allow_experimental = __salt__["pillar.get"]("openwrt:allow_experimental", False)
+        if not allow_experimental:
+            ret["result"] = False
+            ret["comment"] = (
+                f"{config}: experimental support. "
+                f"Pass allow_experimental=True or set "
+                f"pillar openwrt:allow_experimental to proceed."
+            )
 
 
 def _is_json_rpc():
