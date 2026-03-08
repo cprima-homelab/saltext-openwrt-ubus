@@ -19,7 +19,9 @@
 				],
 				"uci": ["configs", "get", "state", "changes"]
 			},
-			"uci": ["*"]
+			"uci": ["network", "system", "dhcp",
+				"wireless", "firewall", "dropbear",
+				"salt-openwrt"]
 		},
 		"write": {
 			"ubus": {
@@ -30,7 +32,9 @@
 					"reload_config"
 				]
 			},
-			"uci": ["*"]
+			"uci": ["network", "system", "dhcp",
+				"wireless", "firewall", "dropbear",
+				"salt-openwrt"]
 		}
 	}
 }

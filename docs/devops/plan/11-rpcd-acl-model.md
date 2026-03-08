@@ -1,6 +1,11 @@
 # 11 -- rpcd ACL Model
 
 > Last reviewed against: v0.4.0
+>
+> **ACL tightened**: `uci: ["*"]` replaced with explicit package list
+> matching the scope registry (network, system, dhcp, wireless,
+> firewall, dropbear, salt-openwrt). Operators must reinstall the
+> salt-agent-ubus ipk (v0.3.0) to pick up the change.
 
 How OpenWrt controls access to the ubus JSON-RPC API.
 

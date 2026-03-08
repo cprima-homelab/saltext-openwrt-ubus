@@ -1,5 +1,5 @@
 Package: salt-agent-ubus
-Version: 0.2.0-1
+Version: 0.3.0-1
 Depends: rpcd, uhttpd-mod-ubus
 Section: admin
 Architecture: all
