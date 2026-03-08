@@ -213,7 +213,7 @@ class TestDetectMatchKey:
         assert ubus_ops._detect_match_key(sections) is None
 
 
-class TestDump:
+class TestConfigExport:
     @staticmethod
     def _mock_call(state):
         def call(_obj, method, _params=None):
@@ -229,7 +229,7 @@ class TestDump:
         return call
 
     def test_named_sections(self):
-        result = ubus_ops.dump(self._mock_call(NETWORK_STATE), "network", redact=False)
+        result = ubus_ops.config_export(self._mock_call(NETWORK_STATE), "network", format="json")
         assert "lan" in result
         assert "wan" in result
         assert result["lan"] == {"_type": "interface", "proto": "static", "ipaddr": "10.35.24.1"}
@@ -238,13 +238,13 @@ class TestDump:
         assert "_index" not in result["lan"]
 
     def test_singleton_anonymous(self):
-        result = ubus_ops.dump(self._mock_call(SYSTEM_STATE), "system", redact=False)
+        result = ubus_ops.config_export(self._mock_call(SYSTEM_STATE), "system", format="json")
         assert "_system" in result
         assert result["_system"]["_type"] == "system"
         assert result["_system"]["hostname"] == "austru"
 
     def test_multi_instance_anonymous(self):
-        result = ubus_ops.dump(self._mock_call(DHCP_STATE), "dhcp", redact=False)
+        result = ubus_ops.config_export(self._mock_call(DHCP_STATE), "dhcp", format="json")
         assert "_hosts" in result
         assert result["_hosts"]["_type"] == "host"
         assert result["_hosts"]["_match"] == "name"
@@ -253,43 +253,47 @@ class TestDump:
         assert result["_hosts"]["_items"][1]["name"] == "cam2"
 
     def test_mixed_named_and_anonymous(self):
-        result = ubus_ops.dump(self._mock_call(DHCP_STATE), "dhcp", redact=False)
+        result = ubus_ops.config_export(self._mock_call(DHCP_STATE), "dhcp", format="json")
         assert "lan" in result
         assert "_hosts" in result
 
     def test_redact_sensitive_options(self):
-        result = ubus_ops.dump(self._mock_call(NETWORK_STATE), "network", redact=True)
+        result = ubus_ops.config_export(self._mock_call(NETWORK_STATE), "network", format="pillar")
         assert "pillar.get" in result["wan"]["password"]
         assert "s3cret" not in result["wan"]["password"]
 
-    def test_redact_false_preserves_values(self):
-        result = ubus_ops.dump(self._mock_call(NETWORK_STATE), "network", redact=False)
+    def test_json_format_preserves_values(self):
+        result = ubus_ops.config_export(self._mock_call(NETWORK_STATE), "network", format="json")
         assert result["wan"]["password"] == "s3cret"
 
     def test_empty_config(self):
-        result = ubus_ops.dump(self._mock_call({}), "empty", redact=False)
+        result = ubus_ops.config_export(self._mock_call({}), "empty", format="json")
         assert not result
 
     def test_no_viable_match_key_emits_comment(self):
-        result = ubus_ops.dump(self._mock_call(NO_UNIQUE_KEY_STATE), "firewall", redact=False)
+        result = ubus_ops.config_export(
+            self._mock_call(NO_UNIQUE_KEY_STATE), "firewall", format="json"
+        )
         assert "_rules" in result
         assert "_comment" in result["_rules"]
         assert "_match" not in result["_rules"]
 
     def test_composite_match_key(self):
-        result = ubus_ops.dump(self._mock_call(FORWARDING_STATE), "firewall", redact=False)
+        result = ubus_ops.config_export(
+            self._mock_call(FORWARDING_STATE), "firewall", format="json"
+        )
         assert "_forwardings" in result
         match = result["_forwardings"]["_match"]
         assert isinstance(match, list)
         assert set(match) == {"src", "dest"}
 
     def test_items_exclude_type(self):
-        result = ubus_ops.dump(self._mock_call(DHCP_STATE), "dhcp", redact=False)
+        result = ubus_ops.config_export(self._mock_call(DHCP_STATE), "dhcp", format="json")
         for item in result["_hosts"]["_items"]:
             assert "_type" not in item
 
 
-class TestDumpAll:
+class TestConfigExportAll:
     def test_iterates_all_configs(self):
         configs = ["network", "system"]
         states = {
@@ -311,7 +315,7 @@ class TestDumpAll:
                 }
             return {}
 
-        result = ubus_ops.dump_all(call, redact=False)
+        result = ubus_ops.config_export_all(call, format="json")
         assert "network" in result
         assert "system" in result
         assert "lan" in result["network"]
@@ -327,6 +331,6 @@ class TestDumpAll:
                 return {"values": {}}
             return {}
 
-        result = ubus_ops.dump_all(call, redact=False)
+        result = ubus_ops.config_export_all(call, format="json")
         assert result["good"] == {}
         assert "_error" in result["bad"]

@@ -133,14 +133,20 @@ def _redact_value(config, section_name, option_name, match_key=None, match_value
     return "{{ salt['pillar.get']('" + path + "') }}"
 
 
-def dump(call, config, redact=True):
-    """Read a live UCI config and return a pillar-ready sections dict.
+def config_export(call, config, format="json"):  # pylint: disable=redefined-builtin
+    """Read a live UCI config and return a grouped sections dict.
+
+    Both formats use the same grouped structure (metadata-stripped,
+    anonymous sections grouped as singletons or multi-instance with
+    ``_match``/``_items``). The ``pillar`` format redacts sensitive
+    options with Jinja2 pillar references; ``json`` keeps plaintext.
 
     Args:
         call: Transport-specific ubus call function.
         config: UCI package name (e.g., ``network``).
-        redact: Replace sensitive option values with Jinja2 pillar
-            references. Defaults to True.
+        format: Output format -- ``"json"`` (default, plaintext values)
+            or ``"pillar"`` (sensitive values replaced with Jinja2
+            pillar references).
 
     Returns:
         dict: Sections dict consumable by the ``managed()`` state.
@@ -149,9 +155,10 @@ def dump(call, config, redact=True):
 
     .. code-block:: bash
 
-        salt austru openwrt_ubus.dump network
-        salt austru openwrt_ubus.dump wireless redact=False
+        salt austru openwrt_ubus.config_export network
+        salt austru openwrt_ubus.config_export network format=pillar
     """
+    redact = format == "pillar"
     raw = get(call, config)
     if not raw:
         return {}
@@ -242,8 +249,8 @@ def dump(call, config, redact=True):
     return result
 
 
-def dump_all(call, redact=True):
-    """Dump all UCI config packages as a pillar-ready dict.
+def config_export_all(call, format="json"):  # pylint: disable=redefined-builtin
+    """Export all UCI config packages as a grouped dict.
 
     Returns:
         dict: Maps config names to their sections dicts.
@@ -252,13 +259,13 @@ def dump_all(call, redact=True):
 
     .. code-block:: bash
 
-        salt austru openwrt_ubus.dump_all
-        salt austru openwrt_ubus.dump_all redact=False
+        salt austru openwrt_ubus.config_export_all
+        salt austru openwrt_ubus.config_export_all format=pillar
     """
     result = {}
     for config_name in configs(call):
         try:
-            result[config_name] = dump(call, config_name, redact=redact)
+            result[config_name] = config_export(call, config_name, format=format)
         except Exception:  # pylint: disable=broad-except
             result[config_name] = {"_error": f"Failed to read {config_name}"}
     return result

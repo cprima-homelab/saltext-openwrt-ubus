@@ -114,37 +114,40 @@ def changes(config):
     return ubus_ops.changes(_call, config)
 
 
-def dump(config, redact=True):
+def config_export(config, format="json"):  # pylint: disable=redefined-builtin
     """
-    Read live UCI config and return a pillar-ready sections dict.
+    Export live UCI config as a grouped sections dict.
 
     Transforms the device config into the format consumed by
     ``openwrt_ubus.managed()``. Anonymous sections are emitted as
     singleton (``_<type>``) or multi-instance (``_<type>s`` with
     ``_match`` and ``_items``).
 
-    CLI Example:
-
-    .. code-block:: bash
-
-        salt device openwrt_ubus.dump network
-        salt device openwrt_ubus.dump wireless redact=False
-    """
-    return ubus_ops.dump(_call, config, redact=redact)
-
-
-def dump_all(redact=True):
-    """
-    Dump all UCI config packages as a pillar-ready dict.
+    Use ``format=pillar`` to redact sensitive values with Jinja2
+    pillar references, or ``format=json`` (default) for plaintext.
 
     CLI Example:
 
     .. code-block:: bash
 
-        salt device openwrt_ubus.dump_all
-        salt device openwrt_ubus.dump_all redact=False
+        salt device openwrt_ubus.config_export network
+        salt device openwrt_ubus.config_export network format=pillar
     """
-    return ubus_ops.dump_all(_call, redact=redact)
+    return ubus_ops.config_export(_call, config, format=format)
+
+
+def config_export_all(format="json"):  # pylint: disable=redefined-builtin
+    """
+    Export all UCI config packages as a grouped dict.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt device openwrt_ubus.config_export_all
+        salt device openwrt_ubus.config_export_all format=pillar
+    """
+    return ubus_ops.config_export_all(_call, format=format)
 
 
 # --- Write operations ---

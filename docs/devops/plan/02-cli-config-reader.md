@@ -10,14 +10,15 @@ onboarding a router into Salt management.
 
 ## Status
 
-Implemented. Available as `openwrt_ubus.dump(config)` and
-`openwrt_ubus.dump_all()` (also via `openwrt.dump` alias).
+Implemented. Available as `openwrt_ubus.config_export(config)` and
+`openwrt_ubus.config_export_all()` (also via `openwrt.config_export` alias).
 
 ## Implemented
 
-- [x] `openwrt_ubus.dump(config, redact=True)` -- reads live config,
-      returns pillar-ready sections dict
-- [x] `openwrt_ubus.dump_all(redact=True)` -- iterates all configs
+- [x] `openwrt_ubus.config_export(config, format="json")` -- reads live
+      config, returns grouped sections dict (`format="pillar"` for
+      Jinja2-redacted output)
+- [x] `openwrt_ubus.config_export_all(format="json")` -- iterates all configs
 - [x] Sensitive field redaction via Jinja2 pillar references
       (password, key, psk, secret, token, passphrase, credential)
 - [x] Auto-detection of `_match` keys for multi-instance anonymous
@@ -37,4 +38,4 @@ Implemented. Available as `openwrt_ubus.dump(config)` and
 - Singleton anonymous: emit as `_<type>` with `_type` field
 - Multi-instance anonymous: emit as `_<type>s` with `_match` and `_items`
 - No standalone CLI; the execution module function is sufficient
-  (`salt 'austru' openwrt_ubus.dump network`)
+  (`salt 'austru' openwrt_ubus.config_export network`)

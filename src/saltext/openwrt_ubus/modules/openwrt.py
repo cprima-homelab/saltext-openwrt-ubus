@@ -63,34 +63,34 @@ def changes(config):
     return __salt__["openwrt_ubus.changes"](config)
 
 
-def dump(config, redact=True):
+def config_export(config, format="json"):  # pylint: disable=redefined-builtin
     """
-    Read live UCI config and return a pillar-ready sections dict.
-    Alias for ``openwrt_ubus.dump``.
+    Export live UCI config as a grouped sections dict.
+    Alias for ``openwrt_ubus.config_export``.
 
     CLI Example:
 
     .. code-block:: bash
 
-        salt austru openwrt.dump network
-        salt austru openwrt.dump wireless redact=False
+        salt austru openwrt.config_export network
+        salt austru openwrt.config_export network format=pillar
     """
-    return __salt__["openwrt_ubus.dump"](config, redact=redact)
+    return __salt__["openwrt_ubus.config_export"](config, format=format)
 
 
-def dump_all(redact=True):
+def config_export_all(format="json"):  # pylint: disable=redefined-builtin
     """
-    Dump all UCI config packages as a pillar-ready dict.
-    Alias for ``openwrt_ubus.dump_all``.
+    Export all UCI config packages as a grouped dict.
+    Alias for ``openwrt_ubus.config_export_all``.
 
     CLI Example:
 
     .. code-block:: bash
 
-        salt austru openwrt.dump_all
-        salt austru openwrt.dump_all redact=False
+        salt austru openwrt.config_export_all
+        salt austru openwrt.config_export_all format=pillar
     """
-    return __salt__["openwrt_ubus.dump_all"](redact=redact)
+    return __salt__["openwrt_ubus.config_export_all"](format=format)
 
 
 # --- Write operations ---
