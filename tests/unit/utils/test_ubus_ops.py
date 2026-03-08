@@ -334,3 +334,109 @@ class TestConfigExportAll:
         result = ubus_ops.config_export_all(call, format="json")
         assert result["good"] == {}
         assert "_error" in result["bad"]
+
+
+# --- Diff / resolve tests ---
+
+
+class TestDiffSection:
+    def test_no_diff(self):
+        desired = {"_type": "interface", "proto": "static", "ipaddr": "10.0.0.1"}
+        current = {
+            "_type": "interface",
+            "proto": "static",
+            "ipaddr": "10.0.0.1",
+            "netmask": "255.255.255.0",
+        }
+        assert not ubus_ops.diff_section(desired, current)
+
+    def test_changed_option(self):
+        desired = {"_type": "interface", "ipaddr": "10.0.0.2"}
+        current = {"_type": "interface", "ipaddr": "10.0.0.1"}
+        result = ubus_ops.diff_section(desired, current)
+        assert result == {"ipaddr": {"old": "10.0.0.1", "new": "10.0.0.2"}}
+
+    def test_new_option(self):
+        desired = {"_type": "interface", "dns": "8.8.8.8"}
+        current = {"_type": "interface", "ipaddr": "10.0.0.1"}
+        result = ubus_ops.diff_section(desired, current)
+        assert result == {"dns": {"old": None, "new": "8.8.8.8"}}
+
+    def test_metadata_skipped(self):
+        desired = {"_type": "interface", "_anonymous": True, "proto": "static"}
+        current = {"_type": "interface", "_anonymous": True, "proto": "static"}
+        assert not ubus_ops.diff_section(desired, current)
+
+    def test_absent_existing_option(self):
+        desired = {"_type": "interface", "dns": "_absent"}
+        current = {"_type": "interface", "dns": "8.8.8.8"}
+        result = ubus_ops.diff_section(desired, current)
+        assert result == {"dns": {"old": "8.8.8.8", "new": "_absent"}}
+
+    def test_absent_missing_option_no_op(self):
+        desired = {"_type": "interface", "dns": "_absent"}
+        current = {"_type": "interface", "proto": "static"}
+        assert not ubus_ops.diff_section(desired, current)
+
+
+class TestResolveSections:
+    def test_named_section_passthrough(self):
+        sections = {"lan": {"_type": "interface", "proto": "static"}}
+        current = NETWORK_STATE
+        resolved, prune = ubus_ops.resolve_sections("network", sections, current)
+        assert "lan" in resolved
+        assert not prune
+
+    def test_singleton_anonymous(self):
+        sections = {"_system": {"_type": "system", "hostname": "newhost"}}
+        resolved, prune = ubus_ops.resolve_sections("system", sections, SYSTEM_STATE)
+        assert "cfg01e48a" in resolved
+        assert resolved["cfg01e48a"]["hostname"] == "newhost"
+        assert not prune
+
+    def test_singleton_not_found(self):
+        sections = {"_ntp": {"_type": "timeserver", "enabled": "1"}}
+        with pytest.raises(ValueError, match="No anonymous section of type 'timeserver'"):
+            ubus_ops.resolve_sections("system", sections, SYSTEM_STATE)
+
+    def test_singleton_multiple_error(self):
+        sections = {"_host": {"_type": "host", "ip": "10.0.0.99"}}
+        with pytest.raises(ValueError, match="Multiple anonymous sections"):
+            ubus_ops.resolve_sections("dhcp", sections, DHCP_STATE)
+
+    def test_absent_section(self):
+        sections = {"obsolete": "_absent"}
+        resolved, prune = ubus_ops.resolve_sections("network", sections, NETWORK_STATE)
+        assert resolved["obsolete"] == "_absent"
+        assert not prune
+
+    def test_multi_instance_basic(self):
+        sections = {
+            "_hosts": {
+                "_type": "host",
+                "_match": "name",
+                "_items": [
+                    {"name": "cam1", "ip": "10.0.0.10"},
+                    {"name": "cam2", "ip": "10.0.0.11"},
+                ],
+            }
+        }
+        resolved, prune = ubus_ops.resolve_sections("dhcp", sections, DHCP_STATE)
+        assert "cfg0a" in resolved
+        assert "cfg0b" in resolved
+        assert not prune
+
+    def test_multi_instance_prune(self):
+        sections = {
+            "_hosts": {
+                "_type": "host",
+                "_match": "name",
+                "_prune": True,
+                "_items": [
+                    {"name": "cam1", "ip": "10.0.0.10"},
+                ],
+            }
+        }
+        resolved, prune = ubus_ops.resolve_sections("dhcp", sections, DHCP_STATE)
+        assert "cfg0a" in resolved
+        assert "cfg0b" in prune

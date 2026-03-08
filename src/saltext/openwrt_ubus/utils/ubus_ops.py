@@ -271,6 +271,176 @@ def config_export_all(call, format="json"):  # pylint: disable=redefined-builtin
     return result
 
 
+# --- Diff / resolve helpers ---
+
+
+def diff_section(desired, current):
+    """
+    Compare desired options against current section, return changes.
+
+    Only checks options listed in desired (partial semantics).
+    Keys starting with ``_`` are metadata and skipped.
+    The sentinel value ``"_absent"`` marks an option for deletion.
+    """
+    diffs = {}
+    for option, desired_value in desired.items():
+        if option.startswith("_"):
+            continue
+        if desired_value == "_absent":
+            if option in current:
+                diffs[option] = {"old": current[option], "new": "_absent"}
+            continue
+        current_value = current.get(option)
+        if current_value != desired_value:
+            diffs[option] = {"old": current_value, "new": desired_value}
+    return diffs
+
+
+def resolve_sections(config, sections, current):
+    """
+    Resolve pillar section names to actual UCI section names.
+
+    Handles three cases for ``_``-prefixed pillar keys:
+
+    1. **_absent**: Section should not exist. Passed through as the
+       string ``"_absent"`` for the caller to handle deletion.
+    2. **Multi-instance** (``_items`` present): Multiple anonymous
+       sections matched by ``_match`` key. Delegates to
+       ``_resolve_multi_instance()``.
+    3. **Singleton**: One anonymous section of a given type.
+
+    Returns ``(resolved, prune_targets)`` where ``prune_targets`` is a
+    list of device section names to delete (from ``_prune: true``
+    multi-instance specs or reorder operations).
+    """
+    resolved = {}
+    prune_targets = []
+    for pillar_name, desired in sections.items():
+        # Whole-section absence
+        if desired == "_absent":
+            resolved[pillar_name] = "_absent"
+            continue
+
+        if pillar_name.startswith("_") and isinstance(desired, dict) and "_type" in desired:
+            if "_items" in desired:
+                # Multi-instance anonymous sections
+                _resolve_multi_instance(
+                    config, pillar_name, desired, current, resolved, prune_targets
+                )
+            else:
+                # Singleton anonymous section lookup
+                target_type = desired["_type"]
+                matches = [
+                    name
+                    for name, data in current.items()
+                    if data.get("_anonymous") and data.get("_type") == target_type
+                ]
+                if len(matches) == 0:
+                    raise ValueError(
+                        f"No anonymous section of type '{target_type}' found in {config}"
+                    )
+                if len(matches) > 1:
+                    raise ValueError(
+                        f"Multiple anonymous sections of type '{target_type}' "
+                        f"found in {config}: {matches}. "
+                        f"Singleton lookup requires exactly one. "
+                        f"Use _items for multi-instance management."
+                    )
+                resolved[matches[0]] = desired
+        else:
+            resolved[pillar_name] = desired
+    return resolved, prune_targets
+
+
+def _resolve_multi_instance(_config, _pillar_name, spec, current, resolved, prune_targets):
+    """
+    Resolve a multi-instance anonymous section spec to device sections.
+
+    Matches pillar items to device sections by ``_match`` key(s).
+    Unmatched pillar items are flagged for anonymous creation.
+    If ``_prune`` is true, unmatched device sections are added to
+    ``prune_targets`` for deletion. If device order differs from
+    pillar order, all matched sections are deleted and re-added.
+    """
+    type_ = spec["_type"]
+    match_keys = spec["_match"]
+    if isinstance(match_keys, str):
+        match_keys = [match_keys]
+    items = spec["_items"]
+    prune = spec.get("_prune", False)
+
+    # 1. Index device sections of this type by match key
+    device_index = {}  # {match_tuple: section_name}
+    device_sections = []  # [(section_name, data), ...]
+    for name, data in current.items():
+        if data.get("_type") == type_ and data.get("_anonymous"):
+            key = tuple(data.get(k) for k in match_keys)
+            device_index[key] = name
+            device_sections.append((name, data))
+
+    # 2. Resolve each pillar item to a device section or mark for creation
+    matched_device_names = set()
+    for idx, item in enumerate(items):
+        key = tuple(item.get(k) for k in match_keys)
+        device_name = device_index.get(key)
+        if device_name:
+            resolved[device_name] = {"_type": type_, **item}
+            matched_device_names.add(device_name)
+        else:
+            placeholder = f"_new_{type_}_{idx}"
+            resolved[placeholder] = {"_type": type_, "_anonymous_new": True, **item}
+
+    # 3. Check order -- if device order differs from pillar, reorder
+    if len(matched_device_names) > 1:
+        ordered_device = sorted(
+            [(n, d) for n, d in device_sections if n in matched_device_names],
+            key=lambda nd: nd[1].get("_index", 0),
+        )
+        if not _check_order(items, match_keys, ordered_device):
+            # Delete all existing, re-add all in pillar order
+            for name in matched_device_names:
+                prune_targets.append(name)
+                if name in resolved:
+                    del resolved[name]
+            for idx, item in enumerate(items):
+                placeholder = f"_new_{type_}_{idx}"
+                if placeholder not in resolved:
+                    resolved[placeholder] = {"_type": type_, "_anonymous_new": True, **item}
+
+    # 4. Prune unmatched device sections of this type
+    if prune:
+        for name, _data in device_sections:
+            if name not in matched_device_names:
+                prune_targets.append(name)
+
+
+def _check_order(items, match_keys, device_sections_ordered):
+    """
+    Compare pillar item order against device section order.
+
+    Returns True if the relative order of matched items on the device
+    matches the pillar list order.
+    """
+    device_order = []
+    for _name, data in device_sections_ordered:
+        key = tuple(data.get(k) for k in match_keys)
+        device_order.append(key)
+
+    pillar_order = []
+    for item in items:
+        key = tuple(item.get(k) for k in match_keys)
+        pillar_order.append(key)
+
+    # Filter both lists to only keys present in the other,
+    # so new pillar items (not yet on device) don't cause a false mismatch.
+    pillar_set = set(pillar_order)
+    device_set = set(device_order)
+    device_matched = [k for k in device_order if k in pillar_set]
+    pillar_matched = [k for k in pillar_order if k in device_set]
+
+    return device_matched == pillar_matched
+
+
 # --- Write operations ---
 
 
