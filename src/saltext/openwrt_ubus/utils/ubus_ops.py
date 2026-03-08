@@ -271,6 +271,106 @@ def config_export_all(call, format="json"):  # pylint: disable=redefined-builtin
     return result
 
 
+def config_diff(call, config, sections):
+    """Compare live UCI config against declared sections and return drift.
+
+    Read-only operation -- no writes are issued. Returns a categorized
+    dict with ``changed``, ``new``, ``removed``, ``reordered``, and
+    ``summary`` keys. On resolution or type-mismatch errors, returns
+    ``{"error": "...message..."}``.
+
+    Args:
+        call: Transport-specific ubus call function.
+        config: UCI package name (e.g., ``network``).
+        sections: Pillar-style sections dict (same format as
+            ``managed()`` accepts).
+
+    Returns:
+        dict: Categorized drift report.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt austru openwrt_ubus.config_diff network sections='{"lan": {"ipaddr": "10.0.0.2"}}'
+    """
+    current = get(call, config)
+
+    try:
+        resolved, prune_targets = resolve_sections(config, sections, current)
+    except ValueError as exc:
+        return {"error": str(exc)}
+
+    changed = {}
+    new = {}
+    removed = {}
+    reordered = {}
+
+    for section_name, desired in resolved.items():
+        # Whole-section absence
+        if desired == "_absent":
+            if section_name in current:
+                removed[section_name] = dict(current[section_name])
+            continue
+
+        current_section = current.get(section_name, {})
+
+        # Type mismatch guard
+        if current_section:
+            desired_type = desired.get("_type")
+            current_type = current_section.get("_type")
+            if desired_type and current_type and desired_type != current_type:
+                return {
+                    "error": (
+                        f"Type mismatch on {config}.{section_name}: "
+                        f"desired _type '{desired_type}' != "
+                        f"current _type '{current_type}'"
+                    )
+                }
+
+        section_changes = diff_section(desired, current_section)
+        if section_changes:
+            if section_name not in current:
+                new[section_name] = section_changes
+            else:
+                changed[section_name] = section_changes
+
+    # Classify prune targets
+    for section_name in prune_targets:
+        # Check if this is a reorder (has _anonymous_new items of same _type)
+        pruned_type = current.get(section_name, {}).get("_type")
+        has_new_of_type = any(
+            v.get("_anonymous_new") and v.get("_type") == pruned_type
+            for v in resolved.values()
+            if isinstance(v, dict)
+        )
+        if has_new_of_type:
+            reordered[section_name] = dict(current.get(section_name, {}))
+        else:
+            removed[section_name] = dict(current.get(section_name, {}))
+
+    n_changed = len(changed)
+    n_new = len(new)
+    n_removed = len(removed)
+    n_reordered = len(reordered)
+    total = n_changed + n_new + n_removed + n_reordered
+
+    return {
+        "changed": changed,
+        "new": new,
+        "removed": removed,
+        "reordered": reordered,
+        "summary": {
+            "changed": n_changed,
+            "new": n_new,
+            "removed": n_removed,
+            "reordered": n_reordered,
+            "total": total,
+            "in_sync": total == 0,
+        },
+    }
+
+
 # --- Diff / resolve helpers ---
 
 

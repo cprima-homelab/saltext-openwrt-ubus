@@ -27,7 +27,8 @@ Implemented. Available as `openwrt_ubus.config_export(config)` and
 
 ## Not implemented
 
-- [ ] Diff function to compare live config against declared pillar
+- [x] ~~Diff function to compare live config against declared pillar~~
+      Implemented as `openwrt_ubus.config_diff(config, sections)`
 
 ## Design Notes
 

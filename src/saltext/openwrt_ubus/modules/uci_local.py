@@ -150,6 +150,22 @@ def config_export_all(format="json"):  # pylint: disable=redefined-builtin
     return ubus_ops.config_export_all(_call, format=format)
 
 
+def config_diff(config, sections):
+    """
+    Compare live UCI config against declared sections and return drift.
+
+    Read-only -- no writes are issued. Returns a categorized dict with
+    ``changed``, ``new``, ``removed``, ``reordered``, and ``summary``.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt device openwrt_ubus.config_diff network sections='{"lan": {"ipaddr": "10.0.0.2"}}'
+    """
+    return ubus_ops.config_diff(_call, config, sections)
+
+
 # --- Write operations ---
 
 

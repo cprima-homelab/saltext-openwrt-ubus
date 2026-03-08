@@ -440,3 +440,152 @@ class TestResolveSections:
         resolved, prune = ubus_ops.resolve_sections("dhcp", sections, DHCP_STATE)
         assert "cfg0a" in resolved
         assert "cfg0b" in prune
+
+
+# --- config_diff tests ---
+
+
+class TestConfigDiff:
+    @staticmethod
+    def _mock_call(state_data):
+        """Build a mock call that returns ``state_data`` on ``uci get``."""
+
+        def call(_obj, method, _params=None):
+            if method == "get":
+                return {
+                    "values": {
+                        n: {f".{k[1:]}" if k.startswith("_") else k: v for k, v in s.items()}
+                        for n, s in state_data.items()
+                    }
+                }
+            return {}
+
+        return call
+
+    def test_in_sync(self):
+        sections = {"lan": {"_type": "interface", "proto": "static", "ipaddr": "10.35.24.1"}}
+        result = ubus_ops.config_diff(self._mock_call(NETWORK_STATE), "network", sections)
+        assert result["summary"]["in_sync"] is True
+        assert not result["changed"]
+        assert not result["new"]
+        assert not result["removed"]
+
+    def test_changed_option(self):
+        sections = {"lan": {"_type": "interface", "ipaddr": "10.35.24.2"}}
+        result = ubus_ops.config_diff(self._mock_call(NETWORK_STATE), "network", sections)
+        assert "lan" in result["changed"]
+        assert result["changed"]["lan"]["ipaddr"] == {
+            "old": "10.35.24.1",
+            "new": "10.35.24.2",
+        }
+        assert result["summary"]["changed"] == 1
+        assert result["summary"]["in_sync"] is False
+
+    def test_new_named_section(self):
+        sections = {"dmz": {"_type": "interface", "proto": "static", "ipaddr": "10.0.99.1"}}
+        result = ubus_ops.config_diff(self._mock_call(NETWORK_STATE), "network", sections)
+        assert "dmz" in result["new"]
+        assert result["summary"]["new"] == 1
+
+    def test_absent_existing_section(self):
+        sections = {"wan": "_absent"}
+        result = ubus_ops.config_diff(self._mock_call(NETWORK_STATE), "network", sections)
+        assert "wan" in result["removed"]
+        assert result["summary"]["removed"] == 1
+
+    def test_absent_missing_section_no_op(self):
+        sections = {"nonexistent": "_absent"}
+        result = ubus_ops.config_diff(self._mock_call(NETWORK_STATE), "network", sections)
+        assert result["summary"]["in_sync"] is True
+
+    def test_singleton_anonymous_diff(self):
+        sections = {"_system": {"_type": "system", "hostname": "newname"}}
+        result = ubus_ops.config_diff(self._mock_call(SYSTEM_STATE), "system", sections)
+        assert result["summary"]["changed"] == 1
+        # The resolved key should be the actual device section name
+        assert "cfg01e48a" in result["changed"]
+
+    def test_multi_instance_no_drift(self):
+        sections = {
+            "_hosts": {
+                "_type": "host",
+                "_match": "name",
+                "_items": [
+                    {"name": "cam1", "ip": "10.0.0.10"},
+                    {"name": "cam2", "ip": "10.0.0.11"},
+                ],
+            }
+        }
+        result = ubus_ops.config_diff(self._mock_call(DHCP_STATE), "dhcp", sections)
+        assert result["summary"]["in_sync"] is True
+
+    def test_multi_instance_new_item(self):
+        sections = {
+            "_hosts": {
+                "_type": "host",
+                "_match": "name",
+                "_items": [
+                    {"name": "cam1", "ip": "10.0.0.10"},
+                    {"name": "cam2", "ip": "10.0.0.11"},
+                    {"name": "cam3", "ip": "10.0.0.12"},
+                ],
+            }
+        }
+        result = ubus_ops.config_diff(self._mock_call(DHCP_STATE), "dhcp", sections)
+        assert result["summary"]["new"] == 1
+
+    def test_multi_instance_prune(self):
+        sections = {
+            "_hosts": {
+                "_type": "host",
+                "_match": "name",
+                "_prune": True,
+                "_items": [
+                    {"name": "cam1", "ip": "10.0.0.10"},
+                ],
+            }
+        }
+        result = ubus_ops.config_diff(self._mock_call(DHCP_STATE), "dhcp", sections)
+        assert result["summary"]["removed"] == 1
+
+    def test_type_mismatch_error(self):
+        sections = {"lan": {"_type": "bridge", "proto": "static"}}
+        result = ubus_ops.config_diff(self._mock_call(NETWORK_STATE), "network", sections)
+        assert "error" in result
+        assert "Type mismatch" in result["error"]
+
+    def test_singleton_not_found_error(self):
+        sections = {"_ntp": {"_type": "timeserver", "enabled": "1"}}
+        result = ubus_ops.config_diff(self._mock_call(SYSTEM_STATE), "system", sections)
+        assert "error" in result
+        assert "No anonymous section" in result["error"]
+
+    def test_absent_option(self):
+        sections = {"lan": {"_type": "interface", "ipaddr": "_absent"}}
+        result = ubus_ops.config_diff(self._mock_call(NETWORK_STATE), "network", sections)
+        assert "lan" in result["changed"]
+        assert result["changed"]["lan"]["ipaddr"]["new"] == "_absent"
+
+    def test_empty_sections_in_sync(self):
+        result = ubus_ops.config_diff(self._mock_call(NETWORK_STATE), "network", {})
+        assert result["summary"]["in_sync"] is True
+
+    def test_read_only_no_writes(self):
+        """Verify that config_diff never issues write calls."""
+        calls_log = []
+
+        def logging_call(_obj, method, _params=None):
+            calls_log.append(method)
+            if method == "get":
+                return {
+                    "values": {
+                        n: {f".{k[1:]}" if k.startswith("_") else k: v for k, v in s.items()}
+                        for n, s in NETWORK_STATE.items()
+                    }
+                }
+            return {}
+
+        sections = {"lan": {"_type": "interface", "ipaddr": "10.35.24.2"}}
+        ubus_ops.config_diff(logging_call, "network", sections)
+        write_methods = {"set", "add", "delete", "apply", "commit"}
+        assert not write_methods & set(calls_log)

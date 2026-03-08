@@ -93,6 +93,20 @@ def config_export_all(format="json"):  # pylint: disable=redefined-builtin
     return __salt__["openwrt_ubus.config_export_all"](format=format)
 
 
+def config_diff(config, sections):
+    """
+    Compare live UCI config against declared sections and return drift.
+    Alias for ``openwrt_ubus.config_diff``.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt austru openwrt.config_diff network sections='{"lan": {"ipaddr": "10.0.0.2"}}'
+    """
+    return __salt__["openwrt_ubus.config_diff"](config, sections)
+
+
 # --- Write operations ---
 
 
