@@ -178,6 +178,21 @@ class TestGrainsProjection:
         with pytest.raises(AssertionError, match="Grains invariant violated"):
             assert_grains_safe(grains)
 
+    def test_assert_grains_safe_fails_on_sensitive_value(self, profile):
+        export = {
+            "router": {
+                "_type": "system",
+                "hostname": "mywifi",
+                "password": "adminpass",
+            }
+        }
+        classified = classify_export(export, package="system", profile=profile)
+        grains = grains_projection(classified)
+        # password is sensitive → grains_projection sets it to None; inject a non-null value
+        grains["router"]["password"] = "leaked_password"
+        with pytest.raises(AssertionError, match="Grains invariant violated"):
+            assert_grains_safe(grains)
+
     def test_multi_instance_items_projected(self, profile):
         classified = _classified_multi(profile)
         result = grains_projection(classified)
