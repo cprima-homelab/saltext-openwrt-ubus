@@ -34,6 +34,7 @@ requires-python = ">= 3.10"
 dynamic = ["version"]
 dependencies = [
     "salt>=3006",
+    "pyyaml>=6.0",
 ]
 
 [project.readme]
@@ -81,10 +82,18 @@ tests = [
     "pytest>=7.2.0",
     "pytest-salt-factories>=1.0.0",
     "pytest-instafail",
+    "paramiko>=5.0.0",
+    "python-dotenv>=1.2.2",
 ]
 
 [project.entry-points."salt.loader"]
 "saltext.openwrt-ubus" = "saltext.openwrt_ubus"
+
+[dependency-groups]
+dev = [
+    "paramiko>=5.0.0",
+    "python-dotenv>=1.2.2",
+]
 
 [tool.uv]
 # Salt's legacy setup.py requires old setuptools.
@@ -99,6 +108,9 @@ platforms = ["any"]
 [tool.setuptools.packages.find]
 where = ["src"]
 exclude = ["tests"]
+
+[tool.setuptools.package-data]
+"saltext.openwrt_ubus.sensitivity" = ["*.yaml"]
 
 [tool.distutils.bdist_wheel]
 # Use this option if your package is pure-python

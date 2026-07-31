@@ -4,6 +4,7 @@ Unit tests for the openwrt_ubus execution module.
 All tests use mocked proxy calls. No network calls or device writes.
 """
 
+import datetime
 from unittest.mock import MagicMock
 
 import pytest
@@ -328,3 +329,214 @@ class TestState:
         result = uci_mod.state("network", "lan")
         assert result["_type"] == "interface"
         mock_call.assert_called_once_with("uci", "state", {"config": "network", "section": "lan"})
+
+
+# --- runtime_evidence ---
+
+
+class TestRuntimeEvidence:
+    _MOCK_NETWORK = {"interface": [{"interface": "lan", "up": True}]}
+    _MOCK_BOARD = {"model": "GL-MT3000", "hostname": "bora"}
+    _MOCK_INFO = {"uptime": 3600, "memory": {"total": 524288000}}
+    _MOCK_SERVICES = {"rpcd": {"instances": {}}}
+
+    def _side_effect(self, obj, method, _params=None):
+        if obj == "network.interface":
+            return self._MOCK_NETWORK
+        if obj == "system" and method == "board":
+            return self._MOCK_BOARD
+        if obj == "system" and method == "info":
+            return self._MOCK_INFO
+        if obj == "service":
+            return self._MOCK_SERVICES
+        return None
+
+    def test_network_top_level_schema(self, mock_call):
+        mock_call.side_effect = self._side_effect
+        result = uci_mod.runtime_evidence("network")
+        assert set(result) >= {
+            "evidence_type",
+            "source_type",
+            "source_device",
+            "scope",
+            "collected_at",
+            "payload",
+            "provenance",
+        }
+
+    def test_evidence_type_is_observed_state(self, mock_call):
+        mock_call.side_effect = self._side_effect
+        assert uci_mod.runtime_evidence("network")["evidence_type"] == "observed_state"
+
+    def test_source_type(self, mock_call):
+        mock_call.side_effect = self._side_effect
+        assert uci_mod.runtime_evidence("network")["source_type"] == "openwrt-ubus"
+
+    def test_network_scope(self, mock_call):
+        mock_call.side_effect = self._side_effect
+        assert uci_mod.runtime_evidence("network")["scope"] == {"domain": "network"}
+
+    def test_system_scope(self, mock_call):
+        mock_call.side_effect = self._side_effect
+        assert uci_mod.runtime_evidence("system")["scope"] == {"domain": "system"}
+
+    def test_services_scope(self, mock_call):
+        mock_call.side_effect = self._side_effect
+        assert uci_mod.runtime_evidence("services")["scope"] == {"domain": "services"}
+
+    def test_network_payload(self, mock_call):
+        mock_call.side_effect = self._side_effect
+        assert uci_mod.runtime_evidence("network")["payload"] == self._MOCK_NETWORK
+
+    def test_system_payload_has_board_and_info(self, mock_call):
+        mock_call.side_effect = self._side_effect
+        payload = uci_mod.runtime_evidence("system")["payload"]
+        assert set(payload) == {"board", "info"}
+        assert payload["board"] == self._MOCK_BOARD
+        assert payload["info"] == self._MOCK_INFO
+
+    def test_services_payload(self, mock_call):
+        mock_call.side_effect = self._side_effect
+        assert uci_mod.runtime_evidence("services")["payload"] == self._MOCK_SERVICES
+
+    def test_collected_at_is_utc(self, mock_call):
+        mock_call.side_effect = self._side_effect
+        ts = uci_mod.runtime_evidence("network")["collected_at"]
+        assert datetime.datetime.fromisoformat(ts).tzinfo is not None
+
+    def test_transport(self, mock_call):
+        mock_call.side_effect = self._side_effect
+        assert uci_mod.runtime_evidence("network")["provenance"]["transport"] == "ubus-jsonrpc"
+
+    def test_collector_name(self, mock_call):
+        mock_call.side_effect = self._side_effect
+        assert (
+            uci_mod.runtime_evidence("network")["provenance"]["collector"] == "saltext-openwrt-ubus"
+        )
+
+    def test_source_device_from_opts(self, mock_call, monkeypatch):
+        monkeypatch.setattr(uci_mod, "__opts__", {"test": False, "id": "bora"}, raising=False)
+        mock_call.side_effect = self._side_effect
+        assert uci_mod.runtime_evidence("network")["source_device"] == "bora"
+
+    def test_invalid_domain_raises(self, mock_call):  # pylint: disable=unused-argument
+        with pytest.raises(ValueError, match="unknown runtime domain"):
+            uci_mod.runtime_evidence("wifi")
+
+
+# --- config_evidence ---
+
+
+class TestConfigEvidence:
+    _MOCK_UCI_RESPONSE = {
+        "values": {
+            "lan": {
+                ".type": "interface",
+                ".name": "lan",
+                ".anonymous": False,
+                ".index": 0,
+                "proto": "static",
+                "ipaddr": "192.168.1.1",
+            }
+        }
+    }
+    _MOCK_UCI_WITH_SECRET = {
+        "values": {
+            "wg0": {
+                ".type": "interface",
+                ".name": "wg0",
+                ".anonymous": False,
+                ".index": 0,
+                "proto": "wireguard",
+                "addresses": "10.0.0.1/24",
+                "private_key": "gHcbXXXXXXXXsecret==",
+            }
+        }
+    }
+
+    def test_top_level_schema(self, mock_call):
+        mock_call.return_value = self._MOCK_UCI_RESPONSE
+        result = uci_mod.config_evidence("network")
+        assert set(result) >= {
+            "evidence_type",
+            "source_type",
+            "source_device",
+            "scope",
+            "collected_at",
+            "payload",
+            "provenance",
+        }
+
+    def test_evidence_type(self, mock_call):
+        mock_call.return_value = self._MOCK_UCI_RESPONSE
+        assert uci_mod.config_evidence("network")["evidence_type"] == "configured_state"
+
+    def test_source_type(self, mock_call):
+        mock_call.return_value = self._MOCK_UCI_RESPONSE
+        assert uci_mod.config_evidence("network")["source_type"] == "uci"
+
+    def test_scope(self, mock_call):
+        mock_call.return_value = self._MOCK_UCI_RESPONSE
+        assert uci_mod.config_evidence("network")["scope"] == {"config": "network"}
+
+    def test_collected_at_is_utc_iso8601(self, mock_call):
+        mock_call.return_value = self._MOCK_UCI_RESPONSE
+        ts = uci_mod.config_evidence("network")["collected_at"]
+        dt = datetime.datetime.fromisoformat(ts)
+        assert dt.tzinfo is not None
+
+    def test_payload_has_sensitivity_metadata(self, mock_call):
+        mock_call.return_value = self._MOCK_UCI_RESPONSE
+        payload = uci_mod.config_evidence("network")["payload"]
+        assert "_sensitivity" in payload["lan"]
+        assert "taint" in payload["lan"]["_sensitivity"]
+
+    def test_secret_value_is_null_in_payload(self, mock_call):
+        mock_call.return_value = self._MOCK_UCI_WITH_SECRET
+        payload = uci_mod.config_evidence("network")["payload"]
+        assert payload["wg0"]["private_key"] is None
+
+    def test_sensitivity_taint_in_payload_section(self, mock_call):
+        mock_call.return_value = self._MOCK_UCI_WITH_SECRET
+        payload = uci_mod.config_evidence("network")["payload"]
+        assert payload["wg0"]["_sensitivity"]["taint"] == "secret"
+
+    def test_provenance_has_sensitivity_field(self, mock_call):
+        mock_call.return_value = self._MOCK_UCI_RESPONSE
+        prov = uci_mod.config_evidence("network")["provenance"]
+        assert "sensitivity" in prov
+        assert "profile" in prov["sensitivity"]
+        assert "version" in prov["sensitivity"]
+
+    def test_provenance_keys(self, mock_call):
+        mock_call.return_value = self._MOCK_UCI_RESPONSE
+        prov = uci_mod.config_evidence("network")["provenance"]
+        assert set(prov) >= {"collector", "transport", "collector_version", "sensitivity"}
+
+    def test_transport_is_ubus_jsonrpc(self, mock_call):
+        mock_call.return_value = self._MOCK_UCI_RESPONSE
+        prov = uci_mod.config_evidence("network")["provenance"]
+        assert prov["transport"] == "ubus-jsonrpc"
+
+    def test_collector_name(self, mock_call):
+        mock_call.return_value = self._MOCK_UCI_RESPONSE
+        prov = uci_mod.config_evidence("network")["provenance"]
+        assert prov["collector"] == "saltext-openwrt-ubus"
+
+    def test_source_device_from_opts(self, mock_call, monkeypatch):
+        monkeypatch.setattr(
+            uci_mod, "__opts__", {"test": False, "id": "openwrt-test-target"}, raising=False
+        )
+        mock_call.return_value = self._MOCK_UCI_RESPONSE
+        assert uci_mod.config_evidence("network")["source_device"] == "openwrt-test-target"
+
+    def test_source_device_empty_when_no_id(self, mock_call):
+        mock_call.return_value = self._MOCK_UCI_RESPONSE
+        assert uci_mod.config_evidence("network")["source_device"] == ""
+
+    def test_no_mutating_calls(self, mock_call):
+        mock_call.return_value = self._MOCK_UCI_RESPONSE
+        uci_mod.config_evidence("network")
+        for args in mock_call.call_args_list:
+            obj, method = args[0][0], args[0][1]
+            assert not (obj == "uci" and method in {"set", "commit", "apply", "delete", "add"})

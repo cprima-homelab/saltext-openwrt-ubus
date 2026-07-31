@@ -1,0 +1,15 @@
+
+# --- Pattern 11: type-as-identity (ucitrack-style dependency tracking) ---
+config camera
+	option init 'start_cameras'
+	list affects 'encoder'
+
+config light
+	option init 'start_lights'
+
+config mic
+	option init 'start_audio'
+
+config encoder
+	option init 'start_encoder'
+	list affects 'streaming'

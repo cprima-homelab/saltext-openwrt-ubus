@@ -6,6 +6,14 @@ that handles transport. The functions here implement the common
 post-processing logic that is identical regardless of transport.
 """
 
+import datetime
+
+from saltext.openwrt_ubus.sensitivity.classify import classify_export
+from saltext.openwrt_ubus.sensitivity.model import SensitivityProfile
+from saltext.openwrt_ubus.sensitivity.model import Surface
+from saltext.openwrt_ubus.sensitivity.project import diff_projection
+from saltext.openwrt_ubus.sensitivity.project import project
+
 
 def transform_section(data):
     """Transform UCI dot-prefixed metadata to underscore-prefixed."""
@@ -355,7 +363,7 @@ def config_diff(call, config, sections):
     n_reordered = len(reordered)
     total = n_changed + n_new + n_removed + n_reordered
 
-    return {
+    raw_result = {
         "changed": changed,
         "new": new,
         "removed": removed,
@@ -369,6 +377,10 @@ def config_diff(call, config, sections):
             "in_sync": total == 0,
         },
     }
+
+    section_types = {name: sec.get("_type", "") for name, sec in current.items()}
+    profile = SensitivityProfile.load_builtin()
+    return diff_projection(raw_result, package=config, profile=profile, section_types=section_types)
 
 
 # --- Diff / resolve helpers ---
@@ -643,3 +655,110 @@ def service_list(call, verbose=False):
     """Return procd service list. Use verbose=True to include triggers."""
     params = {"verbose": True} if verbose else None
     return call("service", "list", params)
+
+
+# --- Evidence records ---
+
+
+def config_evidence(call, config, source_device, transport, collector_version, profile=None):
+    """
+    Return configured UCI state wrapped in a provenance envelope.
+
+    Schema::
+
+        evidence_type: configured_state
+        source_type:   uci
+        source_device: <minion id / hostname>
+        scope:
+          config: <package>
+        collected_at:  <ISO 8601 UTC>
+        payload:       <classified + evidence-projected config_export() result>
+        provenance:
+          collector:         saltext-openwrt-ubus
+          transport:         ubus-jsonrpc | uci-ssh | uci-local
+          collector_version: <package version>
+          sensitivity:
+            profile:  <profile name>
+            version:  <profile version>
+
+    Sensitive option values (SECRET/SENSITIVE/UNKNOWN) are redacted to null in
+    the payload. The sensitivity classification of each option is recorded in
+    the section's _sensitivity.fields metadata.
+
+    No storage side effect.  The caller decides where to persist the record.
+    Reusable across transport modules — each passes its own ``transport`` label.
+    """
+    if profile is None:
+        profile = SensitivityProfile.load_builtin()
+    raw = config_export(call, config)
+    classified = classify_export(raw, package=config, profile=profile)
+    payload = project(classified, surface=Surface.EVIDENCE, profile=profile)
+    return {
+        "evidence_type": "configured_state",
+        "source_type": "uci",
+        "source_device": source_device,
+        "scope": {"config": config},
+        "collected_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "payload": payload,
+        "provenance": {
+            "collector": "saltext-openwrt-ubus",
+            "transport": transport,
+            "collector_version": collector_version,
+            "sensitivity": {"profile": profile.name, "version": profile.version},
+        },
+    }
+
+
+_RUNTIME_DOMAINS = ("network", "system", "services")
+
+
+def runtime_evidence(call, domain, source_device, transport, collector_version):
+    """
+    Return observed runtime state for ``domain`` wrapped in a provenance envelope.
+
+    Valid domains and their payloads::
+
+        network   → network_dump()          interface operational state
+        system    → system_board() +        board identity + uptime/memory
+                    system_info()
+        services  → service_list(verbose)   procd service state
+
+    Schema::
+
+        evidence_type: observed_state
+        source_type:   openwrt-ubus
+        source_device: <minion id / hostname>
+        scope:
+          domain: network | system | services
+        collected_at:  <ISO 8601 UTC>
+        payload:       <domain-specific dict>
+        provenance:
+          collector:         saltext-openwrt-ubus
+          transport:         ubus-jsonrpc | ...
+          collector_version: <package version>
+
+    No storage side effect.
+    """
+    if domain not in _RUNTIME_DOMAINS:
+        raise ValueError(f"unknown runtime domain {domain!r}. Valid: {_RUNTIME_DOMAINS}")
+
+    _dispatch = {
+        "network": lambda: network_dump(call),
+        "system": lambda: {"board": system_board(call), "info": system_info(call)},
+        "services": lambda: service_list(call, verbose=True),
+    }
+    payload = _dispatch[domain]()
+
+    return {
+        "evidence_type": "observed_state",
+        "source_type": "openwrt-ubus",
+        "source_device": source_device,
+        "scope": {"domain": domain},
+        "collected_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        "payload": payload,
+        "provenance": {
+            "collector": "saltext-openwrt-ubus",
+            "transport": transport,
+            "collector_version": collector_version,
+        },
+    }

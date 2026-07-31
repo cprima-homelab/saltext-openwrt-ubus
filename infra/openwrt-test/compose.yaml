@@ -1,0 +1,20 @@
+name: saltext-uci-integration
+
+services:
+  openwrt-target:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/amd64
+    container_name: openwrt-test-target
+    ports:
+      - "${UBUS_PORT:-7080}:80"
+    volumes:
+      # Mount a specific fixture directory to override /etc/config at startup.
+      # Leave unset (or point at an empty dir) to use the baked-in testcorpus.
+      # Example: FIXTURE_DIR=tests/fixtures/openwrt/base/etc/config docker compose up
+      - "${FIXTURE_DIR:-./fixtures}:/fixture:ro"
+    environment:
+      # Exposed for reference — password is baked into the image at build time.
+      SALT_AGENT_PASSWORD: "test1234"
+    restart: "no"

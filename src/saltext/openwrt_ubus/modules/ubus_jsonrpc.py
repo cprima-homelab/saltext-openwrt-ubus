@@ -85,6 +85,75 @@ def changes(config):
     return ubus_ops.changes(_call, config)
 
 
+def config_evidence(config):
+    """
+    Return the configured UCI state for ``config`` wrapped in a provenance envelope.
+
+    Calls :func:`config_export` for the payload and adds metadata describing
+    *what* was collected, *from where*, *when*, and *how*.
+
+    No storage side effect — the caller (runner, CLI, orchestration layer)
+    decides where to persist the record.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt austru openwrt_ubus.config_evidence network
+        salt austru openwrt_ubus.config_evidence dhcp
+    """
+    try:
+        import importlib.metadata as _meta  # pylint: disable=import-outside-toplevel
+
+        collector_version = _meta.version("saltext-openwrt-ubus")
+    except Exception:  # pylint: disable=broad-exception-caught
+        collector_version = "unknown"
+
+    return ubus_ops.config_evidence(
+        _call,
+        config,
+        source_device=__opts__.get("id", ""),
+        transport="ubus-jsonrpc",
+        collector_version=collector_version,
+    )
+
+
+def runtime_evidence(domain):
+    """
+    Return observed runtime state for ``domain`` wrapped in a provenance envelope.
+
+    Valid domains:
+
+    * ``network``  — interface operational state (``network_dump()``)
+    * ``system``   — board identity + uptime/memory (``system_board()`` + ``system_info()``)
+    * ``services`` — procd service state (``service_list(verbose=True)``)
+
+    No storage side effect — the caller decides where to persist the record.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+        salt bora openwrt_ubus.runtime_evidence network
+        salt bora openwrt_ubus.runtime_evidence system
+        salt bora openwrt_ubus.runtime_evidence services
+    """
+    try:
+        import importlib.metadata as _meta  # pylint: disable=import-outside-toplevel
+
+        collector_version = _meta.version("saltext-openwrt-ubus")
+    except Exception:  # pylint: disable=broad-exception-caught
+        collector_version = "unknown"
+
+    return ubus_ops.runtime_evidence(
+        _call,
+        domain,
+        source_device=__opts__.get("id", ""),
+        transport="ubus-jsonrpc",
+        collector_version=collector_version,
+    )
+
+
 def config_export(config, format="json"):  # pylint: disable=redefined-builtin
     """
     Export live UCI config as a grouped sections dict.
