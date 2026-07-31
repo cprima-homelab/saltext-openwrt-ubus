@@ -8,7 +8,7 @@ Usage::
     python -m saltext.openwrt_ubus.data_manifest --json    # JSON to stdout
     python -m saltext.openwrt_ubus.data_manifest --check   # path analysis
 
-The manifest has three sections:
+The manifest has four sections:
 
 ``data_types``
     Declarations of each named data namespace (e.g. ``uci.raw``,
@@ -25,27 +25,35 @@ The manifest has three sections:
     ``cli``
         Printed to a terminal or log visible to operators.
 
+    ``provenance_boundary`` (optional) records where a type *originated* when
+    that differs from where it currently lives.  ``pillar.sections`` is
+    ``boundary: internal`` (it has already been fetched onto the minion) but
+    ``provenance_boundary: salt-master`` (it came from the master and may contain
+    master-side secrets).
+
 ``functions``
     Every function annotated with ``@data_contract``, keyed by function name.
     Fields: module, inputs, outputs, surfaces, handles_secrets, emits_secrets,
     guards.  Semantic facts come from the declarations; reflection only
     discovers which functions exist.
 
+``crossings``
+    Derived list of every boundary transition in the function graph — every
+    (input boundary → output boundary) pair where the two differ.  Each entry
+    records: from, to, via (function name), guards, and result (safe /
+    unknown / fail).  This is the primary artifact for architectural review.
+
 ``sensitivity_profile``
     The builtin profile's name, version, policy table (5 classifications × 5
     surfaces), and the full list of explicitly classified fields from the rules.
 
---check mode builds a graph from inputs/outputs and validates that every path
-from a secret_capable=true source to a non-internal boundary crosses a function
-that declares emits_secrets=false:
-
-  - handles_secrets or emits_secrets is None → WARN (unknown path)
-  - secret_capable input reaching external boundary with emits_secrets=true → FAIL
-  - secret_capable input reaching external boundary with emits_secrets=false → PASS
-    (reason includes guards list when present)
+--check mode validates the crossings list:
+  - result=unknown → WARN (path is uncharted; handles/emits_secrets is None)
+  - result=fail    → FAIL (secrets reach an external boundary unguarded)
+  - result=safe    → PASS (crossing is guarded; guards list names the enforcement)
 
 Known gap: uci.diff is an implicit intermediate produced inside config_diff before
-being passed to diff_projection. The transform uci.raw → uci.diff is not yet an
+being passed to diff_projection.  The transform uci.raw → uci.diff is not yet an
 annotated logical step; config_diff's guards field documents the dependency.
 """
 
@@ -68,18 +76,26 @@ _ANNOTATED_MODULES = [
     "saltext.openwrt_ubus.utils.ubus_ops",
 ]
 
+# Boundaries that are outside the minion process.  Data written here persists
+# or travels beyond the immediate computation and must cross safely.
+_EXTERNAL_BOUNDARIES = frozenset({"salt-master", "persistent-store", "cli"})
+
 # Data type declarations: each namespace in the input/output graph.
 #
 # secret_capable:
 #   True  — may contain secret values
 #   False — guaranteed secret-free (by projection or design)
-#   None  — unknown / not asserted; --check emits WARN for functions using this type
+#   None  — unknown / not asserted; --check emits WARN for crossings using this type
 #
-# boundary: trust boundary crossed when this data type is written or transmitted
-#   internal        — stays within the minion process
-#   salt-master     — sent to the Salt master (grains, returners)
+# boundary: trust boundary *of* this data type when written or transmitted
+#   internal         — stays within the minion process
+#   salt-master      — sent to the Salt master (grains, returners)
 #   persistent-store — written to disk / file-based evidence store
-#   cli             — printed to terminal or log visible to operators
+#   cli              — printed to terminal or log visible to operators
+#
+# provenance_boundary (optional): where this type *originated*, when that differs
+#   from boundary.  Only set when the provenance boundary is stricter than the
+#   current boundary and consumers need to know.
 DATA_TYPES: dict[str, dict] = {
     "uci.raw": {
         "classification": "unclassified",
@@ -103,7 +119,12 @@ DATA_TYPES: dict[str, dict] = {
         "classification": "unclassified",
         "secret_capable": True,
         "boundary": "internal",
-        "description": "Desired state from Salt pillar; already fetched to minion memory",
+        "provenance_boundary": "salt-master",
+        "description": (
+            "Desired state already fetched to minion memory (boundary=internal); "
+            "originates from Salt master (provenance_boundary=salt-master) "
+            "and may carry master-side secrets"
+        ),
     },
     "evidence.configured_state": {
         "classification": "projected",
@@ -136,13 +157,6 @@ DATA_TYPES: dict[str, dict] = {
         "description": "Observed runtime state from ubus; secret_capable unknown",
     },
 }
-
-
-def _tri(value: bool | None) -> str:
-    """Serialize bool | None as true / false / null for YAML/JSON clarity."""
-    if value is None:
-        return "null"
-    return str(value).lower()
 
 
 def collect_contracts(modules=None) -> dict:
@@ -205,27 +219,9 @@ def collect_profile_fields(profile=None) -> dict:
     }
 
 
-def build_manifest(modules=None, profile=None) -> dict:
-    """Build and return the complete data-handling manifest as a dict."""
-    return {
-        "data_types": DATA_TYPES,
-        "functions": collect_contracts(modules=modules),
-        "sensitivity_profile": collect_profile_fields(profile=profile),
-    }
-
-
 # ---------------------------------------------------------------------------
-# --check: boundary-aware data-flow path analysis
+# Crossing derivation
 # ---------------------------------------------------------------------------
-
-# Boundaries that are outside the minion process; data written here persists
-# or travels beyond the immediate computation.
-_EXTERNAL_BOUNDARIES = frozenset({"salt-master", "persistent-store", "cli"})
-
-
-def _type_secret_capable(data_types: dict, type_name: str) -> bool | None:
-    """Return secret_capable for a named type, or None if unknown/undeclared."""
-    return data_types.get(type_name, {}).get("secret_capable", None)
 
 
 def _type_boundary(data_types: dict, type_name: str) -> str:
@@ -233,100 +229,149 @@ def _type_boundary(data_types: dict, type_name: str) -> str:
     return data_types.get(type_name, {}).get("boundary", "internal")
 
 
-def check_manifest(manifest: dict) -> list[tuple[str, str, str]]:
-    """Analyse the function graph and return (status, function_name, reason) tuples.
+def _type_secret_capable(data_types: dict, type_name: str) -> bool | None:
+    """Return secret_capable for a named type, or None if unknown/undeclared."""
+    return data_types.get(type_name, {}).get("secret_capable", None)
 
-    Status values: PASS, WARN, FAIL.
 
-    The check asks one question per function:
+def derive_crossings(manifest: dict) -> list[dict]:
+    """Derive boundary transitions from the function graph.
 
-        "Does this function move secret-capable data across a trust boundary
-         without declaring emits_secrets=false?"
+    For every (input, output) pair where input.boundary != output.boundary, emit
+    one crossing record.  The key (from, to, via) is deduplicated — a function
+    with multiple inputs or outputs at the same boundary contributes one entry,
+    not N × M.
 
-    Rules applied in order:
-    1. handles_secrets or emits_secrets is None → WARN (path is uncharted)
-    2. Any input is secret_capable != False AND any output crosses an external
-       boundary AND emits_secrets=True → FAIL (secrets leak to external surface)
-    3. Any input is secret_capable != False AND any output crosses an external
-       boundary AND emits_secrets=False → PASS (crossing is guarded)
-    4. emits_secrets=True with all outputs staying internal → PASS (intermediate)
-    5. No secret-capable input → PASS (clean path)
+    Each record::
+
+        from: internal
+        to: persistent-store
+        via: config_evidence
+        guards:
+          - classify_export
+          - evidence_projection
+        result: safe | unknown | fail
+
+    ``result`` is:
+      safe    — emits_secrets=false; secrets are projected before the crossing
+      unknown — handles_secrets or emits_secrets is None; path is uncharted
+      fail    — emits_secrets=true into an external boundary; secrets leak
+
+    When a function has no declared guards but emits_secrets=false, it is itself
+    the projection; the guards list contains the function name to make the
+    enforcement relationship explicit.
     """
-    functions = manifest["functions"]
     data_types = manifest.get("data_types", DATA_TYPES)
-    results = []
+    functions = manifest.get("functions", {})
+
+    seen: set[tuple[str, str, str]] = set()
+    crossings: list[dict] = []
 
     for fn_name, fn in functions.items():
         handles = fn.get("handles_secrets")
         emits = fn.get("emits_secrets")
-        guards = fn.get("guards", [])
+        declared_guards = fn.get("guards", [])
 
-        # Rule 1: unknown declaration → WARN
-        if handles is None or emits is None:
+        for inp in fn.get("inputs", []):
+            from_boundary = _type_boundary(data_types, inp)
+            for out in fn.get("outputs", []):
+                to_boundary = _type_boundary(data_types, out)
+                if from_boundary == to_boundary:
+                    continue
+                key = (from_boundary, to_boundary, fn_name)
+                if key in seen:
+                    continue
+                seen.add(key)
+
+                # Determine result
+                if handles is None or emits is None:
+                    result = "unknown"
+                elif emits and to_boundary in _EXTERNAL_BOUNDARIES:
+                    result = "fail"
+                else:
+                    result = "safe"
+
+                # Effective guards: declared, or the function itself when it IS the projection
+                if declared_guards:
+                    effective_guards = list(declared_guards)
+                elif result == "safe":
+                    effective_guards = [fn_name]
+                else:
+                    effective_guards = []
+
+                crossings.append(
+                    {
+                        "from": from_boundary,
+                        "to": to_boundary,
+                        "via": fn_name,
+                        "guards": effective_guards,
+                        "result": result,
+                    }
+                )
+
+    return crossings
+
+
+def build_manifest(modules=None, profile=None) -> dict:
+    """Build and return the complete data-handling manifest as a dict."""
+    manifest: dict = {
+        "data_types": DATA_TYPES,
+        "functions": collect_contracts(modules=modules),
+        "sensitivity_profile": collect_profile_fields(profile=profile),
+    }
+    manifest["crossings"] = derive_crossings(manifest)
+    return manifest
+
+
+# ---------------------------------------------------------------------------
+# --check: crossing-level validation
+# ---------------------------------------------------------------------------
+
+
+def check_manifest(manifest: dict) -> list[tuple[str, str, str]]:
+    """Validate the crossings list and return (status, via, reason) tuples.
+
+    Status values: PASS, WARN, FAIL.
+
+    Each crossing is one entry:
+      PASS  — result=safe; guards list names the enforcement
+      WARN  — result=unknown; path is uncharted (handles/emits_secrets is None)
+      FAIL  — result=fail; secrets reach an external boundary unguarded
+    """
+    crossings = manifest.get("crossings") or derive_crossings(manifest)
+    results = []
+
+    for c in crossings:
+        fn_name = c["via"]
+        from_b = c["from"]
+        to_b = c["to"]
+        guards = c.get("guards", [])
+        result = c.get("result", "unknown")
+
+        if result == "safe":
+            if guards and guards != [fn_name]:
+                reason = f"{from_b} → {to_b}; " f"guarded by {guards}"
+            else:
+                reason = f"{from_b} → {to_b}; " "function is the projection (emits_secrets=false)"
+            results.append(("PASS", fn_name, reason))
+        elif result == "unknown":
             results.append(
                 (
                     "WARN",
                     fn_name,
-                    "handles_secrets or emits_secrets is null (unknown); "
-                    "no classification layer declared for this path",
-                )
-            )
-            continue
-
-        inputs = fn.get("inputs", [])
-        outputs = fn.get("outputs", [])
-
-        input_secret = any(_type_secret_capable(data_types, inp) is not False for inp in inputs)
-        external_outputs = [
-            out for out in outputs if _type_boundary(data_types, out) in _EXTERNAL_BOUNDARIES
-        ]
-
-        if input_secret and external_outputs:
-            boundary_labels = ", ".join(
-                f"{o} ({_type_boundary(data_types, o)})" for o in external_outputs
-            )
-            if emits:
-                # Rule 2: secrets reach external boundary
-                results.append(
-                    (
-                        "FAIL",
-                        fn_name,
-                        f"secret-capable input reaches external boundary "
-                        f"with emits_secrets=true: {boundary_labels}",
-                    )
-                )
-            elif guards:
-                # Rule 3a: guarded projection
-                results.append(
-                    (
-                        "PASS",
-                        fn_name,
-                        f"secret-capable input → {boundary_labels}; " f"guarded by {guards}",
-                    )
-                )
-            else:
-                # Rule 3b: function is itself the projection
-                results.append(
-                    (
-                        "PASS",
-                        fn_name,
-                        f"secret-capable input → {boundary_labels}; "
-                        "function is the projection (emits_secrets=false)",
-                    )
-                )
-        elif emits:
-            # Rule 4: emits secrets but all outputs stay internal
-            results.append(
-                (
-                    "PASS",
-                    fn_name,
-                    f"emits secrets to internal output "
-                    f"({', '.join(outputs)}); stays within process boundary",
+                    f"{from_b} → {to_b}; "
+                    "handles_secrets or emits_secrets is null — path is uncharted",
                 )
             )
         else:
-            # Rule 5: no secret-capable input or no external output, clean path
-            results.append(("PASS", fn_name, "no secret-capable input reaching external boundary"))
+            results.append(
+                (
+                    "FAIL",
+                    fn_name,
+                    f"{from_b} → {to_b}; "
+                    "secrets reach external boundary with emits_secrets=true",
+                )
+            )
 
     return results
 

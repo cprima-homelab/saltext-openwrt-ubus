@@ -11,6 +11,7 @@ import pytest
 from saltext.openwrt_ubus.data_manifest import build_manifest
 from saltext.openwrt_ubus.data_manifest import check_manifest
 from saltext.openwrt_ubus.data_manifest import collect_contracts
+from saltext.openwrt_ubus.data_manifest import derive_crossings
 
 # Functions that handle classified data and must be annotated.
 # CI fails if any of these lacks a @data_contract.
@@ -143,6 +144,15 @@ class TestManifest:
         ):
             assert manifest["data_types"][name]["boundary"] == "persistent-store", name
 
+    def test_pillar_sections_has_provenance_boundary(self, manifest):
+        dt = manifest["data_types"]["pillar.sections"]
+        assert dt["boundary"] == "internal"
+        assert dt.get("provenance_boundary") == "salt-master"
+
+    def test_manifest_has_crossings(self, manifest):
+        assert "crossings" in manifest
+        assert len(manifest["crossings"]) > 0
+
     def test_manifest_has_functions_and_profile(self, manifest):
         assert "functions" in manifest
         assert "sensitivity_profile" in manifest
@@ -174,6 +184,139 @@ class TestManifest:
         assert not missing
 
 
+class TestCrossings:
+    @pytest.fixture(scope="class")
+    def manifest(self):
+        return build_manifest()
+
+    @pytest.fixture(scope="class")
+    def crossings(self, manifest):
+        return manifest["crossings"]
+
+    def _via(self, crossings, fn_name):
+        return [c for c in crossings if c["via"] == fn_name]
+
+    def test_crossings_have_required_fields(self, crossings):
+        for c in crossings:
+            assert "from" in c
+            assert "to" in c
+            assert "via" in c
+            assert "guards" in c
+            assert "result" in c
+
+    def test_crossing_results_are_valid_values(self, crossings):
+        valid = {"safe", "unknown", "fail"}
+        for c in crossings:
+            assert c["result"] in valid, f"{c['via']}: unexpected result {c['result']!r}"
+
+    def test_grains_projection_crossing(self, crossings):
+        cs = self._via(crossings, "grains_projection")
+        assert len(cs) == 1
+        c = cs[0]
+        assert c["from"] == "internal"
+        assert c["to"] == "salt-master"
+        assert c["result"] == "safe"
+        assert "grains_projection" in c["guards"]
+
+    def test_evidence_projection_crossing(self, crossings):
+        cs = self._via(crossings, "evidence_projection")
+        assert len(cs) == 1
+        c = cs[0]
+        assert c["from"] == "internal"
+        assert c["to"] == "persistent-store"
+        assert c["result"] == "safe"
+
+    def test_diff_projection_crossing(self, crossings):
+        cs = self._via(crossings, "diff_projection")
+        assert len(cs) == 1
+        c = cs[0]
+        assert c["to"] == "persistent-store"
+        assert c["result"] == "safe"
+
+    def test_config_evidence_crossing(self, crossings):
+        cs = self._via(crossings, "config_evidence")
+        assert len(cs) == 1
+        c = cs[0]
+        assert c["to"] == "persistent-store"
+        assert c["result"] == "safe"
+        assert "classify_export" in c["guards"]
+        assert "evidence_projection" in c["guards"]
+
+    def test_config_diff_crossing(self, crossings):
+        cs = self._via(crossings, "config_diff")
+        assert len(cs) == 1
+        c = cs[0]
+        assert c["to"] == "persistent-store"
+        assert c["result"] == "safe"
+        assert "diff_projection" in c["guards"]
+
+    def test_runtime_evidence_crossing_is_unknown(self, crossings):
+        cs = self._via(crossings, "runtime_evidence")
+        assert len(cs) == 1
+        c = cs[0]
+        assert c["to"] == "persistent-store"
+        assert c["result"] == "unknown"
+        assert c["guards"] == []
+
+    def test_no_crossings_stay_internal(self, crossings):
+        # Every crossing must involve a boundary change; no internal→internal entries
+        for c in crossings:
+            assert c["from"] != c["to"], f"{c['via']}: from==to in crossings list"
+
+    def test_classify_export_not_in_crossings(self, crossings):
+        # classify_export outputs to uci.classified (internal → internal); no crossing
+        cs = self._via(crossings, "classify_export")
+        assert cs == [], "classify_export should produce no boundary crossing"
+
+    def test_no_fail_crossings(self, crossings):
+        fails = [c for c in crossings if c["result"] == "fail"]
+        assert not fails, f"Unexpected fail crossings: {fails}"
+
+    def test_synthetic_fail_crossing(self):
+        """derive_crossings emits result=fail when emits_secrets=true reaches external boundary."""
+        manifest = {
+            "data_types": {
+                "uci.raw": {"secret_capable": True, "boundary": "internal"},
+                "evidence.leak": {"secret_capable": True, "boundary": "persistent-store"},
+            },
+            "functions": {
+                "leaky_fn": {
+                    "inputs": ["uci.raw"],
+                    "outputs": ["evidence.leak"],
+                    "handles_secrets": True,
+                    "emits_secrets": True,
+                    "guards": [],
+                }
+            },
+        }
+        crossings = derive_crossings(manifest)
+        assert len(crossings) == 1
+        assert crossings[0]["result"] == "fail"
+        assert crossings[0]["guards"] == []
+
+    def test_dedup_multiple_inputs_same_boundary(self):
+        """A function with two inputs at the same boundary produces one crossing."""
+        manifest = {
+            "data_types": {
+                "uci.raw": {"boundary": "internal"},
+                "uci.diff": {"boundary": "internal"},
+                "evidence.out": {"boundary": "persistent-store"},
+            },
+            "functions": {
+                "multi_input": {
+                    "inputs": ["uci.raw", "uci.diff"],
+                    "outputs": ["evidence.out"],
+                    "handles_secrets": True,
+                    "emits_secrets": False,
+                    "guards": ["some_guard"],
+                }
+            },
+        }
+        crossings = derive_crossings(manifest)
+        assert len(crossings) == 1
+        assert crossings[0]["via"] == "multi_input"
+
+
 class TestCheckMode:
     @pytest.fixture(scope="class")
     def check_results(self):
@@ -183,61 +326,45 @@ class TestCheckMode:
     def _find(self, results, fn_name):
         return next((r for r in results if r[1] == fn_name), None)
 
-    def test_classify_export_passes(self, check_results):
-        # classify_export outputs to uci.classified (internal boundary) → PASS
-        r = self._find(check_results, "classify_export")
-        assert r is not None
-        assert r[0] == "PASS"
-
     def test_evidence_projection_passes(self, check_results):
-        # evidence_projection: secret-capable input → persistent-store, emits_secrets=false
         r = self._find(check_results, "evidence_projection")
         assert r is not None
         assert r[0] == "PASS"
 
     def test_grains_projection_passes(self, check_results):
-        # grains_projection: secret-capable input → salt-master boundary, emits_secrets=false
         r = self._find(check_results, "grains_projection")
         assert r is not None
         assert r[0] == "PASS"
 
     def test_diff_projection_passes(self, check_results):
-        # diff_projection: secret-capable input → persistent-store, emits_secrets=false
         r = self._find(check_results, "diff_projection")
         assert r is not None
         assert r[0] == "PASS"
 
     def test_runtime_evidence_warns(self, check_results):
-        # runtime_evidence: handles_secrets=None → unknown path → WARN
         r = self._find(check_results, "runtime_evidence")
         assert r is not None
         assert r[0] == "WARN"
-        assert "null" in r[2].lower() or "unknown" in r[2].lower()
+        assert "uncharted" in r[2] or "null" in r[2].lower() or "unknown" in r[2].lower()
 
     def test_config_evidence_passes_with_guards(self, check_results):
-        # config_evidence: secret-capable input → persistent-store, guarded by projections
         r = self._find(check_results, "config_evidence")
         assert r is not None
         assert r[0] == "PASS"
-        assert "guarded" in r[2].lower() or "guard" in r[2].lower()
+        assert "guarded" in r[2].lower()
 
     def test_config_diff_passes_with_guards(self, check_results):
-        # config_diff: secret-capable input → persistent-store, guarded by diff_projection
         r = self._find(check_results, "config_diff")
         assert r is not None
         assert r[0] == "PASS"
-        assert "guarded" in r[2].lower() or "guard" in r[2].lower()
+        assert "guarded" in r[2].lower()
 
     def test_no_fail_results(self, check_results):
         fails = [r for r in check_results if r[0] == "FAIL"]
         assert not fails, f"Unexpected FAIL: {fails}"
 
-    def test_results_cover_all_required(self, check_results):
-        found = {r[1] for r in check_results}
-        assert _REQUIRED_CONTRACTS <= found
-
     def test_fail_on_secret_leak_to_external_boundary(self):
-        """Synthesize a manifest with a function that leaks secrets to an external boundary."""
+        """check_manifest emits FAIL when a crossing has result=fail."""
         manifest = {
             "data_types": {
                 "uci.raw": {"secret_capable": True, "boundary": "internal"},
@@ -254,5 +381,6 @@ class TestCheckMode:
             },
         }
         results = check_manifest(manifest)
-        assert results[0][0] == "FAIL"
-        assert "external boundary" in results[0][2]
+        assert any(r[0] == "FAIL" for r in results)
+        fail = next(r for r in results if r[0] == "FAIL")
+        assert "external boundary" in fail[2]
