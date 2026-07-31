@@ -120,7 +120,7 @@ class TestSensitivityProfile:
         assert builtin.name == "saltext-openwrt-ubus/default"
 
     def test_load_builtin_has_version(self, builtin):
-        assert builtin.version == "1"
+        assert builtin.version == "2"
 
     def test_builtin_classifies_wireguard_private_key_as_secret(self, builtin):
         assert builtin.classify("network", "interface", "private_key") == Classification.SECRET
@@ -136,6 +136,18 @@ class TestSensitivityProfile:
 
     def test_builtin_classifies_ssid_as_internal(self, builtin):
         assert builtin.classify("wireless", "wifi-iface", "ssid") == Classification.INTERNAL
+
+    def test_builtin_classifies_wireguard_public_key_as_internal(self, builtin):
+        assert builtin.classify("network", "wireguard_wg0", "public_key") == Classification.INTERNAL
+
+    def test_builtin_classifies_listen_port_as_internal(self, builtin):
+        assert builtin.classify("network", "interface", "listen_port") == Classification.INTERNAL
+
+    def test_builtin_classifies_ntp_server_as_internal(self, builtin):
+        assert builtin.classify("system", "timeserver", "server") == Classification.INTERNAL
+
+    def test_wireguard_private_key_still_secret_after_public_key_rule(self, builtin):
+        assert builtin.classify("network", "interface", "private_key") == Classification.SECRET
 
     def test_unmatched_option_returns_unknown(self, builtin):
         cl = builtin.classify("custom", "custom_type", "some_novel_option")

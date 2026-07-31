@@ -238,6 +238,24 @@ After `grains_projection()`:
 }
 ```
 
+## Null semantics
+
+A projected `null` value is ambiguous without context: it may mean the source
+UCI option was not explicitly set on the device (genuinely absent), or it may
+mean the projection withheld a real value due to its classification.
+
+The disambiguation rule:
+
+- A `null` alongside a `secret`, `sensitive`, or `unknown` classification in
+  `_sensitivity.fields` means the value was **withheld** by the projection.
+- A `null` alongside an `allow` classification (or no entry in `_sensitivity.fields`)
+  reflects the source UCI value — the option was not explicitly configured on this device.
+
+Consumers that need to distinguish these cases must check `_sensitivity.fields[option]`
+before interpreting a null value. A future profile version may introduce an explicit
+sentinel (e.g. `"<redacted>"`) to make the distinction self-evident without reading
+`_sensitivity` — this is deferred until a consuming tool requires it.
+
 ## config_diff redaction
 
 `diff_projection()` applies redaction to the output of `config_diff()`.

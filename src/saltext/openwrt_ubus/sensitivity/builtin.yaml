@@ -1,5 +1,5 @@
 name: saltext-openwrt-ubus/default
-version: "1"
+version: "2"
 
 policies:
   secret:
@@ -79,7 +79,23 @@ rules:
         [ipaddr, netmask, broadcast, gateway, dns, ifname, device, bridge, multicast,
          igmp_snooping, macaddr, ip6assign, delegate, reqaddress, reqprefix, peerdns,
          defaultroute, ip6ifaceid, ip6prefix, ip6gw, ip4table, ip6table, sendredirects,
-         vrf, neighbor, hostname, clientid, vendorid, iface6rd, ip6prefixlen, ip6rdprefix]
+         vrf, neighbor, hostname, clientid, vendorid, iface6rd, ip6prefixlen, ip6rdprefix,
+         listen_port, addresses, ipv6]
+    classification: internal
+
+  # network: WireGuard peer sections (section_type is wireguard_<ifname>, varies by device)
+  # public_key is the non-secret complement of private_key; allowed_ips is routing topology
+  # private_key has a higher-specificity secret rule that takes precedence
+  - match: {package: network, option: [public_key, allowed_ips, persistent_keepalive]}
+    classification: internal
+
+  # network: bridge device sections
+  - match:
+      section_type: device
+      option:
+        [ports, bridge_empty, macaddr, mtu, sendredirects, igmp_snooping,
+         multicast_querier, robustness, query_interval, query_response_interval,
+         last_member_interval]
     classification: internal
 
   # wireless: wifi-device
@@ -87,7 +103,7 @@ rules:
       section_type: wifi-device
       option:
         [type, hwmode, htmode, channel, txpower, country, noscan, beacon_int, path,
-         antenna_gain, maxassoc, distance]
+         antenna_gain, maxassoc, distance, band]
     classification: internal
 
   # wireless: wifi-iface (non-secret options)
@@ -107,13 +123,20 @@ rules:
          urandom_seed, buffersize, conloglevel, cronloglevel, klogconloglevel]
     classification: internal
 
+  # system: NTP
+  - match:
+      section_type: timeserver
+      option: [enable_server, server]
+    classification: internal
+
   # dhcp: dnsmasq
   - match:
       section_type: dnsmasq
       option:
         [domainneeded, boguspriv, localise_queries, rebind_protection, rebind_localhost,
          local, domain, expandhosts, nonegcache, cachesize, localservice, readethers,
-         leasefile, resolvfile, nonwildcard, localuse, quietdhcp, queryport, filterwin2k]
+         leasefile, resolvfile, nonwildcard, localuse, quietdhcp, queryport, filterwin2k,
+         authoritative, ednspacket_max, filter_aaaa, filter_a]
     classification: internal
 
   # dhcp: dhcp pool
@@ -124,6 +147,12 @@ rules:
          master, gateway, dns, domain, local_service, networkid, broadcast]
     classification: internal
 
+  # dhcp: odhcpd (DHCPv6/RA daemon)
+  - match:
+      section_type: odhcpd
+      option: [maindhcp, leasefile, leasetrigger, loglevel, piofolder]
+    classification: internal
+
   # firewall: defaults
   - match:
       section_type: defaults
@@ -131,7 +160,7 @@ rules:
         [input, output, forward, synflood_protect, synflood_rate, synflood_burst,
          tcp_syncookies, tcp_ecn, tcp_window_scaling, accept_redirects,
          accept_source_route, custom_chains, disable_ipv6, flow_offloading,
-         flow_offloading_hw]
+         flow_offloading_hw, syn_flood]
     classification: internal
 
   # firewall: zones, rules, forwardings, redirects
@@ -140,7 +169,7 @@ rules:
       option:
         [name, network, input, output, forward, masq, mtu_fix, enabled, src, dest,
          src_ip, dest_ip, src_port, dest_port, proto, target, log, log_limit, limit,
-         limit_burst, family, reflection, reflection_src]
+         limit_burst, family, reflection, reflection_src, device, icmp_type]
     classification: internal
 
   # dropbear
@@ -148,5 +177,5 @@ rules:
       section_type: dropbear
       option:
         [Port, Interface, GatewayPorts, PasswordAuth, RootPasswordAuth, AllowLocalUsers,
-         Compression, MaxAuthTries, MDNSRegister, Banner, RsaFingerprint]
+         Compression, MaxAuthTries, MDNSRegister, Banner, RsaFingerprint, enable]
     classification: internal
