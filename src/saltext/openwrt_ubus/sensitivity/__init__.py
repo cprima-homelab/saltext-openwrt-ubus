@@ -16,6 +16,9 @@ Quick-start::
 """
 
 from saltext.openwrt_ubus.sensitivity.classify import classify_export
+from saltext.openwrt_ubus.sensitivity.contracts import DataContract
+from saltext.openwrt_ubus.sensitivity.contracts import DataKind
+from saltext.openwrt_ubus.sensitivity.contracts import data_contract
 from saltext.openwrt_ubus.sensitivity.model import TAINT_RANK
 from saltext.openwrt_ubus.sensitivity.model import Classification
 from saltext.openwrt_ubus.sensitivity.model import Policy
@@ -31,11 +34,14 @@ from saltext.openwrt_ubus.sensitivity.project import project
 
 __all__ = [
     "Classification",
+    "DataContract",
+    "DataKind",
     "Policy",
     "PolicyDecision",
     "SensitivityProfile",
     "Surface",
     "TAINT_RANK",
+    "data_contract",
     "max_taint",
     "classify_export",
     "project",

@@ -9,6 +9,7 @@ post-processing logic that is identical regardless of transport.
 import datetime
 
 from saltext.openwrt_ubus.sensitivity.classify import classify_export
+from saltext.openwrt_ubus.sensitivity.contracts import data_contract
 from saltext.openwrt_ubus.sensitivity.model import SensitivityProfile
 from saltext.openwrt_ubus.sensitivity.model import Surface
 from saltext.openwrt_ubus.sensitivity.project import diff_projection
@@ -279,6 +280,12 @@ def config_export_all(call, format="json"):  # pylint: disable=redefined-builtin
     return result
 
 
+@data_contract(
+    inputs=("uci.raw", "pillar.sections"),
+    outputs=("evidence.config_diff",),
+    surfaces=("config_diff",),
+    may_contain_secrets=False,
+)
 def config_diff(call, config, sections):
     """Compare live UCI config against declared sections and return drift.
 
@@ -660,6 +667,12 @@ def service_list(call, verbose=False):
 # --- Evidence records ---
 
 
+@data_contract(
+    inputs=("uci.raw",),
+    outputs=("evidence.configured_state",),
+    surfaces=("evidence",),
+    may_contain_secrets=False,
+)
 def config_evidence(call, config, source_device, transport, collector_version, profile=None):
     """
     Return configured UCI state wrapped in a provenance envelope.
@@ -712,6 +725,12 @@ def config_evidence(call, config, source_device, transport, collector_version, p
 _RUNTIME_DOMAINS = ("network", "system", "services")
 
 
+@data_contract(
+    inputs=("ubus.runtime",),
+    outputs=("evidence.observed_state",),
+    surfaces=("evidence",),
+    may_contain_secrets=False,
+)
 def runtime_evidence(call, domain, source_device, transport, collector_version):
     """
     Return observed runtime state for ``domain`` wrapped in a provenance envelope.

@@ -17,6 +17,7 @@ while preserving actionable classification data.
 
 from __future__ import annotations
 
+from saltext.openwrt_ubus.sensitivity.contracts import data_contract
 from saltext.openwrt_ubus.sensitivity.model import Classification
 from saltext.openwrt_ubus.sensitivity.model import Surface
 
@@ -71,6 +72,12 @@ def _project_section_evidence(section: dict) -> dict:
     return result
 
 
+@data_contract(
+    inputs=("uci.classified",),
+    outputs=("evidence.configured_state",),
+    surfaces=("evidence",),
+    may_contain_secrets=False,
+)
 def evidence_projection(classified: dict) -> dict:
     """Project classified state for the evidence surface.
 
@@ -122,6 +129,12 @@ def _project_section_grains(section: dict) -> dict:
     return result
 
 
+@data_contract(
+    inputs=("uci.classified",),
+    outputs=("grains.configured_state",),
+    surfaces=("grains",),
+    may_contain_secrets=False,
+)
 def grains_projection(classified: dict) -> dict:
     """Project classified state for the grains surface.
 
@@ -152,6 +165,12 @@ def grains_projection(classified: dict) -> dict:
     return result
 
 
+@data_contract(
+    inputs=("uci.diff",),
+    outputs=("evidence.config_diff",),
+    surfaces=("config_diff",),
+    may_contain_secrets=False,
+)
 def diff_projection(
     diff_result: dict,
     *,

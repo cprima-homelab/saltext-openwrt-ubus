@@ -7,11 +7,18 @@ Projections (project.py) decide what to expose per surface.
 
 from __future__ import annotations
 
+from saltext.openwrt_ubus.sensitivity.contracts import data_contract
 from saltext.openwrt_ubus.sensitivity.model import Classification
 from saltext.openwrt_ubus.sensitivity.model import SensitivityProfile
 from saltext.openwrt_ubus.sensitivity.model import max_taint
 
 
+@data_contract(
+    inputs=("uci.raw",),
+    outputs=("uci.classified",),
+    surfaces=("internal",),
+    may_contain_secrets=True,
+)
 def classify_export(
     export_dict: dict,
     *,

@@ -10,5 +10,6 @@ ___________________
     :toctree:
 
     classify
+    contracts
     model
     project
