@@ -124,6 +124,25 @@ class TestManifest:
     def test_data_types_observed_state_unknown(self, manifest):
         assert manifest["data_types"]["evidence.observed_state"]["secret_capable"] is None
 
+    def test_data_types_have_boundary(self, manifest):
+        for name, dt in manifest["data_types"].items():
+            assert "boundary" in dt, f"{name} missing boundary field"
+
+    def test_internal_data_types_stay_internal(self, manifest):
+        for name in ("uci.raw", "uci.classified", "uci.diff", "pillar.sections", "ubus.runtime"):
+            assert manifest["data_types"][name]["boundary"] == "internal", name
+
+    def test_grains_boundary_is_salt_master(self, manifest):
+        assert manifest["data_types"]["grains.configured_state"]["boundary"] == "salt-master"
+
+    def test_evidence_boundary_is_persistent_store(self, manifest):
+        for name in (
+            "evidence.configured_state",
+            "evidence.config_diff",
+            "evidence.observed_state",
+        ):
+            assert manifest["data_types"][name]["boundary"] == "persistent-store", name
+
     def test_manifest_has_functions_and_profile(self, manifest):
         assert "functions" in manifest
         assert "sensitivity_profile" in manifest
@@ -165,35 +184,49 @@ class TestCheckMode:
         return next((r for r in results if r[1] == fn_name), None)
 
     def test_classify_export_passes(self, check_results):
+        # classify_export outputs to uci.classified (internal boundary) → PASS
         r = self._find(check_results, "classify_export")
         assert r is not None
         assert r[0] == "PASS"
 
     def test_evidence_projection_passes(self, check_results):
+        # evidence_projection: secret-capable input → persistent-store, emits_secrets=false
         r = self._find(check_results, "evidence_projection")
         assert r is not None
         assert r[0] == "PASS"
 
     def test_grains_projection_passes(self, check_results):
+        # grains_projection: secret-capable input → salt-master boundary, emits_secrets=false
         r = self._find(check_results, "grains_projection")
         assert r is not None
         assert r[0] == "PASS"
 
+    def test_diff_projection_passes(self, check_results):
+        # diff_projection: secret-capable input → persistent-store, emits_secrets=false
+        r = self._find(check_results, "diff_projection")
+        assert r is not None
+        assert r[0] == "PASS"
+
     def test_runtime_evidence_warns(self, check_results):
-        # runtime_evidence declares handles_secrets=None → WARN expected
+        # runtime_evidence: handles_secrets=None → unknown path → WARN
         r = self._find(check_results, "runtime_evidence")
         assert r is not None
         assert r[0] == "WARN"
+        assert "null" in r[2].lower() or "unknown" in r[2].lower()
 
-    def test_config_evidence_passes(self, check_results):
+    def test_config_evidence_passes_with_guards(self, check_results):
+        # config_evidence: secret-capable input → persistent-store, guarded by projections
         r = self._find(check_results, "config_evidence")
         assert r is not None
         assert r[0] == "PASS"
+        assert "guarded" in r[2].lower() or "guard" in r[2].lower()
 
-    def test_config_diff_passes(self, check_results):
+    def test_config_diff_passes_with_guards(self, check_results):
+        # config_diff: secret-capable input → persistent-store, guarded by diff_projection
         r = self._find(check_results, "config_diff")
         assert r is not None
         assert r[0] == "PASS"
+        assert "guarded" in r[2].lower() or "guard" in r[2].lower()
 
     def test_no_fail_results(self, check_results):
         fails = [r for r in check_results if r[0] == "FAIL"]
@@ -202,3 +235,24 @@ class TestCheckMode:
     def test_results_cover_all_required(self, check_results):
         found = {r[1] for r in check_results}
         assert _REQUIRED_CONTRACTS <= found
+
+    def test_fail_on_secret_leak_to_external_boundary(self):
+        """Synthesize a manifest with a function that leaks secrets to an external boundary."""
+        manifest = {
+            "data_types": {
+                "uci.raw": {"secret_capable": True, "boundary": "internal"},
+                "evidence.leak": {"secret_capable": True, "boundary": "persistent-store"},
+            },
+            "functions": {
+                "leaky_fn": {
+                    "inputs": ["uci.raw"],
+                    "outputs": ["evidence.leak"],
+                    "handles_secrets": True,
+                    "emits_secrets": True,
+                    "guards": [],
+                }
+            },
+        }
+        results = check_manifest(manifest)
+        assert results[0][0] == "FAIL"
+        assert "external boundary" in results[0][2]

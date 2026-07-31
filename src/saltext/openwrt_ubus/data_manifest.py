@@ -13,7 +13,17 @@ The manifest has three sections:
 ``data_types``
     Declarations of each named data namespace (e.g. ``uci.raw``,
     ``uci.classified``, ``evidence.configured_state``).  Each type records
-    whether it is secret-capable and its classification stage.
+    whether it is secret-capable, its classification stage, and which trust
+    boundary it crosses when written:
+
+    ``internal``
+        Stays within the minion process; never leaves to an external system.
+    ``salt-master``
+        Sent to the Salt master (grains, returners).
+    ``persistent-store``
+        Written to disk / a file-based evidence store.
+    ``cli``
+        Printed to a terminal or log visible to operators.
 
 ``functions``
     Every function annotated with ``@data_contract``, keyed by function name.
@@ -25,10 +35,18 @@ The manifest has three sections:
     The builtin profile's name, version, policy table (5 classifications × 5
     surfaces), and the full list of explicitly classified fields from the rules.
 
---check mode builds a graph from inputs/outputs and validates:
+--check mode builds a graph from inputs/outputs and validates that every path
+from a secret_capable=true source to a non-internal boundary crosses a function
+that declares emits_secrets=false:
+
   - handles_secrets or emits_secrets is None → WARN (unknown path)
-  - emits_secrets=False despite secret-capable input → verify guards declared
-  - emits_secrets inconsistent with output data type's secret_capable → FAIL
+  - secret_capable input reaching external boundary with emits_secrets=true → FAIL
+  - secret_capable input reaching external boundary with emits_secrets=false → PASS
+    (reason includes guards list when present)
+
+Known gap: uci.diff is an implicit intermediate produced inside config_diff before
+being passed to diff_projection. The transform uci.raw → uci.diff is not yet an
+annotated logical step; config_diff's guards field documents the dependency.
 """
 
 from __future__ import annotations
@@ -51,54 +69,70 @@ _ANNOTATED_MODULES = [
 ]
 
 # Data type declarations: each namespace in the input/output graph.
+#
 # secret_capable:
 #   True  — may contain secret values
 #   False — guaranteed secret-free (by projection or design)
-#   None  — unknown; --check emits WARN for functions using this type
+#   None  — unknown / not asserted; --check emits WARN for functions using this type
+#
+# boundary: trust boundary crossed when this data type is written or transmitted
+#   internal        — stays within the minion process
+#   salt-master     — sent to the Salt master (grains, returners)
+#   persistent-store — written to disk / file-based evidence store
+#   cli             — printed to terminal or log visible to operators
 DATA_TYPES: dict[str, dict] = {
     "uci.raw": {
         "classification": "unclassified",
         "secret_capable": True,
+        "boundary": "internal",
         "description": "Raw config_export() output; option values untransformed",
     },
     "uci.classified": {
         "classification": "classified",
         "secret_capable": True,
+        "boundary": "internal",
         "description": "classify_export() output; every option annotated, values preserved",
     },
     "uci.diff": {
         "classification": "unclassified",
         "secret_capable": True,
+        "boundary": "internal",
         "description": "Raw diff result; may contain old/new secret values",
     },
     "pillar.sections": {
         "classification": "unclassified",
         "secret_capable": True,
-        "description": "Desired state from Salt pillar; may contain secrets",
+        "boundary": "internal",
+        "description": "Desired state from Salt pillar; already fetched to minion memory",
     },
     "evidence.configured_state": {
         "classification": "projected",
         "secret_capable": False,
+        "boundary": "persistent-store",
         "description": "evidence_projection() output; secret values redacted to null",
     },
     "evidence.config_diff": {
         "classification": "projected",
         "secret_capable": False,
+        "boundary": "persistent-store",
         "description": "diff_projection() output; secret changes replaced with {changed: true}",
     },
     "evidence.observed_state": {
         "classification": "unclassified",
         "secret_capable": None,
+        "boundary": "persistent-store",
         "description": "runtime_evidence() output; no classification layer applied yet",
     },
     "grains.configured_state": {
         "classification": "projected",
         "secret_capable": False,
+        "boundary": "salt-master",
         "description": "grains_projection() output; secret/unknown keys absent",
     },
     "ubus.runtime": {
         "classification": "unclassified",
         "secret_capable": None,
+        "boundary": "internal",
         "description": "Observed runtime state from ubus; secret_capable unknown",
     },
 }
@@ -181,21 +215,45 @@ def build_manifest(modules=None, profile=None) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# --check: data-flow path analysis
+# --check: boundary-aware data-flow path analysis
 # ---------------------------------------------------------------------------
 
+# Boundaries that are outside the minion process; data written here persists
+# or travels beyond the immediate computation.
+_EXTERNAL_BOUNDARIES = frozenset({"salt-master", "persistent-store", "cli"})
 
-def _secret_capable(type_name: str) -> bool | None:
-    """Return secret_capable for a data type name, or None if unknown/undeclared."""
-    return DATA_TYPES.get(type_name, {}).get("secret_capable", None)
+
+def _type_secret_capable(data_types: dict, type_name: str) -> bool | None:
+    """Return secret_capable for a named type, or None if unknown/undeclared."""
+    return data_types.get(type_name, {}).get("secret_capable", None)
+
+
+def _type_boundary(data_types: dict, type_name: str) -> str:
+    """Return the trust boundary for a named type, defaulting to 'internal'."""
+    return data_types.get(type_name, {}).get("boundary", "internal")
 
 
 def check_manifest(manifest: dict) -> list[tuple[str, str, str]]:
     """Analyse the function graph and return (status, function_name, reason) tuples.
 
     Status values: PASS, WARN, FAIL.
+
+    The check asks one question per function:
+
+        "Does this function move secret-capable data across a trust boundary
+         without declaring emits_secrets=false?"
+
+    Rules applied in order:
+    1. handles_secrets or emits_secrets is None → WARN (path is uncharted)
+    2. Any input is secret_capable != False AND any output crosses an external
+       boundary AND emits_secrets=True → FAIL (secrets leak to external surface)
+    3. Any input is secret_capable != False AND any output crosses an external
+       boundary AND emits_secrets=False → PASS (crossing is guarded)
+    4. emits_secrets=True with all outputs staying internal → PASS (intermediate)
+    5. No secret-capable input → PASS (clean path)
     """
     functions = manifest["functions"]
+    data_types = manifest.get("data_types", DATA_TYPES)
     results = []
 
     for fn_name, fn in functions.items():
@@ -203,68 +261,72 @@ def check_manifest(manifest: dict) -> list[tuple[str, str, str]]:
         emits = fn.get("emits_secrets")
         guards = fn.get("guards", [])
 
-        # Unknown declaration → WARN immediately
+        # Rule 1: unknown declaration → WARN
         if handles is None or emits is None:
             results.append(
                 (
                     "WARN",
                     fn_name,
-                    "handles_secrets or emits_secrets is unknown; "
+                    "handles_secrets or emits_secrets is null (unknown); "
                     "no classification layer declared for this path",
                 )
             )
             continue
 
-        # Check consistency: emits_secrets vs output data type
-        for out_type in fn["outputs"]:
-            out_capable = _secret_capable(out_type)
-            if out_capable is False and emits is True:
+        inputs = fn.get("inputs", [])
+        outputs = fn.get("outputs", [])
+
+        input_secret = any(_type_secret_capable(data_types, inp) is not False for inp in inputs)
+        external_outputs = [
+            out for out in outputs if _type_boundary(data_types, out) in _EXTERNAL_BOUNDARIES
+        ]
+
+        if input_secret and external_outputs:
+            boundary_labels = ", ".join(
+                f"{o} ({_type_boundary(data_types, o)})" for o in external_outputs
+            )
+            if emits:
+                # Rule 2: secrets reach external boundary
                 results.append(
                     (
                         "FAIL",
                         fn_name,
-                        f"emits_secrets=true but output {out_type!r} is secret_capable=false; "
-                        "contract inconsistency",
+                        f"secret-capable input reaches external boundary "
+                        f"with emits_secrets=true: {boundary_labels}",
                     )
                 )
-                break
-            if out_capable is True and emits is False:
-                # This is fine — the function redacts before writing to a secret-capable type
-                # (unusual but not inherently wrong; guards should explain it)
-                pass
-        else:
-            # Determine if any input is secret-capable
-            input_capable = any(_secret_capable(inp) is not False for inp in fn["inputs"])
-
-            if emits:
-                # Emits secrets — output is an intermediate; acceptable
+            elif guards:
+                # Rule 3a: guarded projection
                 results.append(
                     (
                         "PASS",
                         fn_name,
-                        f"handles and emits secrets; output is intermediate "
-                        f"({', '.join(fn['outputs'])})",
-                    )
-                )
-            elif input_capable and guards:
-                results.append(
-                    (
-                        "PASS",
-                        fn_name,
-                        f"secret-capable input → protected output; " f"enforced by {guards}",
-                    )
-                )
-            elif input_capable:
-                results.append(
-                    (
-                        "PASS",
-                        fn_name,
-                        "secret-capable input → protected output; "
-                        "enforcement implicit (function is itself the projection)",
+                        f"secret-capable input → {boundary_labels}; " f"guarded by {guards}",
                     )
                 )
             else:
-                results.append(("PASS", fn_name, "no secret-capable input; clean output"))
+                # Rule 3b: function is itself the projection
+                results.append(
+                    (
+                        "PASS",
+                        fn_name,
+                        f"secret-capable input → {boundary_labels}; "
+                        "function is the projection (emits_secrets=false)",
+                    )
+                )
+        elif emits:
+            # Rule 4: emits secrets but all outputs stay internal
+            results.append(
+                (
+                    "PASS",
+                    fn_name,
+                    f"emits secrets to internal output "
+                    f"({', '.join(outputs)}); stays within process boundary",
+                )
+            )
+        else:
+            # Rule 5: no secret-capable input or no external output, clean path
+            results.append(("PASS", fn_name, "no secret-capable input reaching external boundary"))
 
     return results
 
