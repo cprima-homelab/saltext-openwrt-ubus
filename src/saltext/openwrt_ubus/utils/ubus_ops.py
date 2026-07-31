@@ -284,7 +284,9 @@ def config_export_all(call, format="json"):  # pylint: disable=redefined-builtin
     inputs=("uci.raw", "pillar.sections"),
     outputs=("evidence.config_diff",),
     surfaces=("config_diff",),
-    may_contain_secrets=False,
+    handles_secrets=True,
+    emits_secrets=False,
+    guards=("diff_projection",),
 )
 def config_diff(call, config, sections):
     """Compare live UCI config against declared sections and return drift.
@@ -671,7 +673,9 @@ def service_list(call, verbose=False):
     inputs=("uci.raw",),
     outputs=("evidence.configured_state",),
     surfaces=("evidence",),
-    may_contain_secrets=False,
+    handles_secrets=True,
+    emits_secrets=False,
+    guards=("classify_export", "evidence_projection"),
 )
 def config_evidence(call, config, source_device, transport, collector_version, profile=None):
     """
@@ -729,7 +733,8 @@ _RUNTIME_DOMAINS = ("network", "system", "services")
     inputs=("ubus.runtime",),
     outputs=("evidence.observed_state",),
     surfaces=("evidence",),
-    may_contain_secrets=False,
+    handles_secrets=None,
+    emits_secrets=None,
 )
 def runtime_evidence(call, domain, source_device, transport, collector_version):
     """

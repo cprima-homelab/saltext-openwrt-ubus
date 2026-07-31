@@ -76,7 +76,8 @@ def _project_section_evidence(section: dict) -> dict:
     inputs=("uci.classified",),
     outputs=("evidence.configured_state",),
     surfaces=("evidence",),
-    may_contain_secrets=False,
+    handles_secrets=True,
+    emits_secrets=False,
 )
 def evidence_projection(classified: dict) -> dict:
     """Project classified state for the evidence surface.
@@ -133,7 +134,8 @@ def _project_section_grains(section: dict) -> dict:
     inputs=("uci.classified",),
     outputs=("grains.configured_state",),
     surfaces=("grains",),
-    may_contain_secrets=False,
+    handles_secrets=True,
+    emits_secrets=False,
 )
 def grains_projection(classified: dict) -> dict:
     """Project classified state for the grains surface.
@@ -169,7 +171,8 @@ def grains_projection(classified: dict) -> dict:
     inputs=("uci.diff",),
     outputs=("evidence.config_diff",),
     surfaces=("config_diff",),
-    may_contain_secrets=False,
+    handles_secrets=True,
+    emits_secrets=False,
 )
 def diff_projection(
     diff_result: dict,

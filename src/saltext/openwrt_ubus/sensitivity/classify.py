@@ -17,7 +17,8 @@ from saltext.openwrt_ubus.sensitivity.model import max_taint
     inputs=("uci.raw",),
     outputs=("uci.classified",),
     surfaces=("internal",),
-    may_contain_secrets=True,
+    handles_secrets=True,
+    emits_secrets=True,
 )
 def classify_export(
     export_dict: dict,
