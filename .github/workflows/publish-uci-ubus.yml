@@ -12,6 +12,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
       - run: uv build
+        env:
+          # v0.1.0 as a git tag is already taken by an unrelated pre-rename
+          # commit in this repo's history; override the setuptools_scm-derived
+          # version so the first saltext.uci-ubus release is still 0.1.0 on
+          # PyPI without touching that existing tag.
+          SETUPTOOLS_SCM_PRETEND_VERSION: "0.1.0"
       - uses: actions/upload-artifact@v4
         with:
           name: dist
