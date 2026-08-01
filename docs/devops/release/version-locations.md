@@ -16,7 +16,7 @@ Tag a release with `git tag v0.2.1` and the version propagates automatically.
 | File | What to update |
 |------|----------------|
 | `CHANGELOG.md` | Add new version section with date and changes |
-| `openwrt/ROADMAP.md` | Mark completed milestones, update `(current)` marker |
+| `../openwrt-packages/ROADMAP.md` (separate repo) | Mark completed milestones, update `(current)` marker |
 | `docs/adr/*.md` | Context lines referencing the version that introduced a decision |
 
 ## References that mention versions (typically leave as-is)
@@ -29,7 +29,7 @@ Only update if the meaning has changed.
 | `docs/devops/plan/10-jsonrpc-vs-cli.md:19` | `v0.2 Approach` | Historical: describes when JSON-RPC was adopted |
 | `docs/devops/plan/10-jsonrpc-vs-cli.md:147` | `Recommendation for v0.2` | Historical |
 | `docs/devops/code/07-ubus-object-inventory.md:105` | `Primary (v0.2 scope)` | Historical |
-| `openwrt/ROADMAP.md` | `v0.2.0`, `v0.3.0`, `v1.0.0` | OpenWrt package milestones (separate from saltext version) |
+| `../openwrt-packages/ROADMAP.md` (separate repo) | `v0.2.0`, `v0.3.0`, `v1.0.0` | OpenWrt package milestones (separate from saltext version) |
 
 ## Not project versions (ignore)
 

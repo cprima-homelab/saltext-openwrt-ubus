@@ -1,8 +1,0 @@
-Package: salt-openwrt
-Version: 0.1.1-1
-Section: admin
-Architecture: all
-Maintainer: Christian Prior-Mamulyan <cprior@gmail.com>
-Description: Salt agent configuration for OpenWrt
- UCI config file controlling Salt extension behavior (mode, enabled).
- Shared by salt-agent-ubus and salt-agent-ssh transport packages.

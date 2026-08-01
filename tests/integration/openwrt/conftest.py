@@ -21,10 +21,7 @@ SALT_AGENT_PASSWORD = os.environ.get("SALT_AGENT_PASSWORD", "test1234")
 CONTAINER_NAME = os.environ.get("CONTAINER_NAME", "openwrt-test-target")
 
 # Single source of truth for testcorpus test cases.
-TESTCORPUS_TESTS = (
-    Path(__file__).parents[3]
-    / "openwrt/packages/openwrt-ubus-testcorpus/files/usr/share/testcorpus/tests"
-)
+TESTCORPUS_TESTS = Path(__file__).parents[3] / "infra/openwrt-test/fixtures/tests"
 
 
 def docker_exec(*args: str, stdin: bytes | None = None) -> subprocess.CompletedProcess:

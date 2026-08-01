@@ -100,9 +100,9 @@ Several existing documents touch on this problem without resolving it:
   module does not whitelist packages -- the rpcd ACL on the device
   grants `uci: ["*"]`, so any config package is manageable.
 
-- **`openwrt/ROADMAP.md`** (v0.2.0): "Scope `uci` read/write to
-  packages actually used." (v1.0.0): "ACL scope locked to documented
-  UCI packages only."
+- **`openwrt-packages/ROADMAP.md`** (separate repo, v0.2.0): "Scope `uci`
+  read/write to packages actually used." (v1.0.0): "ACL scope locked to
+  documented UCI packages only."
 
 This document synthesizes these threads into concrete alternatives.
 

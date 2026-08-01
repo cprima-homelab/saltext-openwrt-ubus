@@ -5,13 +5,14 @@
 The device-side half of the extension: opkg packages that prepare an
 OpenWrt router for Salt management.
 
-Source: `openwrt/packages/` in the repo root.
+Source: `packages/` in the `cprima-homelab/openwrt-packages` repo (migrated
+out of this repo; no longer vendored here).
 
 ## Package inventory
 
 | Package | Version | Purpose |
 |---------|---------|---------|
-| `salt-agent-ubus` | 0.2.0-1 | rpcd user, ACL, JSON-RPC access |
+| `salt-agent-ubus` | 0.3.0-1 | rpcd user, ACL, JSON-RPC access |
 | `salt-openwrt` | 0.1.1-1 | Agent mode UCI config |
 | `salt-agent-ssh` | 0.1.0-1 | SSH access (stub, not yet implemented) |
 | `luci-app-salt-openwrt` | 0.1.1-1 | LuCI web UI for agent config |
@@ -32,7 +33,7 @@ authenticate.
 The post-install script creates a system user for rpcd authentication:
 
 ```sh
-# openwrt/packages/salt-agent-ubus/CONTROL/postinst
+# packages/salt-agent-ubus/Makefile (cprima-homelab/openwrt-packages)
 # Find next free system uid (scan 999 down to 100)
 uid=999
 while [ "$uid" -ge 100 ]; do
