@@ -12,7 +12,10 @@ OpenWrt configuration management through the ubus API.
       host: 10.35.24.1
       password: secret
       # username: salt-agent      (default)
-      # port: 443                 (default)
+      # scheme: https             (auto-detected by default: tries plain
+      # port: 443                  HTTP on 80 first, falls back to HTTPS on
+      #                            443 — set both explicitly to skip probing,
+      #                            e.g. for a device behind Caddy/ACME)
       # verify_ssl: false         (default)
       # timeout: 30               (default, HTTP request timeout)
       # session_timeout: 300      (default, rpcd session lifetime)
@@ -61,8 +64,16 @@ def init(opts):
         host=proxy_conf["host"],
         username=proxy_conf.get("username", "salt-agent"),
         password=proxy_conf["password"],
-        port=proxy_conf.get("port", 443),
+        # scheme/port default to None (auto-detect: plain HTTP on 80 first,
+        # falling back to HTTPS on 443 — see UbusRpcClient). Set both
+        # explicitly in pillar only to skip probing for a nonstandard setup.
+        port=proxy_conf.get("port"),
+        scheme=proxy_conf.get("scheme"),
         verify_ssl=proxy_conf.get("verify_ssl", False),
+        # Set when a reverse proxy in front of the device (e.g. Caddy with a
+        # per-domain ACME cert) routes by a specific name that doesn't match
+        # `host` — needed for both TLS SNI and the HTTP Host header.
+        server_name=proxy_conf.get("server_name"),
         timeout=proxy_conf.get("timeout", 30),
         session_timeout=session_timeout,
     )
