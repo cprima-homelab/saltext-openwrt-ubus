@@ -4,13 +4,16 @@ and persist the records as JSON files.
 
 Reads connection details from environment (or .env):
 
-    LIVE_HOST                  required  IP or hostname
-    LIVE_PORT                  optional  HTTP port (default 80)
+    LIVE_HOST                  required  IP or hostname or FQDN
+    LIVE_PORT                  optional  port (default 443)
+    LIVE_SCHEME                optional  "https" or "http" (default "https")
+    LIVE_VERIFY_SSL            optional  "true" to verify TLS cert (default "false")
+                                         set to "true" for Caddy/ACME targets with valid certs
     LIVE_SALT_AGENT_PASSWORD   required  salt-agent rpcd password
     LIVE_DEVICE_SLUG           optional  directory name under EVIDENCE_OUTPUT_DIR
                                          (default: LIVE_HOST)
     EVIDENCE_OUTPUT_DIR        required  root directory for output files
-                                         e.g. D:/github.com/cprima-homelab/soho-infra-model/evidence
+                                         e.g. T:/netops
 
 Output layout::
 
@@ -43,7 +46,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 LIVE_HOST = os.environ.get("LIVE_HOST", "")
-LIVE_PORT = int(os.environ.get("LIVE_PORT", "80"))
+LIVE_PORT = int(os.environ.get("LIVE_PORT", "443"))
+LIVE_SCHEME = os.environ.get("LIVE_SCHEME", "https")
+LIVE_VERIFY_SSL = os.environ.get("LIVE_VERIFY_SSL", "false").lower() == "true"
 LIVE_SALT_AGENT_PASSWORD = os.environ.get("LIVE_SALT_AGENT_PASSWORD", "")
 LIVE_DEVICE_SLUG = os.environ.get("LIVE_DEVICE_SLUG", "") or LIVE_HOST
 EVIDENCE_OUTPUT_DIR = os.environ.get("EVIDENCE_OUTPUT_DIR", "")
@@ -66,10 +71,10 @@ def _make_rpc_client():
         username="salt-agent",
         password=LIVE_SALT_AGENT_PASSWORD,
         port=LIVE_PORT,
-        verify_ssl=False,
+        scheme=LIVE_SCHEME,
+        verify_ssl=LIVE_VERIFY_SSL,
         timeout=10,
     )
-    client.url = f"http://{LIVE_HOST}:{LIVE_PORT}/ubus"
     client.login()
     return client
 
