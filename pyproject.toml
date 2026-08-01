@@ -11,7 +11,7 @@ write_to = "src/saltext/openwrt_ubus/version.py"
 write_to_template = "__version__ = \"{version}\"\n"
 
 [project]
-name = "saltext.openwrt-ubus"
+name = "saltext.uci-ubus"
 description = "Salt extension for OpenWrt configuration management via ubus"
 authors = [
     {name = "Christian Prior-Mamulyan", email = "cprior@gmail.com"},
@@ -42,10 +42,10 @@ file = "README.md"
 content-type = "text/markdown"
 
 [project.urls]
-Homepage = "https://github.com/cprima-homelab/saltext-openwrt-ubus"
-Documentation = "https://cprima-homelab.github.io/saltext-openwrt-ubus"
-Source = "https://github.com/cprima-homelab/saltext-openwrt-ubus"
-Tracker = "https://github.com/cprima-homelab/saltext-openwrt-ubus/issues"
+Homepage = "https://github.com/cprima-homelab/saltext-uci"
+Documentation = "https://cprima-homelab.github.io/saltext-uci"
+Source = "https://github.com/cprima-homelab/saltext-uci"
+Tracker = "https://github.com/cprima-homelab/saltext-uci/issues"
 
 [project.optional-dependencies]
 changelog = ["towncrier==25.8.0"]
