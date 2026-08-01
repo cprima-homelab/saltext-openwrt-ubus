@@ -9,8 +9,9 @@ Intended use: point-in-time inventory snapshot prior to router migration.
 Tests assert schema and non-emptiness only — never specific option values,
 since those reflect the current state of a real, historically-grown network.
 
-Set LIVE_HOST, LIVE_SALT_AGENT_PASSWORD (and optionally LIVE_ROOT_PASSWORD)
-in .env before running:
+Set LIVE_DEVICE_1_HOST, LIVE_DEVICE_1_SALT_AGENT_PASSWORD (and optionally
+LIVE_DEVICE_1_ROOT_PASSWORD) in .env before running — up to 3 device slots
+are supported, see tests/integration/live/conftest.py:
 
     uv run pytest tests/integration/live/ -v
 """
@@ -23,23 +24,10 @@ from saltext.openwrt_ubus.sensitivity import SensitivityProfile
 from saltext.openwrt_ubus.sensitivity import assert_grains_safe
 from saltext.openwrt_ubus.sensitivity import classify_export
 from saltext.openwrt_ubus.sensitivity import grains_projection
-from tests.integration.live.conftest import LIVE_HOST
-from tests.integration.live.conftest import make_rpc_client
 from tests.integration.live.conftest import read_device_config
 
 # Packages that carry migration-relevant configuration on any OpenWrt router.
 MIGRATION_PACKAGES = ["network", "system", "dhcp", "wireless", "firewall", "dropbear"]
-
-
-@pytest.fixture(scope="module")
-def uci_module(live_device):  # pylint: disable=unused-argument
-    # pylint: disable-next=import-outside-toplevel
-    from saltext.openwrt_ubus.modules import ubus_jsonrpc as mod
-
-    client = make_rpc_client()
-    mod.__opts__ = {"proxy": {"proxytype": "openwrt_ubus_jsonrpc"}, "id": LIVE_HOST}
-    mod.__proxy__ = {"openwrt_ubus_jsonrpc.call": client.call}
-    yield mod
 
 
 @pytest.fixture(scope="module")
@@ -122,10 +110,10 @@ class TestConfigEvidence:
         assert uci_module.config_evidence(pkg)["evidence_type"] == "configured_state"
 
     @pytest.mark.parametrize("pkg", MIGRATION_PACKAGES)
-    def test_source_device_is_live_host(self, uci_module, pkg, available_configs):
+    def test_source_device_is_live_host(self, uci_module, live_device, pkg, available_configs):
         if pkg not in available_configs:
             pytest.skip(f"package '{pkg}' not present on this device")
-        assert uci_module.config_evidence(pkg)["source_device"] == LIVE_HOST
+        assert uci_module.config_evidence(pkg)["source_device"] == live_device["host"]
 
     @pytest.mark.parametrize("pkg", MIGRATION_PACKAGES)
     def test_scope(self, uci_module, pkg, available_configs):
@@ -241,8 +229,8 @@ class TestRuntimeEvidence:
         assert uci_module.runtime_evidence(domain)["scope"] == {"domain": domain}
 
     @pytest.mark.parametrize("domain", ["network", "system", "services"])
-    def test_source_device(self, uci_module, domain):
-        assert uci_module.runtime_evidence(domain)["source_device"] == LIVE_HOST
+    def test_source_device(self, uci_module, live_device, domain):
+        assert uci_module.runtime_evidence(domain)["source_device"] == live_device["host"]
 
     @pytest.mark.parametrize("domain", ["network", "system", "services"])
     def test_payload_non_empty(self, uci_module, domain):
