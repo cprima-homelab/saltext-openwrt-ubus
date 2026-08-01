@@ -1,3 +1,60 @@
-# Force LF line endings for all text files (prevents CRLF/mixed-ending
-# churn on Windows where core.autocrlf=true)
+# Normalize line endings to LF on commit for all text files
 * text=auto eol=lf
+
+# Shell scripts and init scripts — must be LF on the target system
+*.sh        text eol=lf
+*.bash      text eol=lf
+*.init      text eol=lf
+*.rc        text eol=lf
+
+# OpenWrt-specific scripts (no extension)
+CONTROL/postinst text eol=lf
+CONTROL/preinst  text eol=lf
+CONTROL/postrm   text eol=lf
+CONTROL/prerm    text eol=lf
+
+# Makefiles — tabs are significant; must be LF
+Makefile    text eol=lf
+*.mk        text eol=lf
+GNUmakefile text eol=lf
+justfile    text eol=lf
+
+# Python
+*.py        text eol=lf
+*.pyi       text eol=lf
+
+# Structured data and config
+*.yaml      text eol=lf
+*.yml       text eol=lf
+*.json      text eol=lf
+*.toml      text eol=lf
+*.ini       text eol=lf
+*.conf      text eol=lf
+*.cfg       text eol=lf
+Caddyfile   text eol=lf
+
+# Prose and documentation
+*.md        text eol=lf
+*.rst       text eol=lf
+*.txt       text eol=lf
+
+# Web
+*.html      text eol=lf
+*.css       text eol=lf
+*.js        text eol=lf
+*.ts        text eol=lf
+
+# Binary — never touch line endings
+*.ipk       binary
+*.apk       binary
+*.tar.gz    binary
+*.tar.zst   binary
+*.tar.bz2   binary
+*.zip       binary
+*.png       binary
+*.jpg       binary
+*.jpeg      binary
+*.gif       binary
+*.ico       binary
+*.woff      binary
+*.woff2     binary
