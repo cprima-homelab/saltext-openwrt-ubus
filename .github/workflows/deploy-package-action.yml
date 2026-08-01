@@ -48,6 +48,6 @@ jobs:
               --generate-notes \
               dist/*
 
-      # Real PyPI publish is handled by .github/workflows/publish.yml
+      # Real PyPI publish is handled by .github/workflows/publish-uci-ubus.yml
       # (own tag-triggered trusted-publisher workflow), not here — avoids
       # a duplicate/conflicting publish attempt on the same "v*" tag push.
