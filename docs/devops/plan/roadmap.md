@@ -1,7 +1,5 @@
 # Roadmap
 
-> Last reviewed against: v0.4.0
-
 ## Resolved
 
 ### v0.1 -- Initial implementation
@@ -26,9 +24,9 @@
 
 ### v0.3 -- Virtualname rename
 
-- Rename virtualnames: `saltext_ubus` -> `openwrt_ubus`
+- Rename virtualnames: `saltext_ubus` -> `uci_ubus`
 - Add `openwrt` shorthand alias modules
-- Proxy virtualnames: `openwrt_ubus_jsonrpc`, `openwrt_ubus_ssh`
+- Proxy virtualnames: `uci_ubus_jsonrpc`, `uci_ubus_ssh`
 
 ### v0.4 -- Anonymous section management
 

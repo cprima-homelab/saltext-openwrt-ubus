@@ -1,18 +1,16 @@
 """
-Unit tests for the openwrt_ubus proxy module.
+Unit tests for the uci_ubus proxy module.
 
 All tests use a mocked RPC client. No network calls are made.
 """
 
 import urllib.error
-from unittest.mock import MagicMock
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-import saltext.openwrt_ubus.proxy.ubus_jsonrpc as proxy_mod
-from saltext.openwrt_ubus.utils.rpc import JsonRpcError
-from saltext.openwrt_ubus.utils.rpc import UbusError
+import saltext.uci_ubus.proxy.ubus_jsonrpc as proxy_mod
+from saltext.uci_ubus._internal.rpc import JsonRpcError, UbusError
 
 BOARD_RESPONSE = {
     "kernel": "6.6.86",
@@ -74,7 +72,7 @@ def mock_client():
 
 
 class TestInit:
-    @patch("saltext.openwrt_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
+    @patch("saltext.uci_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_creates_client_and_logs_in(self, mock_client_cls):
         mock_instance = MagicMock()
         mock_instance.session_timeout = 300
@@ -83,7 +81,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "openwrt_ubus_jsonrpc",
+                "proxytype": "uci_ubus_jsonrpc",
                 "host": "10.35.24.1",
                 "username": "salt-agent",
                 "password": "secret",
@@ -105,7 +103,7 @@ class TestInit:
         mock_instance.login.assert_called_once()
         assert proxy_mod.DETAILS["initialized"] is True
 
-    @patch("saltext.openwrt_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
+    @patch("saltext.uci_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_default_username(self, mock_client_cls):
         """init() without explicit username defaults to salt-agent."""
         mock_instance = MagicMock()
@@ -115,7 +113,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "openwrt_ubus_jsonrpc",
+                "proxytype": "uci_ubus_jsonrpc",
                 "host": "10.35.24.1",
                 "password": "secret",
             }
@@ -132,7 +130,7 @@ class TestInit:
             session_timeout=300,
         )
 
-    @patch("saltext.openwrt_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
+    @patch("saltext.uci_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_fetches_grains_on_init(self, mock_client_cls):
         mock_instance = MagicMock()
         mock_instance.session_timeout = 300
@@ -141,7 +139,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "openwrt_ubus_jsonrpc",
+                "proxytype": "uci_ubus_jsonrpc",
                 "host": "10.0.0.1",
                 "username": "u",
                 "password": "p",
@@ -154,7 +152,7 @@ class TestInit:
         assert grains["osrelease"] == "24.10.5"
         assert grains["model"] == "Netgear WNDR3800"
 
-    @patch("saltext.openwrt_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
+    @patch("saltext.uci_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_pillar_session_timeout(self, mock_client_cls):
         """session_timeout pillar overrides the default."""
         mock_instance = MagicMock()
@@ -164,7 +162,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "openwrt_ubus_jsonrpc",
+                "proxytype": "uci_ubus_jsonrpc",
                 "host": "10.0.0.1",
                 "password": "p",
                 "session_timeout": 600,
@@ -182,8 +180,8 @@ class TestInit:
             session_timeout=600,
         )
 
-    @patch("saltext.openwrt_ubus.proxy.ubus_jsonrpc.time")
-    @patch("saltext.openwrt_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
+    @patch("saltext.uci_ubus.proxy.ubus_jsonrpc.time")
+    @patch("saltext.uci_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_rpcd_timeout_bumped_when_low(self, mock_client_cls, mock_time):
         """init() updates rpcd invoke timeout via UCI when too low."""
         rpcd_low = {
@@ -201,9 +199,7 @@ class TestInit:
             calls_made.append((obj, method, params))
             if obj == "uci" and method == "get" and params and params.get("config") == "rpcd":
                 return rpcd_low
-            return {("system", "board"): BOARD_RESPONSE, ("system", "info"): INFO_RESPONSE}.get(
-                (obj, method)
-            )
+            return {("system", "board"): BOARD_RESPONSE, ("system", "info"): INFO_RESPONSE}.get((obj, method))
 
         mock_instance = MagicMock()
         mock_instance.session_timeout = 300
@@ -212,7 +208,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "openwrt_ubus_jsonrpc",
+                "proxytype": "uci_ubus_jsonrpc",
                 "host": "10.0.0.1",
                 "password": "p",
                 "rpcd_timeout": 300,
@@ -229,7 +225,7 @@ class TestInit:
         assert len(commit_calls) == 1
         mock_time.sleep.assert_called_once_with(2)
 
-    @patch("saltext.openwrt_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
+    @patch("saltext.uci_ubus.proxy.ubus_jsonrpc.UbusRpcClient")
     def test_rpcd_timeout_skipped_when_sufficient(self, mock_client_cls):
         """init() does not touch rpcd config when timeout is already sufficient."""
         mock_instance = MagicMock()
@@ -239,7 +235,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "openwrt_ubus_jsonrpc",
+                "proxytype": "uci_ubus_jsonrpc",
                 "host": "10.0.0.1",
                 "password": "p",
             }
@@ -247,18 +243,16 @@ class TestInit:
         proxy_mod.init(opts)
 
         # No uci set calls -- rpcd timeout in fixture is already 300
-        set_calls = [
-            c for c in mock_instance.call.call_args_list if c[0][0] == "uci" and c[0][1] == "set"
-        ]
+        set_calls = [c for c in mock_instance.call.call_args_list if c[0][0] == "uci" and c[0][1] == "set"]
         assert len(set_calls) == 0
 
     def test_missing_host_raises(self):
-        opts = {"proxy": {"proxytype": "openwrt_ubus_jsonrpc", "password": "secret"}}
+        opts = {"proxy": {"proxytype": "uci_ubus_jsonrpc", "password": "secret"}}
         with pytest.raises(ValueError, match="required pillar key 'host'"):
             proxy_mod.init(opts)
 
     def test_missing_password_raises(self):
-        opts = {"proxy": {"proxytype": "openwrt_ubus_jsonrpc", "host": "10.0.0.1"}}
+        opts = {"proxy": {"proxytype": "uci_ubus_jsonrpc", "host": "10.0.0.1"}}
         with pytest.raises(ValueError, match="required pillar key 'password'"):
             proxy_mod.init(opts)
 

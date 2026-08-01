@@ -1,5 +1,5 @@
 description: "Apply state matching current config, expect no changes"
-function: openwrt_ubus.managed
+function: uci_ubus.managed
 kwargs:
   config: testcorpus
   sections:

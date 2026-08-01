@@ -4,7 +4,7 @@ import re
 import sys
 
 CODE_ROOT = pathlib.Path(__file__).resolve().parent.parent
-EXECUTION_MODULES_PATH = CODE_ROOT / "src" / "saltext" / "openwrt_ubus" / "modules"
+EXECUTION_MODULES_PATH = CODE_ROOT / "src" / "saltext" / "uci_ubus" / "modules"
 
 
 def check_cli_examples(files):
@@ -32,10 +32,7 @@ def check_cli_examples(files):
             if not docstring:
                 errors += 1
                 print(
-                    "The function {!r} on '{}' does not have a docstring".format(
-                        funcdef.name,
-                        path.relative_to(CODE_ROOT),
-                    ),
+                    f"The function {funcdef.name!r} on '{path.relative_to(CODE_ROOT)}' does not have a docstring",
                     file=sys.stderr,
                 )
                 continue
@@ -43,10 +40,8 @@ def check_cli_examples(files):
             if _check_cli_example_present(docstring) is False:
                 errors += 1
                 print(
-                    "The function {!r} on '{}' does not have a 'CLI Example:' in it's docstring".format(
-                        funcdef.name,
-                        path.relative_to(CODE_ROOT),
-                    ),
+                    f"The function {funcdef.name!r} on '{path.relative_to(CODE_ROOT)}' "
+                    "does not have a 'CLI Example:' in it's docstring",
                     file=sys.stderr,
                 )
                 continue

@@ -1,5 +1,5 @@
 description: "Update two sections in a single managed() call"
-function: openwrt_ubus.managed
+function: uci_ubus.managed
 kwargs:
   config: testcorpus
   sections:

@@ -64,7 +64,7 @@ def _require(name, value):
 
 
 def _make_rpc_client():
-    from saltext.openwrt_ubus.utils.rpc import UbusRpcClient
+    from saltext.uci_ubus._internal.rpc import UbusRpcClient
 
     client = UbusRpcClient(
         host=LIVE_HOST,
@@ -80,10 +80,10 @@ def _make_rpc_client():
 
 
 def _wire_module(client):
-    from saltext.openwrt_ubus.modules import ubus_jsonrpc as mod
+    from saltext.uci_ubus.modules import ubus_jsonrpc as mod
 
-    mod.__opts__ = {"proxy": {"proxytype": "openwrt_ubus_jsonrpc"}, "id": LIVE_DEVICE_SLUG}
-    mod.__proxy__ = {"openwrt_ubus_jsonrpc.call": client.call}
+    mod.__opts__ = {"proxy": {"proxytype": "uci_ubus_jsonrpc"}, "id": LIVE_DEVICE_SLUG}
+    mod.__proxy__ = {"uci_ubus_jsonrpc.call": client.call}
     return mod
 
 

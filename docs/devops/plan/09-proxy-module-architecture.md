@@ -1,7 +1,5 @@
 # 09 -- Proxy Module Architecture
 
-> Last reviewed against: v0.4.0
-
 ## Problem
 
 OpenWrt routers typically have no Python, and low-RAM devices (128 MB
@@ -17,7 +15,7 @@ minion process runs on the salt-master and communicates with the device
 over the network.
 
 ```
-salt 'austru' openwrt_ubus.get network
+salt 'austru' uci_ubus.get network
     | (ZMQ)
 proxy minion process (on salt-master)
     | (HTTPS JSON-RPC or SSH)
@@ -31,13 +29,13 @@ execution module calls into ubus API calls over the chosen transport.
 
 | Proxy | Transport | Use Case |
 |-------|-----------|----------|
-| `openwrt_ubus_jsonrpc` | HTTPS -> uhttpd -> rpcd -> ubus | Primary. Persistent session, per-session staging |
-| `openwrt_ubus_ssh` | SSH -> `ubus call` CLI | Fallback. No rpcd/uhttpd needed |
+| `uci_ubus_jsonrpc` | HTTPS -> uhttpd -> rpcd -> ubus | Primary. Persistent session, per-session staging |
+| `uci_ubus_ssh` | SSH -> `ubus call` CLI | Fallback. No rpcd/uhttpd needed |
 
 Both proxies expose the same `call(ubus_object, ubus_method, params)`
 interface. The execution module adapters delegate to the proxy via
-`__proxy__["openwrt_ubus_jsonrpc.call"]` or
-`__proxy__["openwrt_ubus_ssh.call"]`.
+`__proxy__["uci_ubus_jsonrpc.call"]` or
+`__proxy__["uci_ubus_ssh.call"]`.
 
 ## Proxy Module Interface
 
@@ -79,7 +77,7 @@ No persistent SSH connection. Each `call()` is a fresh
 
 ```yaml
 proxy:
-  proxytype: openwrt_ubus_jsonrpc
+  proxytype: uci_ubus_jsonrpc
   host: 10.35.24.1
   password: secret
   # username: salt-agent      (default)
@@ -98,7 +96,7 @@ details on what each controls and how they interact.
 
 ```yaml
 proxy:
-  proxytype: openwrt_ubus_ssh
+  proxytype: uci_ubus_ssh
   host: 10.35.24.1
   # username: root                          (default)
   # ssh_key: /root/.ssh/openwrt_ed25519     (optional)
@@ -119,9 +117,9 @@ proxy:
 
 | File | Purpose |
 |------|---------|
-| `src/saltext/openwrt_ubus/proxy/ubus_jsonrpc.py` | JSON-RPC proxy module |
-| `src/saltext/openwrt_ubus/proxy/uci_ssh.py` | SSH proxy module |
-| `src/saltext/openwrt_ubus/utils/rpc.py` | `UbusRpcClient` (HTTPS transport) |
-| `src/saltext/openwrt_ubus/utils/ssh.py` | `SshRunner` (SSH transport) |
+| `src/saltext/uci_ubus/proxy/ubus_jsonrpc.py` | JSON-RPC proxy module |
+| `src/saltext/uci_ubus/proxy/uci_ssh.py` | SSH proxy module |
+| `src/saltext/uci_ubus/_internal/rpc.py` | `UbusRpcClient` (HTTPS transport) |
+| `src/saltext/uci_ubus/_internal/ssh.py` | `SshRunner` (SSH transport) |
 | `tests/unit/proxy/test_ubus_jsonrpc.py` | JSON-RPC proxy tests |
 | `tests/unit/proxy/test_uci_ssh.py` | SSH proxy tests |

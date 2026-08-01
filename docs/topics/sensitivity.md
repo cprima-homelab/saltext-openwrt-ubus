@@ -143,7 +143,7 @@ rule to cover multiple values:
 
 ## Built-in profile
 
-The built-in profile (`saltext-openwrt-ubus/default`) ships with two
+The built-in profile (`saltext-uci-ubus/default`) ships with two
 layers of rules.
 
 **Known-secret rules** classify credentials at their correct level:
@@ -282,7 +282,7 @@ dicts).
 The built-in profile can be extended without replacing it:
 
 ```python
-from saltext.openwrt_ubus.sensitivity.model import (
+from saltext.uci_ubus.sensitivity.model import (
     Classification, ClassificationRule, MatchCriteria, SensitivityProfile,
 )
 
@@ -320,7 +320,7 @@ sensitivity:
   profile: myorg/openwrt
   version: "3"
   base:
-    profile: saltext-openwrt-ubus/default
+    profile: saltext-uci-ubus/default
     version: "1"
 ```
 
@@ -333,6 +333,6 @@ This is deferred until overlays are actively used.
 
 | Module | Purpose |
 |---|---|
-| `saltext.openwrt_ubus.sensitivity.model` | `Classification`, `TAINT_RANK`, `max_taint()`, `Surface`, `Policy`, `PolicyDecision`, `MatchCriteria`, `ClassificationRule`, `SensitivityProfile` |
-| `saltext.openwrt_ubus.sensitivity.classify` | `classify_export()` |
-| `saltext.openwrt_ubus.sensitivity.project` | `evidence_projection()`, `grains_projection()`, `diff_projection()`, `assert_grains_safe()` |
+| `saltext.uci_ubus.sensitivity.model` | `Classification`, `TAINT_RANK`, `max_taint()`, `Surface`, `Policy`, `PolicyDecision`, `MatchCriteria`, `ClassificationRule`, `SensitivityProfile` |
+| `saltext.uci_ubus.sensitivity.classify` | `classify_export()` |
+| `saltext.uci_ubus.sensitivity.project` | `evidence_projection()`, `grains_projection()`, `diff_projection()`, `assert_grains_safe()` |

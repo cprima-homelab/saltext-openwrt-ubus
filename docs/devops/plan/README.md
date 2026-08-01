@@ -1,8 +1,6 @@
 # Development Plan
 
-> Last reviewed against: v0.4.0
-
-Design and planning documents for saltext-openwrt-ubus.
+Design and planning documents for saltext-uci-ubus.
 
 ## Documents
 

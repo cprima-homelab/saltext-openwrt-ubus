@@ -1,11 +1,9 @@
 # 03 -- State Module Logic
 
-> Last reviewed against: v0.4.0
-
 How the state module (`states/saltext_ubus.py`, 530 lines) achieves
 idempotent configuration management with rollback safety.
 
-Source: `src/saltext/openwrt_ubus/states/saltext_ubus.py`
+Source: `src/saltext/uci_ubus/states/saltext_ubus.py`
 
 ## Two public states
 
@@ -26,7 +24,7 @@ device to decide its own behavior:
 # states/saltext_ubus.py:241-254
 def _get_agent_mode():
     try:
-        agent = __salt__["openwrt_ubus.get"]("salt-openwrt", "global")
+        agent = __salt__["uci_ubus.get"]("salt-openwrt", "global")
     except Exception:
         log.debug("salt-openwrt config not found, defaulting to oneshot mode")
         return True, "oneshot", 120
@@ -198,7 +196,7 @@ a previous failed run:
 ```python
 # states/saltext_ubus.py:262-283
 def _check_pending(ret, config, revert_pending):
-    pending = __salt__["openwrt_ubus.changes"](config)
+    pending = __salt__["uci_ubus.changes"](config)
     if pending:
         if not revert_pending:
             ret["result"] = False
@@ -208,7 +206,7 @@ def _check_pending(ret, config, revert_pending):
             )
             return pending
         if not __opts__["test"]:
-            __salt__["openwrt_ubus.revert"](config)
+            __salt__["uci_ubus.revert"](config)
     return pending
 ```
 
@@ -223,11 +221,11 @@ live:
 ```python
 # states/saltext_ubus.py:257-259, 335-345
 def _is_json_rpc():
-    return __opts__.get("proxy", {}).get("proxytype") == "openwrt_ubus_jsonrpc"
+    return __opts__.get("proxy", {}).get("proxytype") == "uci_ubus_jsonrpc"
 
 # In _commit_or_apply():
 if _is_json_rpc():
-    ret["comment"] = f"{config}: staged in rpcd session (apply with openwrt_ubus.applied)"
+    ret["comment"] = f"{config}: staged in rpcd session (apply with uci_ubus.applied)"
 else:
     ret["comment"] = f"{config}: staged (review with 'uci changes {config}')"
 ```
@@ -242,10 +240,10 @@ The `_apply_and_confirm()` function implements a multi-step commit:
 
 ```
 1. _snapshot_services()     → record running services + PIDs
-2. openwrt_ubus.apply()    → commit, reload daemons, arm rollback timer
-3. openwrt_ubus.get()      → re-read config, verify values match
+2. uci_ubus.apply()    → commit, reload daemons, arm rollback timer
+3. uci_ubus.get()      → re-read config, verify values match
 4. _wait_for_services()    → poll until all services are back
-5. openwrt_ubus.confirm()  → cancel rollback timer
+5. uci_ubus.confirm()  → cancel rollback timer
 ```
 
 ### Service health polling
@@ -261,7 +259,7 @@ def _wait_for_services(snapshot, rollback):
 
     while True:
         time.sleep(POLL_INTERVAL)
-        services = __salt__["openwrt_ubus.service_list"]()
+        services = __salt__["uci_ubus.service_list"]()
         down = []
         for svc_name, instances in snapshot.items():
             svc_data = (services or {}).get(svc_name, {})
@@ -289,7 +287,7 @@ option against the expected value:
 
 ```python
 # states/saltext_ubus.py:366-387
-new_state = __salt__["openwrt_ubus.get"](config)
+new_state = __salt__["uci_ubus.get"](config)
 for section_name, section_changes in all_changes.items():
     new_section = new_state.get(section_name, {})
     for option, change in section_changes.items():
@@ -322,7 +320,7 @@ if section_name not in current:
         ret["result"] = False
         ret["comment"] = f"Section '{section_name}' does not exist and no _type specified"
         return
-    __salt__["openwrt_ubus.add"](config, type_, name=section_name)
+    __salt__["uci_ubus.add"](config, type_, name=section_name)
 ```
 
 This requires `_type` in the pillar. Without it, the state cannot know

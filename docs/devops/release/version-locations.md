@@ -7,7 +7,7 @@ Where version numbers live in this project. Update these when cutting a release.
 | Location | Mechanism |
 |----------|-----------|
 | Python package version | `setuptools_scm` derives from git tags |
-| `saltext_openwrt_ubus-*.dist-info/` | Built by pip from setuptools_scm |
+| `saltext_uci_ubus-*.dist-info/` | Built by pip from setuptools_scm |
 
 Tag a release with `git tag v0.2.1` and the version propagates automatically.
 

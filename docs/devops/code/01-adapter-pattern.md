@@ -1,7 +1,5 @@
 # 01 -- Adapter Pattern
 
-> Last reviewed against: v0.4.0
-
 How three execution modules share one virtualname and one business logic
 layer through dependency injection.
 
@@ -9,17 +7,17 @@ layer through dependency injection.
 
 | File | Role | Lines |
 |------|------|-------|
-| `utils/ubus_ops.py` | Shared business logic | 159 |
+| `_internal/ubus_ops.py` | Shared business logic | 159 |
 | `modules/ubus_jsonrpc.py` | JSON-RPC adapter (proxy) | 271 |
 | `modules/uci_ssh.py` | SSH adapter (proxy) | 274 |
 | `modules/uci_local.py` | Local subprocess adapter | 300 |
-| `modules/openwrt.py` | Alias (`openwrt` -> `openwrt_ubus`) | 248 |
+| `modules/openwrt.py` | Alias (`openwrt` -> `uci_ubus`) | 248 |
 
-All paths are relative to `src/saltext/openwrt_ubus/`.
+All paths are relative to `src/saltext/uci_ubus/`.
 
 ## The pattern
 
-Three adapters register the same `__virtualname__ = "openwrt_ubus"`.
+Three adapters register the same `__virtualname__ = "uci_ubus"`.
 Each provides a `_call()` function that handles transport. All business
 logic lives in `ubus_ops.py`, which accepts `call` as a parameter:
 
@@ -45,7 +43,7 @@ JSON-RPC adapter -- delegates to proxy module:
 # modules/ubus_jsonrpc.py:35-37
 def _call(ubus_object, ubus_method, params=None):
     """Forward a ubus call through the proxy module."""
-    return __proxy__["openwrt_ubus_jsonrpc.call"](ubus_object, ubus_method, params)
+    return __proxy__["uci_ubus_jsonrpc.call"](ubus_object, ubus_method, params)
 ```
 
 SSH adapter -- same pattern, different proxytype:
@@ -53,7 +51,7 @@ SSH adapter -- same pattern, different proxytype:
 ```python
 # modules/uci_ssh.py:35-37
 def _call(ubus_object, ubus_method, params=None):
-    return __proxy__["openwrt_ubus_ssh.call"](ubus_object, ubus_method, params)
+    return __proxy__["uci_ubus_ssh.call"](ubus_object, ubus_method, params)
 ```
 
 Local adapter -- no proxy, calls ubus binary directly:
@@ -83,7 +81,7 @@ Every function takes `call` as its first parameter. The function never
 imports or references any transport -- it just calls the callback:
 
 ```python
-# utils/ubus_ops.py:24-42
+# _internal/ubus_ops.py:24-42
 def get(call, config, section=None, option=None):
     params = {"config": config}
     if section is not None:
@@ -124,8 +122,8 @@ guard:
 def __virtual__():
     if "proxy" not in __opts__:
         return False, "Not a proxy minion"
-    if __opts__.get("proxy", {}).get("proxytype") != "openwrt_ubus_jsonrpc":
-        return False, "proxytype is not openwrt_ubus_jsonrpc"
+    if __opts__.get("proxy", {}).get("proxytype") != "uci_ubus_jsonrpc":
+        return False, "proxytype is not uci_ubus_jsonrpc"
     return __virtualname__
 
 # modules/uci_local.py:35-40 -- binary presence + anti-proxy guard
@@ -141,31 +139,31 @@ Selection matrix:
 
 | Runtime context | Adapter loaded | Guard |
 |-----------------|----------------|-------|
-| Proxy minion, proxytype `openwrt_ubus_jsonrpc` | `ubus_jsonrpc.py` | Proxy type match |
-| Proxy minion, proxytype `openwrt_ubus_ssh` | `uci_ssh.py` | Proxy type match |
+| Proxy minion, proxytype `uci_ubus_jsonrpc` | `ubus_jsonrpc.py` | Proxy type match |
+| Proxy minion, proxytype `uci_ubus_ssh` | `uci_ssh.py` | Proxy type match |
 | Regular minion, `ubus` binary on PATH | `uci_local.py` | Binary check, no proxy |
 | Regular minion, no `ubus` binary | None | All fail |
 
 ## Alias module delegation
 
 `modules/openwrt.py` registers as `openwrt` and delegates to whichever
-`openwrt_ubus` adapter loaded:
+`uci_ubus` adapter loaded:
 
 ```python
 # modules/openwrt.py:16-19
 def __virtual__():
-    if "openwrt_ubus.get" not in __salt__:
-        return False, "openwrt_ubus module not available"
+    if "uci_ubus.get" not in __salt__:
+        return False, "uci_ubus module not available"
     return __virtualname__     # "openwrt"
 
 # modules/openwrt.py -- every function delegates
 def get(config, section=None, option=None):
-    return __salt__["openwrt_ubus.get"](config, section, option)
+    return __salt__["uci_ubus.get"](config, section, option)
 ```
 
-This lets operators use either `openwrt.get` or `openwrt_ubus.get`.
+This lets operators use either `openwrt.get` or `uci_ubus.get`.
 The same pattern exists for the state module: `states/openwrt.py`
-delegates to `states/saltext_ubus.py` (virtualname `openwrt_ubus`).
+delegates to `states/saltext_ubus.py` (virtualname `uci_ubus`).
 
 ## UCI metadata transformation
 
@@ -174,7 +172,7 @@ ubus returns metadata with dot-prefixed keys (`.type`, `.name`,
 names. `transform_section()` renames them to underscore-prefixed:
 
 ```python
-# utils/ubus_ops.py:10-18
+# _internal/ubus_ops.py:10-18
 def transform_section(data):
     result = {}
     for key, value in data.items():
@@ -195,7 +193,7 @@ multi-instance, `_absent` for deletion).
 
 ## Function inventory
 
-All functions available through `openwrt_ubus.*`:
+All functions available through `uci_ubus.*`:
 
 | Function | ubus call | Category |
 |----------|-----------|----------|

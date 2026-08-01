@@ -30,7 +30,7 @@ All adapters call the same ubus API. No adapter uses the `uci` CLI.
 
 ### Shared Logic via Dependency Injection
 
-All business logic lives in `utils/ubus_ops.py`. Each adapter only defines:
+All business logic lives in `_internal/ubus_ops.py`. Each adapter only defines:
 
 - `__virtual__()` -- decides whether this adapter should load
 - `_call(ubus_object, ubus_method, params)` -- transport-specific ubus invocation
@@ -39,10 +39,10 @@ Every public function in the adapter delegates to `ubus_ops.<function>(call=_cal
 
 ### Virtual Name Resolution
 
-All three adapters register `__virtualname__ = "openwrt_ubus"`. Salt loads exactly one based on context:
+All three adapters register `__virtualname__ = "uci_ubus"`. Salt loads exactly one based on context:
 
-- **JSON-RPC**: loads when `__opts__["proxy"]["proxytype"] == "openwrt_ubus_jsonrpc"`
-- **SSH**: loads when `__opts__["proxy"]["proxytype"] == "openwrt_ubus_ssh"`
+- **JSON-RPC**: loads when `__opts__["proxy"]["proxytype"] == "uci_ubus_jsonrpc"`
+- **SSH**: loads when `__opts__["proxy"]["proxytype"] == "uci_ubus_ssh"`
 - **Local**: loads when not a proxy minion and the `ubus` binary exists on the system
 
 ## Package Scope
@@ -67,7 +67,7 @@ The module does not whitelist packages. The rpcd ACL on the device grants `uci: 
 
 ## Execution Module API
 
-Module name: `openwrt_ubus` (called as `salt 'austru' openwrt_ubus.<function>`, or shorthand `openwrt.<function>`)
+Module name: `uci_ubus` (called as `salt 'austru' uci_ubus.<function>`, or shorthand `openwrt.<function>`)
 
 All functions return raw ubus response dicts. There is no custom wrapper format.
 
@@ -113,7 +113,7 @@ ubus returns UCI metadata with dot-prefixed keys (`.type`, `.name`, `.anonymous`
 
 ## State Module
 
-Module name: `openwrt_ubus` (used in state files as `openwrt_ubus.managed`, or shorthand `openwrt.managed`)
+Module name: `uci_ubus` (used in state files as `uci_ubus.managed`, or shorthand `openwrt.managed`)
 
 ### `managed(name, config, sections, apply_rollback=None, revert_pending=False)`
 
@@ -218,7 +218,7 @@ The proxy re-authenticates transparently via `_ensure_session()` when the sessio
 ### Unit Tests
 
 - **Execution module tests**: mock the proxy's `call()` function, verify each adapter delegates correctly to `ubus_ops`
-- **State module tests**: mock execution module functions (`openwrt_ubus.get`, `openwrt_ubus.set`, etc.), test idempotency logic, agent modes, service health verification
+- **State module tests**: mock execution module functions (`uci_ubus.get`, `uci_ubus.set`, etc.), test idempotency logic, agent modes, service health verification
 - **Proxy tests**: mock `UbusRpcClient`, verify login, session management, grains fetching, timeout bumping
 - **Utils tests**: test `ubus_ops.transform_section()`, `UbusRpcClient` request/response handling, `SshRunner` command building
 
@@ -236,7 +236,7 @@ The proxy re-authenticates transparently via `_ensure_session()` when the sessio
 ## File Locations
 
 ```
-src/saltext/openwrt_ubus/
+src/saltext/uci_ubus/
   __init__.py
   version.py
   grains/
@@ -245,14 +245,14 @@ src/saltext/openwrt_ubus/
     ubus_jsonrpc.py           # Execution module: JSON-RPC adapter
     uci_ssh.py                # Execution module: SSH adapter
     uci_local.py              # Execution module: local subprocess adapter
-    openwrt.py                # Shorthand alias -> openwrt_ubus via __salt__
+    openwrt.py                # Shorthand alias -> uci_ubus via __salt__
   proxy/
     ubus_jsonrpc.py           # Proxy minion: JSON-RPC transport
     uci_ssh.py                # Proxy minion: SSH transport
   states/
     saltext_ubus.py           # State module: managed() and applied()
-    openwrt.py                # Shorthand alias -> openwrt_ubus via __states__
-  utils/
+    openwrt.py                # Shorthand alias -> uci_ubus via __states__
+  _internal/
     ubus_ops.py               # Shared ubus logic (all 16 functions)
     rpc.py                    # UbusRpcClient (HTTPS JSON-RPC)
     ssh.py                    # SshRunner (SSH command execution)
@@ -268,7 +268,7 @@ tests/
       test_ubus_jsonrpc.py
       test_uci_ssh.py
     states/test_saltext_ubus.py
-    utils/
+    _internal/
       test_rpc.py
       test_ssh.py
       test_ubus_ops.py

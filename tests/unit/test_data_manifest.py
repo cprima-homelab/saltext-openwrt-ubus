@@ -8,10 +8,7 @@ new data-handling function, add it to _REQUIRED_CONTRACTS and annotate it.
 
 import pytest
 
-from saltext.openwrt_ubus.data_manifest import build_manifest
-from saltext.openwrt_ubus.data_manifest import check_manifest
-from saltext.openwrt_ubus.data_manifest import collect_contracts
-from saltext.openwrt_ubus.data_manifest import derive_crossings
+from saltext.uci_ubus.data_manifest import build_manifest, check_manifest, collect_contracts, derive_crossings
 
 # Functions that handle classified data and must be annotated.
 # CI fails if any of these lacks a @data_contract.
@@ -97,7 +94,7 @@ class TestContractSchema:
 
     def test_config_evidence_module(self):
         contracts = collect_contracts()
-        assert contracts["config_evidence"]["module"] == "saltext.openwrt_ubus.utils.ubus_ops"
+        assert contracts["config_evidence"]["module"] == "saltext.uci_ubus._internal.ubus_ops"
 
     def test_runtime_evidence_inputs(self):
         contracts = collect_contracts()
@@ -159,7 +156,7 @@ class TestManifest:
 
     def test_profile_name_and_version(self, manifest):
         profile = manifest["sensitivity_profile"]
-        assert profile["name"] == "saltext-openwrt-ubus/default"
+        assert profile["name"] == "saltext-uci-ubus/default"
         assert profile["version"] == "2"
 
     def test_profile_has_policy_table(self, manifest):
@@ -172,10 +169,7 @@ class TestManifest:
         fields = manifest["sensitivity_profile"]["classified_fields"]
         assert len(fields) > 0
         secret_options = [
-            opt
-            for entry in fields
-            if entry["classification"] == "secret"
-            for opt in entry.get("options", [])
+            opt for entry in fields if entry["classification"] == "secret" for opt in entry.get("options", [])
         ]
         assert "private_key" in secret_options
 

@@ -1,7 +1,5 @@
 # 02 -- Salt Coding Patterns
 
-> Last reviewed against: v0.4.0
-
 Salt-specific conventions and dunder globals used throughout the
 extension. These are patterns a Salt developer needs to recognise; an
 OpenWrt developer encountering them for the first time will find them
@@ -19,13 +17,13 @@ This extension uses three different guard strategies:
 
 ```python
 # modules/ubus_jsonrpc.py:18,27-32
-__virtualname__ = "openwrt_ubus"
+__virtualname__ = "uci_ubus"
 
 def __virtual__():
     if "proxy" not in __opts__:
         return False, "Not a proxy minion"
-    if __opts__.get("proxy", {}).get("proxytype") != "openwrt_ubus_jsonrpc":
-        return False, "proxytype is not openwrt_ubus_jsonrpc"
+    if __opts__.get("proxy", {}).get("proxytype") != "uci_ubus_jsonrpc":
+        return False, "proxytype is not uci_ubus_jsonrpc"
     return __virtualname__
 ```
 
@@ -37,7 +35,7 @@ loads.
 
 ```python
 # modules/uci_local.py:27,35-40
-__virtualname__ = "openwrt_ubus"
+__virtualname__ = "uci_ubus"
 
 def __virtual__():
     if __opts__.get("proxy"):
@@ -58,12 +56,12 @@ adapter from activating.
 __virtualname__ = "openwrt"
 
 def __virtual__():
-    if "openwrt_ubus.get" not in __salt__:
-        return False, "openwrt_ubus module not available"
+    if "uci_ubus.get" not in __salt__:
+        return False, "uci_ubus module not available"
     return __virtualname__
 ```
 
-The alias module checks whether any `openwrt_ubus` adapter loaded
+The alias module checks whether any `uci_ubus` adapter loaded
 successfully. It doesn't care which transport -- it delegates via
 `__salt__`.
 
@@ -71,7 +69,7 @@ successfully. It doesn't care which transport -- it delegates via
 
 ```python
 # proxy/ubus_jsonrpc.py:30,45-46
-__virtualname__ = "openwrt_ubus_jsonrpc"
+__virtualname__ = "uci_ubus_jsonrpc"
 
 def __virtual__():
     return __virtualname__
@@ -87,13 +85,13 @@ Declares which proxy types a module supports. Salt skips modules whose
 
 ```python
 # modules/ubus_jsonrpc.py:19
-__proxyenabled__ = ["openwrt_ubus_jsonrpc"]
+__proxyenabled__ = ["uci_ubus_jsonrpc"]
 
 # states/saltext_ubus.py
-__proxyenabled__ = ["openwrt_ubus_jsonrpc", "openwrt_ubus_ssh"]
+__proxyenabled__ = ["uci_ubus_jsonrpc", "uci_ubus_ssh"]
 
 # grains/saltext_ubus.py:17
-__proxyenabled__ = ["openwrt_ubus_jsonrpc", "openwrt_ubus_ssh"]
+__proxyenabled__ = ["uci_ubus_jsonrpc", "uci_ubus_ssh"]
 ```
 
 The state module and grains module list both proxy types because they
@@ -113,7 +111,7 @@ __func_alias__ = {
 }
 ```
 
-Salt exposes them as `openwrt_ubus.set` and `openwrt_ubus.apply`.
+Salt exposes them as `uci_ubus.set` and `uci_ubus.apply`.
 
 ## `__opts__`
 
@@ -134,16 +132,16 @@ Alias modules use it for delegation:
 
 ```python
 # modules/openwrt.py:37
-return __salt__["openwrt_ubus.get"](config, section, option)
+return __salt__["uci_ubus.get"](config, section, option)
 ```
 
 The state module uses it to call execution module functions:
 
 ```python
 # states/saltext_ubus.py
-current = __salt__["openwrt_ubus.get"](config)
-__salt__["openwrt_ubus.set"](config, section, values)
-__salt__["openwrt_ubus.apply"](rollback=timeout)
+current = __salt__["uci_ubus.get"](config)
+__salt__["uci_ubus.set"](config, section, values)
+__salt__["uci_ubus.apply"](rollback=timeout)
 ```
 
 ## `__proxy__`
@@ -154,10 +152,10 @@ the proxy's `call()` method:
 ```python
 # modules/ubus_jsonrpc.py:35-37
 def _call(ubus_object, ubus_method, params=None):
-    return __proxy__["openwrt_ubus_jsonrpc.call"](ubus_object, ubus_method, params)
+    return __proxy__["uci_ubus_jsonrpc.call"](ubus_object, ubus_method, params)
 ```
 
-The string `"openwrt_ubus_jsonrpc.call"` is `<proxytype>.<method>`.
+The string `"uci_ubus_jsonrpc.call"` is `<proxytype>.<method>`.
 
 ## `DETAILS` module-level dict
 
@@ -222,7 +220,7 @@ this by passing the proxy LazyLoader as a function parameter:
 
 ```python
 # grains/saltext_ubus.py:31-43
-def openwrt_ubus(proxy=None):
+def uci_ubus(proxy=None):
     """Return device grains from the proxy module."""
     if proxy is None:
         return {}
@@ -233,7 +231,7 @@ def openwrt_ubus(proxy=None):
     return proxy[grains_fn]()
 ```
 
-The function dynamically constructs `"openwrt_ubus_jsonrpc.grains"` (or
+The function dynamically constructs `"uci_ubus_jsonrpc.grains"` (or
 SSH variant) and calls it. This lets device grains (OS version, memory,
 board name) override the salt-master's host grains.
 
@@ -285,7 +283,7 @@ This minimizes pillar boilerplate. A working pillar needs only:
 
 ```yaml
 proxy:
-  proxytype: openwrt_ubus_jsonrpc
+  proxytype: uci_ubus_jsonrpc
   host: 10.35.24.1
   password: secret
 ```

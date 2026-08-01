@@ -1,7 +1,5 @@
 # 10 -- JSON-RPC vs CLI: Interface Comparison
 
-> Last reviewed against: v0.4.0
-
 Comparing the two approaches for managing OpenWrt UCI configuration from Salt.
 
 ## v0.1 Approach: UCI CLI over SSH

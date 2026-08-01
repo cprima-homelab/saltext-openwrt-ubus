@@ -1,10 +1,10 @@
-.. all-saltext.openwrt-ubus.states:
+.. all-saltext.uci-ubus.states:
 
 _____________
 State Modules
 _____________
 
-.. currentmodule:: saltext.openwrt_ubus.states
+.. currentmodule:: saltext.uci_ubus.states
 
 .. autosummary::
     :toctree:

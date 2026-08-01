@@ -1,7 +1,5 @@
 # ubus JSON-RPC API (Captured from austru)
 
-> Last reviewed against: v0.4.0
-
 Observations from a live OpenWrt 24.10.5 router (Netgear WNDR3800).
 All examples use the `/ubus` endpoint over HTTPS with uhttpd.
 

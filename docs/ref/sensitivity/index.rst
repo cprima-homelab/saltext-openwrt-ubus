@@ -1,10 +1,10 @@
-.. all-saltext.openwrt-ubus.sensitivity:
+.. all-saltext.uci-ubus.sensitivity:
 
 ___________________
 Sensitivity Modules
 ___________________
 
-.. currentmodule:: saltext.openwrt_ubus.sensitivity
+.. currentmodule:: saltext.uci_ubus.sensitivity
 
 .. autosummary::
     :toctree:

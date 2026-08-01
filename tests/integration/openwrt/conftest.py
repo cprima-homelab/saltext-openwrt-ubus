@@ -68,7 +68,7 @@ def make_rpc_client():
     This is intentional test-setup plumbing — production targets use HTTPS.
     """
     # pylint: disable-next=import-outside-toplevel
-    from saltext.openwrt_ubus.utils.rpc import UbusRpcClient
+    from saltext.uci_ubus._internal.rpc import UbusRpcClient
 
     client = UbusRpcClient(
         host=UBUS_HOST,
@@ -98,9 +98,7 @@ def testcorpus_case(request, openwrt_container):
     """
     case_name = request.param
     before_uci = (TESTCORPUS_TESTS / case_name / "before.uci").read_bytes()
-    docker_exec(
-        "-i", openwrt_container, "sh", "-c", "cat > /etc/config/testcorpus", stdin=before_uci
-    )
+    docker_exec("-i", openwrt_container, "sh", "-c", "cat > /etc/config/testcorpus", stdin=before_uci)
     return case_name
 
 

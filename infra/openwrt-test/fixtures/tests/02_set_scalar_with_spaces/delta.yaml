@@ -1,5 +1,5 @@
 description: "Change resolution (space-embedded scalar) on named camera"
-function: openwrt_ubus.managed
+function: uci_ubus.managed
 kwargs:
   config: testcorpus
   sections:

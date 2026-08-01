@@ -68,7 +68,7 @@ def make_rpc_client(device: dict):
     serve plain HTTP, so we override the URL after construction.
     """
     # pylint: disable-next=import-outside-toplevel
-    from saltext.openwrt_ubus.utils.rpc import UbusRpcClient
+    from saltext.uci_ubus._internal.rpc import UbusRpcClient
 
     client = UbusRpcClient(
         host=device["host"],
@@ -129,11 +129,11 @@ def uci_module(live_device):
     requiring a running Salt master or proxy minion.
     """
     # pylint: disable-next=import-outside-toplevel
-    from saltext.openwrt_ubus.modules import ubus_jsonrpc as mod
+    from saltext.uci_ubus.modules import ubus_jsonrpc as mod
 
     client = make_rpc_client(live_device)
-    mod.__opts__ = {"proxy": {"proxytype": "openwrt_ubus_jsonrpc"}, "id": live_device["host"]}
-    mod.__proxy__ = {"openwrt_ubus_jsonrpc.call": client.call}
+    mod.__opts__ = {"proxy": {"proxytype": "uci_ubus_jsonrpc"}, "id": live_device["host"]}
+    mod.__proxy__ = {"uci_ubus_jsonrpc.call": client.call}
     yield mod
 
 
@@ -145,10 +145,7 @@ def ssh_client(live_device):
     tests declare this fixture as a parameter.
     """
     if not live_device["root_password"]:
-        pytest.skip(
-            f"LIVE_DEVICE_*_ROOT_PASSWORD not set for {live_device['id']} — "
-            "skipping SSH-dependent tests."
-        )
+        pytest.skip(f"LIVE_DEVICE_*_ROOT_PASSWORD not set for {live_device['id']} — skipping SSH-dependent tests.")
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())  # nosec B507
     client.connect(

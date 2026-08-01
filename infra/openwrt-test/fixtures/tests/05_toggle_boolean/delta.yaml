@@ -1,5 +1,5 @@
 description: "Enable recording on encoder (boolean-like 0 to 1)"
-function: openwrt_ubus.managed
+function: uci_ubus.managed
 kwargs:
   config: testcorpus
   sections:

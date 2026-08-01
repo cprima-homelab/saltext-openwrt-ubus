@@ -1,10 +1,10 @@
-.. all-saltext.openwrt-ubus.modules:
+.. all-saltext.uci-ubus.modules:
 
 _________________
 Execution Modules
 _________________
 
-.. currentmodule:: saltext.openwrt_ubus.modules
+.. currentmodule:: saltext.uci_ubus.modules
 
 .. autosummary::
     :toctree:

@@ -1,10 +1,8 @@
 # 04 -- LLM Coding Policy
 
-> Last reviewed against: v0.4.0
-
 ## Purpose
 
-This document defines conventions for AI-assisted development on saltext-openwrt-ubus. It is the source material for generating CLAUDE.md, .cursorrules, and similar instruction files.
+This document defines conventions for AI-assisted development on saltext-uci-ubus. It is the source material for generating CLAUDE.md, .cursorrules, and similar instruction files.
 
 ## UCI Domain Knowledge
 
@@ -55,24 +53,24 @@ config rule
 
 All three adapters (JSON-RPC, SSH, local) share the same pattern.
 Each defines only `__virtual__()` and `_call()`, delegating all logic
-to `utils/ubus_ops.py`:
+to `_internal/ubus_ops.py`:
 
 ```python
-# Execution module adapter: src/saltext/openwrt_ubus/modules/ubus_jsonrpc.py
+# Execution module adapter: src/saltext/uci_ubus/modules/ubus_jsonrpc.py
 
-from saltext.openwrt_ubus.utils import ubus_ops
+from saltext.uci_ubus._internal import ubus_ops
 
-__virtualname__ = "openwrt_ubus"
-__proxyenabled__ = ["openwrt_ubus_jsonrpc"]
+__virtualname__ = "uci_ubus"
+__proxyenabled__ = ["uci_ubus_jsonrpc"]
 
 def __virtual__():
-    if __opts__.get("proxy", {}).get("proxytype") != "openwrt_ubus_jsonrpc":
-        return False, "proxytype is not openwrt_ubus_jsonrpc"
+    if __opts__.get("proxy", {}).get("proxytype") != "uci_ubus_jsonrpc":
+        return False, "proxytype is not uci_ubus_jsonrpc"
     return __virtualname__
 
 def _call(ubus_object, ubus_method, params=None):
     """Forward a ubus call through the proxy module."""
-    return __proxy__["openwrt_ubus_jsonrpc.call"](ubus_object, ubus_method, params)
+    return __proxy__["uci_ubus_jsonrpc.call"](ubus_object, ubus_method, params)
 
 # All public functions delegate to ubus_ops:
 def get(config, section=None, option=None):
@@ -111,7 +109,7 @@ def managed(name, config, sections, ...):
     if __opts__["test"]:
         return {"name": name, "changes": changes,
                 "result": None, "comment": "Would apply changes"}
-    # ... stage changes via openwrt_ubus.set / openwrt_ubus.add ...
+    # ... stage changes via uci_ubus.set / uci_ubus.add ...
     return {"name": name, "changes": changes,
             "result": True, "comment": "Applied changes"}
 ```
@@ -119,7 +117,7 @@ def managed(name, config, sections, ...):
 ## Idempotency Rules
 
 1. **Never stage changes without diffing first.** The state module reads
-   current config via `openwrt_ubus.get(config)` and computes a delta
+   current config via `uci_ubus.get(config)` and computes a delta
    with `_diff_section()`. Only changed options are staged.
 2. **Use partial semantics.** Only options listed in the pillar are managed.
    Other options on the same section are left untouched.
@@ -135,9 +133,9 @@ def managed(name, config, sections, ...):
 
 ## Code Style
 
-- **Formatter**: black, line length 100
-- **Import sorting**: isort, profile=black
-- **Linting**: pylint (config in `.pylintrc`), bandit for security
+- **Formatter**: `ruff format`, line length 120
+- **Linting**: `ruff check --fix` for linting and import sorting
+- **Linting extras**: `pylint` (config in `.pylintrc`), `bandit` for security
 - **Type hints**: use for public API functions, not required for internal helpers
 - **Docstrings**: Google style (napoleon), required for all public functions
 - **CLI examples**: required in execution module docstrings (checked by pre-commit hook)
@@ -160,8 +158,8 @@ def get(config, section=None, option=None):
 
     .. code-block:: bash
 
-        salt 'austru' openwrt_ubus.get network
-        salt 'austru' openwrt_ubus.get network lan proto
+        salt 'austru' uci_ubus.get network
+        salt 'austru' uci_ubus.get network lan proto
     """
 ```
 
@@ -178,7 +176,7 @@ def get(config, section=None, option=None):
 
 - Every public execution module function needs a unit test
 - Unit tests mock the adapter's `_call()` function with known ubus JSON responses
-- State module tests mock `openwrt_ubus.get`, `openwrt_ubus.set`, etc. via `__salt__`
+- State module tests mock `uci_ubus.get`, `uci_ubus.set`, etc. via `__salt__`
 - Proxy tests mock `UbusRpcClient` / `SshRunner`
 - Utils tests cover `ubus_ops.transform_section()` and shared logic
 - Test both success and error paths
@@ -199,8 +197,8 @@ When writing new functions:
 
 | File | Location | Purpose |
 |------|----------|---------|
-| `CLAUDE.md` | saltext-openwrt-ubus repo root | Claude Code instructions (gitignored) |
-| `.cursorrules` | saltext-openwrt-ubus repo root | Cursor AI instructions (optional, committed) |
+| `CLAUDE.md` | saltext-uci repo root | Claude Code instructions (gitignored) |
+| `.cursorrules` | saltext-uci repo root | Cursor AI instructions (optional, committed) |
 
 Neither file exists yet. When created, they should be derived from this
 policy document.

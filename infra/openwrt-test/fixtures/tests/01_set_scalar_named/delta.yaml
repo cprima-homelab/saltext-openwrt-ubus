@@ -1,5 +1,5 @@
 description: "Change bitrate on named camera section"
-function: openwrt_ubus.managed
+function: uci_ubus.managed
 kwargs:
   config: testcorpus
   sections:

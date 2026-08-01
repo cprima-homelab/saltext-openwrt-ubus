@@ -1,5 +1,5 @@
 """
-Unit tests for the openwrt_ubus SSH execution module.
+Unit tests for the uci_ubus SSH execution module.
 
 All tests use mocked proxy calls. No network calls or device writes.
 """
@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-import saltext.openwrt_ubus.modules.uci_ssh as uci_mod
+import saltext.uci_ubus.modules.uci_ssh as uci_mod
 
 
 @pytest.fixture(autouse=True)
@@ -24,7 +24,7 @@ def patch_dunders(monkeypatch):
 def mock_call(patch_dunders):
     """Provide a mock for the proxy's call function."""
     call_fn = MagicMock()
-    patch_dunders["openwrt_ubus_ssh.call"] = call_fn
+    patch_dunders["uci_ubus_ssh.call"] = call_fn
     return call_fn
 
 
@@ -81,9 +81,7 @@ class TestGet:
         mock_call.return_value = {"value": "static"}
         result = uci_mod.get("network", "lan", "proto")
         assert result == "static"
-        mock_call.assert_called_once_with(
-            "uci", "get", {"config": "network", "section": "lan", "option": "proto"}
-        )
+        mock_call.assert_called_once_with("uci", "get", {"config": "network", "section": "lan", "option": "proto"})
 
     def test_anonymous_section_metadata(self, mock_call):
         mock_call.return_value = {
@@ -321,9 +319,7 @@ class TestState:
         mock_call.assert_called_once_with("uci", "state", {"config": "network"})
 
     def test_single_section(self, mock_call):
-        mock_call.return_value = {
-            "values": {".type": "interface", ".name": "lan", "proto": "static"}
-        }
+        mock_call.return_value = {"values": {".type": "interface", ".name": "lan", "proto": "static"}}
         result = uci_mod.state("network", "lan")
         assert result["_type"] == "interface"
         mock_call.assert_called_once_with("uci", "state", {"config": "network", "section": "lan"})

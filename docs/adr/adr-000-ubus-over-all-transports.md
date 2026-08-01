@@ -122,12 +122,12 @@ Because all adapters get the same JSON, the execution module logic is
 identical across transports. Each adapter only differs in its `_call()`
 function:
 
-- `modules/ubus_jsonrpc.py`: `__proxy__["openwrt_ubus_jsonrpc.call"](...)`
-- `modules/uci_ssh.py`: `__proxy__["openwrt_ubus_ssh.call"](...)`
+- `modules/ubus_jsonrpc.py`: `__proxy__["uci_ubus_jsonrpc.call"](...)`
+- `modules/uci_ssh.py`: `__proxy__["uci_ubus_ssh.call"](...)`
 - `modules/uci_local.py`: `subprocess.run(["ubus", "call", ...])`
 
 All business logic (including `transform_section()`, diffing, and
-post-processing) lives in `utils/ubus_ops.py`. Each adapter only defines
+post-processing) lives in `_internal/ubus_ops.py`. Each adapter only defines
 `_call()` and delegates to `ubus_ops` via dependency injection. The state
 module and grains module are fully transport-agnostic.
 

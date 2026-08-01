@@ -37,7 +37,7 @@ config salt-openwrt 'global'
     option rollback_timeout '120'
 ```
 
-The state module reads this config via `openwrt_ubus.get("salt-openwrt",
+The state module reads this config via `uci_ubus.get("salt-openwrt",
 "global")` at the start of every `managed()` call and enforces the mode
 before any write operations.
 
@@ -83,7 +83,7 @@ on the Salt master:
 ```yaml
 # Conventional: master controls device
 proxy:
-  proxytype: openwrt_ubus_jsonrpc
+  proxytype: uci_ubus_jsonrpc
   mode: audit
 ```
 
@@ -113,7 +113,7 @@ The agent config uses UCI (not a Salt-specific file format) because:
 
 - It is the native config format on OpenWrt -- `uci show`, `uci set`,
   LuCI, and backup/restore all work out of the box.
-- The Salt extension already reads UCI via `openwrt_ubus.get()` -- no
+- The Salt extension already reads UCI via `uci_ubus.get()` -- no
   new parsing code is needed.
 - The `conffiles` mechanism in opkg preserves user edits across package
   upgrades.

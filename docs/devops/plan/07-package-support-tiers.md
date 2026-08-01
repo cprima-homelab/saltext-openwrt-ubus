@@ -1,14 +1,12 @@
 # 07 -- Package Support Tiers
 
-> Last reviewed against: v0.4.0
->
 > **Status**: Alternative B implemented. Scope gate in `managed()`,
-> registry in `utils/scope.py`. STABLE: network, system, dhcp.
+> registry in `_internal/scope.py`. STABLE: network, system, dhcp.
 > EXPERIMENTAL: wireless, firewall, dropbear.
 
 ## Preface
 
-This document addresses a fundamental gap in saltext-openwrt-ubus: the extension
+This document addresses a fundamental gap in saltext-uci-ubus: the extension
 will manage any UCI package without question. There is no mechanism to
 declare which packages have been validated, tested, or are even
 structurally compatible with the current state module.
@@ -48,7 +46,7 @@ out of the device.
 
 This document proposes three alternatives for adding a second dimension
 -- **support tiers** -- that declares which UCI packages and section
-types each version of saltext-openwrt-ubus has been validated for. The two
+types each version of saltext-uci-ubus has been validated for. The two
 dimensions are orthogonal and use non-clashing vocabulary:
 
 - **Mode** (existing, device-controlled): audit / autoverified /
@@ -63,7 +61,7 @@ dimensions are orthogonal and use non-clashing vocabulary:
 
 UCI is a uniform configuration system. Every UCI package follows the
 same structure: packages contain sections, sections contain options.
-The saltext-openwrt-ubus execution module exploits this uniformity -- a single
+The saltext-uci-ubus execution module exploits this uniformity -- a single
 `get()` / `set_()` / `commit()` implementation works for every package.
 
 This uniformity is both the extension's strength and its risk:
@@ -179,7 +177,7 @@ The gate belongs in `managed()` in `states/saltext_ubus.py`, inserted
 after the existing mode check (step 1) and before the first ubus read
 (step 3). This is the only function that makes changes. The execution
 module functions (`get`, `set_`, etc.) remain unrestricted -- an
-operator can always call `openwrt_ubus.get("dropbear")` directly for
+operator can always call `uci_ubus.get("dropbear")` directly for
 inspection.
 
 ```python
@@ -201,7 +199,7 @@ point (`managed()`). They differ in how the tier registry is structured.
 
 ### Alternative A: Per-package module files with schema
 
-Build a `utils/packages/` directory. Each UCI package gets a
+Build a `_internal/packages/` directory. Each UCI package gets a
 Python file declaring its tier, named section types, anonymous section
 types, and list options. The registry serves dual purpose: tier
 whitelist and schema metadata for future features.
@@ -209,7 +207,7 @@ whitelist and schema metadata for future features.
 #### File structure
 
 ```
-src/saltext/openwrt_ubus/utils/
+src/saltext/uci_ubus/_internal/
     packages/
         __init__.py          # auto-discovers package modules
         _registry.py         # lookup functions
@@ -223,7 +221,7 @@ src/saltext/openwrt_ubus/utils/
 #### Package module example
 
 ```python
-# utils/packages/netifd.py
+# _internal/packages/netifd.py
 """Schema for the 'network' UCI package (owned by netifd)."""
 
 UCI_PACKAGE = "network"
@@ -251,7 +249,7 @@ ANONYMOUS_SECTIONS = {
 #### Registry API
 
 ```python
-# utils/packages/_registry.py
+# _internal/packages/_registry.py
 def get(config_name):
     """Return package info dict or None."""
 
@@ -275,7 +273,7 @@ pkg_tier = registry.tier(config)
 if pkg_tier is None:
     ret["result"] = False
     ret["comment"] = (
-        f"{config}: not supported by saltext-openwrt-ubus. "
+        f"{config}: not supported by saltext-uci-ubus. "
         f"Supported: {registry.supported_packages()}"
     )
     return ret
@@ -317,16 +315,16 @@ that achieves the tier goal.
 #### File structure
 
 ```
-src/saltext/openwrt_ubus/utils/
+src/saltext/uci_ubus/_internal/
     scope.py               # single file, ~30 lines
 ```
 
 #### The manifest
 
 ```python
-# utils/scope.py
+# _internal/scope.py
 """
-Package support tiers for saltext-openwrt-ubus.
+Package support tiers for saltext-uci-ubus.
 
 Packages not listed here cannot be managed by the managed() state.
 """
@@ -407,16 +405,16 @@ handling category and its quality tier.
 #### File structure
 
 ```
-src/saltext/openwrt_ubus/utils/
+src/saltext/uci_ubus/_internal/
     scope.py               # section-type registry + lookup functions
 ```
 
 #### The registry
 
 ```python
-# utils/scope.py
+# _internal/scope.py
 """
-Section-type support registry for saltext-openwrt-ubus.
+Section-type support registry for saltext-uci-ubus.
 
 Each entry maps a (uci_package, section_type) pair to a handling
 category and a quality tier. The managed() state uses this to decide
@@ -493,7 +491,7 @@ diff loop.
 # Package-level gate (same position as A and B)
 pkg_tier = scope.package_tier(config)
 if pkg_tier is None:
-    return _refuse(ret, f"{config}: not in saltext-openwrt-ubus scope")
+    return _refuse(ret, f"{config}: not in saltext-uci-ubus scope")
 if pkg_tier == "experimental" and not allow_experimental:
     return _refuse(ret, f"{config}: experimental, opt in required")
 
@@ -583,7 +581,7 @@ This is already on the ROADMAP (v0.2.0) and can be done as a follow-up.
 None of the alternatives change the execution modules or `ubus_ops.py`.
 The gate lives in `managed()` only. The execution module functions
 (`get`, `set_`, `delete`, etc.) remain unrestricted -- an operator can
-always call `openwrt_ubus.get("dropbear")` directly for inspection or
+always call `uci_ubus.get("dropbear")` directly for inspection or
 ad-hoc changes. The whitelist restricts only the `managed()` state
 function, which is the high-level path that reads, diffs, stages,
 applies, and confirms.

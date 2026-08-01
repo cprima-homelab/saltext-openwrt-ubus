@@ -1,5 +1,5 @@
 description: "Delete the face_cam camera section"
-function: openwrt_ubus.delete
+function: uci_ubus.delete
 kwargs:
   config: testcorpus
   section: face_cam

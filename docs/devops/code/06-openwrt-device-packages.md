@@ -1,7 +1,5 @@
 # 06 -- OpenWrt Device Packages
 
-> Last reviewed against: v0.4.0
-
 The device-side half of the extension: opkg packages that prepare an
 OpenWrt router for Salt management.
 
@@ -144,7 +142,7 @@ or `autoverified` when ready for Salt to make changes.
 # states/saltext_ubus.py:241-254
 def _get_agent_mode():
     try:
-        agent = __salt__["openwrt_ubus.get"]("salt-openwrt", "global")
+        agent = __salt__["uci_ubus.get"]("salt-openwrt", "global")
     except Exception:
         return True, "oneshot", 120      # package not installed → default
     enabled = agent.get("enabled", "1") == "1"
@@ -179,12 +177,12 @@ The extension works across two sides:
 ```
 Salt master (WSL / Linux)              OpenWrt device (austru)
 ─────────────────────────              ─────────────────────────
-saltext-openwrt-ubus (pip/uv)                 salt-agent-ubus (opkg)
+saltext-uci-ubus (pip/uv)                 salt-agent-ubus (opkg)
   modules/ubus_jsonrpc.py  ──HTTPS──>   rpcd + salt-agent user
   states/saltext_ubus.py                 salt-agent-ubus.json ACL
   proxy/ubus_jsonrpc.py                salt-openwrt (opkg)
-  utils/rpc.py                           /etc/config/salt-openwrt
-  utils/ubus_ops.py                    luci-app-salt-openwrt (opkg)
+  _internal/rpc.py                           /etc/config/salt-openwrt
+  _internal/ubus_ops.py                    luci-app-salt-openwrt (opkg)
                                          LuCI web UI
 ```
 

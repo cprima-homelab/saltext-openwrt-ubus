@@ -1,5 +1,5 @@
 description: "Change timezone on anonymous studio singleton via _type resolution"
-function: openwrt_ubus.managed
+function: uci_ubus.managed
 kwargs:
   config: testcorpus
   sections:

@@ -1,13 +1,11 @@
 # 12 -- Static Data in Salt Extensions
 
-> Last reviewed against: v0.4.0
-
 Salt extensions package Python modules that extend Salt. They do
 **not** package SLS files, pillar data, or Jinja templates.
 
 ## What goes inside the extension
 
-- Python modules (`modules/`, `states/`, `proxy/`, `pillar/`, `utils/`)
+- Python modules (`modules/`, `states/`, `proxy/`, `pillar/`, `_internal/`)
 - Protocol constants and lookup tables that are the same everywhere
 
 ## What stays on the Salt master
@@ -27,12 +25,12 @@ uneditable by the operator. If it is so static it should never change
 from server to server, just put it in a Python variable in the module.
 If it needs to vary per minion, it belongs in pillar SLS on the master.
 
-## How saltext-openwrt-ubus handles this
+## How saltext-uci-ubus handles this
 
 The codebase has three categories of data and each lives in a different
 place:
 
-### Protocol constants: `utils/rpc.py`
+### Protocol constants: `_internal/rpc.py`
 
 Ubus JSON-RPC status codes and the null session token are module-level
 constants. These are part of the protocol specification and never vary.
@@ -84,14 +82,14 @@ The corresponding pillar SLS on the master:
 ```yaml
 # /srv/salt/pillar/router.sls
 proxy:
-  proxytype: openwrt_ubus_jsonrpc
+  proxytype: uci_ubus_jsonrpc
   host: 10.35.24.1
   password: secret
   # username: salt-agent   (default)
   # verify_ssl: false      (default)
 ```
 
-The SSH transport (`openwrt_ubus_ssh`) uses key-based authentication
+The SSH transport (`uci_ubus_ssh`) uses key-based authentication
 instead of a password. The proxy module creates an `SshRunner`:
 
 ```python
@@ -122,7 +120,7 @@ The corresponding pillar SLS:
 ```yaml
 # /srv/salt/pillar/router.sls
 proxy:
-  proxytype: openwrt_ubus_ssh
+  proxytype: uci_ubus_ssh
   host: 10.35.24.1
   # username: root                          (default)
   # ssh_key: /root/.ssh/openwrt_ed25519     (optional)
@@ -139,8 +137,8 @@ fully replaces the defaults (no merging).
 
 | Data | Location | Reason |
 |------|----------|--------|
-| Ubus status codes | `utils/rpc.py` constants | Protocol spec, never varies |
-| Null session token | `utils/rpc.py` constant | Protocol spec |
+| Ubus status codes | `_internal/rpc.py` constants | Protocol spec, never varies |
+| Null session token | `_internal/rpc.py` constant | Protocol spec |
 | Ubus object/method names | String literals in functions | Self-documenting, each used once |
 | Connection details | Proxy pillar on Salt master | Per-device, operator-managed |
 | UCI section metadata keys | `_transform_section()` logic | Fixed mapping (`.type` -> `_type`) |
@@ -157,7 +155,7 @@ to a Salt extension:
 - There is no mechanism to ship pillar YAML inside an extension, and
   there should not be
 
-saltext-openwrt-ubus was never a formula, so this conversion did not apply.
+saltext-uci-ubus was never a formula, so this conversion did not apply.
 The guidance above is from a Salt community discussion and is included
 for reference since the copier scaffold creates pillar module stubs
 that can be misleading.

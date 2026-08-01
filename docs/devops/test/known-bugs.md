@@ -2,7 +2,7 @@
 
 ## Proxy minion grains: `shell` leaks from proxy host
 
-**Affected:** All openwrt_ubus proxy minions on Salt 3007.x
+**Affected:** All uci_ubus proxy minions on Salt 3007.x
 
 **Symptom:** `salt austru grains.get shell` returns `/bin/bash` (the
 proxy host's shell) instead of `/bin/ash` (OpenWrt's default).
@@ -11,7 +11,7 @@ proxy host's shell) instead of `/bin/ash` (OpenWrt's default).
 `__proxyenabled__ = ["*"]` and defines a `shell()` function that reads
 `$SHELL` from the process environment. Built-in grains modules are
 merged *after* extension grains, so `extra.py` overwrites the value
-returned by the openwrt_ubus grains module.
+returned by the uci_ubus grains module.
 
 **Impact:** `salt -G 'shell:/bin/ash'` targeting will not match OpenWrt
 devices. All other grains correctly reflect the device, not the host.

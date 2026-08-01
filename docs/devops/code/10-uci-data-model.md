@@ -1,7 +1,5 @@
 # UCI Data Model Patterns
 
-> Last reviewed against: v0.4.0
-
 Reference for the UCI data model -- section types, value types, naming
 patterns, and the scalar-vs-list ambiguity -- with real examples from
 both devices (austru and autan).

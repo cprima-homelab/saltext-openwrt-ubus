@@ -37,7 +37,7 @@ repos:
         name: Check CLI examples on execution modules
         entry: python .pre-commit-hooks/check-cli-examples.py
         language: python
-        files: ^src/saltext/openwrt_ubus/modules/.*\.py$
+        files: ^src/saltext/uci_ubus/modules/.*\.py$
 
   - repo: local
     hooks:
@@ -54,7 +54,7 @@ repos:
       - id: salt-rewrite
         alias: rewrite-docstrings
         name: Salt extensions docstrings auto-fixes
-        files: ^src/saltext/openwrt_ubus/.*\.py$
+        files: ^src/saltext/uci_ubus/.*\.py$
         args: [--silent]
 
   - repo: https://github.com/saltstack/salt-rewrite
@@ -75,32 +75,14 @@ repos:
         args: [
           --py310-plus,
         ]
-        exclude: src/saltext/openwrt_ubus/version.py
+        exclude: src/saltext/uci_ubus/version.py
 
-  - repo: https://github.com/PyCQA/isort
-    rev: 3459bdee0962449aad91235273c3fd1306dfebe5  # 8.0.0
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.0
     hooks:
-      - id: isort
-        args: [
-          --py 310,
-        ]
-        exclude: src/saltext/openwrt_ubus/(__init__|version).py
-
-  - repo: https://github.com/psf/black
-    rev: 6305bf1ae645ab7541be4f5028a86239316178eb  # 26.1.0
-    hooks:
-      - id: black
-        args: [-l 100]
-        exclude: src/saltext/openwrt_ubus/version.py
-
-  - repo: https://github.com/adamchainz/blacken-docs
-    rev: dda8db18cfc68df532abf33b185ecd12d5b7b326  # 1.20.0
-    hooks:
-      - id: blacken-docs
-        args: [--skip-errors]
-        files: ^(docs/.*\.rst|src/saltext/openwrt_ubus/.*\.py)$
-        additional_dependencies:
-          - black==26.1.0
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
   # <---- Formatting -----------------------------------------------------------------------------
 
   # ----- Security ------------------------------------------------------------------------------>
@@ -111,7 +93,7 @@ repos:
         alias: bandit-salt
         name: Run bandit against the code base
         args: [--silent, -lll, --skip, B701]
-        exclude: src/saltext/openwrt_ubus/version.py
+        exclude: src/saltext/uci_ubus/version.py
 
   - repo: https://github.com/PyCQA/bandit
     rev: 765f00d3f202f83f61d03f882f80a2d5142d81f8  # 1.9.3

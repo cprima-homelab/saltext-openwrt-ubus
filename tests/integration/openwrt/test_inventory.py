@@ -5,7 +5,7 @@ Flow:
     testcorpus fixture
         → container /etc/config/testcorpus
         → rpcd / ubus JSON-RPC (HTTP)
-        → saltext.openwrt_ubus.modules.ubus_jsonrpc (Salt execution module)
+        → saltext.uci_ubus.modules.ubus_jsonrpc (Salt execution module)
         → normalized inventory result
         → assertions vs known corpus
         → /etc/config/testcorpus byte-for-byte unchanged
@@ -19,9 +19,7 @@ import datetime
 
 import pytest
 
-from tests.integration.openwrt.conftest import CONTAINER_NAME
-from tests.integration.openwrt.conftest import make_rpc_client
-from tests.integration.openwrt.conftest import read_container_config
+from tests.integration.openwrt.conftest import CONTAINER_NAME, make_rpc_client, read_container_config
 
 
 @pytest.fixture(scope="module")
@@ -34,12 +32,12 @@ def uci_module(openwrt_container):  # pylint: disable=unused-argument
     ubus_jsonrpc → ubus_ops code path.
     """
     # pylint: disable-next=import-outside-toplevel
-    from saltext.openwrt_ubus.modules import ubus_jsonrpc as mod
+    from saltext.uci_ubus.modules import ubus_jsonrpc as mod
 
     client = make_rpc_client()
 
-    mod.__opts__ = {"proxy": {"proxytype": "openwrt_ubus_jsonrpc"}, "id": "openwrt-test-target"}
-    mod.__proxy__ = {"openwrt_ubus_jsonrpc.call": client.call}
+    mod.__opts__ = {"proxy": {"proxytype": "uci_ubus_jsonrpc"}, "id": "openwrt-test-target"}
+    mod.__proxy__ = {"uci_ubus_jsonrpc.call": client.call}
 
     yield mod
 
@@ -260,9 +258,7 @@ class TestConfigEvidence:
         payload = uci_module.config_evidence("testcorpus")["payload"]
         for name, sec in payload.items():
             if isinstance(sec, dict):
-                assert (
-                    "_sensitivity" in sec
-                ), f"section {name!r} missing _sensitivity in evidence payload"
+                assert "_sensitivity" in sec, f"section {name!r} missing _sensitivity in evidence payload"
 
     def test_transport(self, uci_module):
         prov = uci_module.config_evidence("testcorpus")["provenance"]
@@ -270,7 +266,7 @@ class TestConfigEvidence:
 
     def test_collector_name(self, uci_module):
         prov = uci_module.config_evidence("testcorpus")["provenance"]
-        assert prov["collector"] == "saltext-openwrt-ubus"
+        assert prov["collector"] == "saltext-uci-ubus"
 
     def test_collector_version_present(self, uci_module):
         prov = uci_module.config_evidence("testcorpus")["provenance"]

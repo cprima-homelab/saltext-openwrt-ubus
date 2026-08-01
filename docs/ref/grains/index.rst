@@ -1,10 +1,10 @@
-.. all-saltext.openwrt-ubus.grains:
+.. all-saltext.uci-ubus.grains:
 
 _____________
 Grain Modules
 _____________
 
-.. currentmodule:: saltext.openwrt_ubus.grains
+.. currentmodule:: saltext.uci_ubus.grains
 
 .. autosummary::
     :toctree:

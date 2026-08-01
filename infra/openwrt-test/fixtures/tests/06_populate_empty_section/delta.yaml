@@ -1,5 +1,5 @@
 description: "Add options to empty sponsor section"
-function: openwrt_ubus.managed
+function: uci_ubus.managed
 kwargs:
   config: testcorpus
   sections:

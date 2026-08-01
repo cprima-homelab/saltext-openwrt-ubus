@@ -7,7 +7,7 @@ import pytest
 import salt.utils.platform
 from saltfactories.utils import random_string
 
-from saltext.openwrt_ubus import PACKAGE_ROOT
+from saltext.uci_ubus import PACKAGE_ROOT
 
 try:
     import pwd
@@ -148,9 +148,7 @@ def known_hosts_file(sshd_server, master, salt_factories):  # pragma: no cover
 
 
 @pytest.fixture(scope="module")
-def salt_ssh_roster_file(
-    sshd_server, master, known_hosts_file, current_user
-):  # pylint: disable=unused-argument; pragma: no cover
+def salt_ssh_roster_file(sshd_server, master, known_hosts_file, current_user):  # pylint: disable=unused-argument; pragma: no cover
     roster_contents = f"""
     localhost:
       host: 127.0.0.1

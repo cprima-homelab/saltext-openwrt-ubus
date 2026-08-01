@@ -1,0 +1,181 @@
+name: saltext-uci-ubus/default
+version: "2"
+
+policies:
+  secret:
+    grains: deny
+    evidence: redact
+    logs: deny
+    cli_output: redact
+    config_diff: report-change
+  sensitive:
+    grains: redact
+    evidence: redact
+    logs: redact
+    cli_output: redact
+    config_diff: report-change
+  unknown:
+    grains: deny
+    evidence: redact
+    logs: deny
+    cli_output: redact
+    config_diff: report-change
+  internal:
+    grains: allow
+    evidence: allow
+    logs: allow
+    cli_output: allow
+    config_diff: allow
+  public:
+    grains: allow
+    evidence: allow
+    logs: allow
+    cli_output: allow
+    config_diff: allow
+
+rules:
+  # ── Known secrets ─────────────────────────────────────────────────────────
+
+  # specificity 1: common password-like option names
+  - match: {option: [password, passwd, psk]}
+    classification: sensitive
+
+  # specificity 2: section-specific secrets
+  - match:
+      section_type: wifi-iface
+      option: [key, wpa_psk, wep_key0, wep_key1, wep_key2, wep_key3]
+    classification: secret
+  - match:
+      section_type: openvpn
+      option: [key, secret, auth_user_pass, pkcs12, tls_auth]
+    classification: secret
+  - match:
+      section_type: radius
+      option: [auth_secret, acct_secret]
+    classification: secret
+
+  # specificity 3: package + section + option (most precise)
+  - match: {package: network, section_type: interface, option: private_key}
+    classification: secret
+  - match: {package: network, section_type: wireguard, option: private_key}
+    classification: secret
+
+  # ── Baseline safe rules ───────────────────────────────────────────────────
+  # Without these, UNKNOWN default causes most ordinary UCI values to be
+  # redacted from evidence. These rules promote known-safe options to INTERNAL
+  # so ordinary configuration remains visible.
+
+  # specificity 1: universally safe structural option names
+  - match:
+      option:
+        [disabled, enabled, name, comment, description, type, auto, metric, proto, mtu,
+         txqueuelen]
+    classification: internal
+
+  # network: interface
+  - match:
+      section_type: interface
+      option:
+        [ipaddr, netmask, broadcast, gateway, dns, ifname, device, bridge, multicast,
+         igmp_snooping, macaddr, ip6assign, delegate, reqaddress, reqprefix, peerdns,
+         defaultroute, ip6ifaceid, ip6prefix, ip6gw, ip4table, ip6table, sendredirects,
+         vrf, neighbor, hostname, clientid, vendorid, iface6rd, ip6prefixlen, ip6rdprefix,
+         listen_port, addresses, ipv6]
+    classification: internal
+
+  # network: WireGuard peer sections (section_type is wireguard_<ifname>, varies by device)
+  # public_key is the non-secret complement of private_key; allowed_ips is routing topology
+  # private_key has a higher-specificity secret rule that takes precedence
+  - match: {package: network, option: [public_key, allowed_ips, persistent_keepalive]}
+    classification: internal
+
+  # network: bridge device sections
+  - match:
+      section_type: device
+      option:
+        [ports, bridge_empty, macaddr, mtu, sendredirects, igmp_snooping,
+         multicast_querier, robustness, query_interval, query_response_interval,
+         last_member_interval]
+    classification: internal
+
+  # wireless: wifi-device
+  - match:
+      section_type: wifi-device
+      option:
+        [type, hwmode, htmode, channel, txpower, country, noscan, beacon_int, path,
+         antenna_gain, maxassoc, distance, band]
+    classification: internal
+
+  # wireless: wifi-iface (non-secret options)
+  - match:
+      section_type: wifi-iface
+      option:
+        [device, mode, ssid, network, encryption, hidden, maxassoc, wpa_group_rekey,
+         ieee80211r, ieee80211w, isolate, doth, bssid, macfilter, maclist,
+         dtim_period, disassoc_low_ack]
+    classification: internal
+
+  # system
+  - match:
+      section_type: system
+      option:
+        [hostname, timezone, zonename, ttylogin, log_size, log_ip, log_port, log_prefix,
+         urandom_seed, buffersize, conloglevel, cronloglevel, klogconloglevel]
+    classification: internal
+
+  # system: NTP
+  - match:
+      section_type: timeserver
+      option: [enable_server, server]
+    classification: internal
+
+  # dhcp: dnsmasq
+  - match:
+      section_type: dnsmasq
+      option:
+        [domainneeded, boguspriv, localise_queries, rebind_protection, rebind_localhost,
+         local, domain, expandhosts, nonegcache, cachesize, localservice, readethers,
+         leasefile, resolvfile, nonwildcard, localuse, quietdhcp, queryport, filterwin2k,
+         authoritative, ednspacket_max, filter_aaaa, filter_a]
+    classification: internal
+
+  # dhcp: dhcp pool
+  - match:
+      section_type: dhcp
+      option:
+        [interface, start, limit, leasetime, dynamicdhcp, ignore, ra, dhcpv6, ndp,
+         master, gateway, dns, domain, local_service, networkid, broadcast]
+    classification: internal
+
+  # dhcp: odhcpd (DHCPv6/RA daemon)
+  - match:
+      section_type: odhcpd
+      option: [maindhcp, leasefile, leasetrigger, loglevel, piofolder]
+    classification: internal
+
+  # firewall: defaults
+  - match:
+      section_type: defaults
+      option:
+        [input, output, forward, synflood_protect, synflood_rate, synflood_burst,
+         tcp_syncookies, tcp_ecn, tcp_window_scaling, accept_redirects,
+         accept_source_route, custom_chains, disable_ipv6, flow_offloading,
+         flow_offloading_hw, syn_flood]
+    classification: internal
+
+  # firewall: zones, rules, forwardings, redirects
+  - match:
+      section_type: [zone, rule, forwarding, redirect]
+      option:
+        [name, network, input, output, forward, masq, mtu_fix, enabled, src, dest,
+         src_ip, dest_ip, src_port, dest_port, proto, target, log, log_limit, limit,
+         limit_burst, family, reflection, reflection_src, device, icmp_type]
+    classification: internal
+
+  # dropbear
+  - match:
+      section_type: dropbear
+      option:
+        [Port, Interface, GatewayPorts, PasswordAuth, RootPasswordAuth, AllowLocalUsers,
+         Compression, MaxAuthTries, MDNSRegister, Banner, RsaFingerprint, enable]
+    classification: internal

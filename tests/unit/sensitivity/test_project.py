@@ -5,12 +5,14 @@ and assert_grains_safe().
 
 import pytest
 
-from saltext.openwrt_ubus.sensitivity.classify import classify_export
-from saltext.openwrt_ubus.sensitivity.model import SensitivityProfile
-from saltext.openwrt_ubus.sensitivity.project import assert_grains_safe
-from saltext.openwrt_ubus.sensitivity.project import diff_projection
-from saltext.openwrt_ubus.sensitivity.project import evidence_projection
-from saltext.openwrt_ubus.sensitivity.project import grains_projection
+from saltext.uci_ubus.sensitivity.classify import classify_export
+from saltext.uci_ubus.sensitivity.model import SensitivityProfile
+from saltext.uci_ubus.sensitivity.project import (
+    assert_grains_safe,
+    diff_projection,
+    evidence_projection,
+    grains_projection,
+)
 
 
 @pytest.fixture(scope="module")
@@ -222,9 +224,7 @@ class TestDiffProjection:
             },
         }
         section_types = {"wg0": "interface"}
-        result = diff_projection(
-            diff, package="network", profile=profile, section_types=section_types
-        )
+        result = diff_projection(diff, package="network", profile=profile, section_types=section_types)
         assert result["changed"]["wg0"]["private_key"] == {"changed": True}
         assert result["changed"]["wg0"]["proto"] == {"old": "static", "new": "wireguard"}
 
@@ -244,9 +244,7 @@ class TestDiffProjection:
             },
         }
         section_types = {"router": "system"}
-        result = diff_projection(
-            diff, package="system", profile=profile, section_types=section_types
-        )
+        result = diff_projection(diff, package="system", profile=profile, section_types=section_types)
         assert result["changed"]["router"]["password"] == {"changed": True}
 
     def test_unknown_changed_option_becomes_changed_true(self, profile):
@@ -264,9 +262,7 @@ class TestDiffProjection:
                 "in_sync": False,
             },
         }
-        result = diff_projection(
-            diff, package="custom", profile=profile, section_types={"mysec": "custom_type"}
-        )
+        result = diff_projection(diff, package="custom", profile=profile, section_types={"mysec": "custom_type"})
         assert result["changed"]["mysec"]["novel_opt"] == {"changed": True}
 
     def test_internal_changed_option_preserves_old_new(self, profile):
@@ -285,9 +281,7 @@ class TestDiffProjection:
             },
         }
         section_types = {"lan": "interface"}
-        result = diff_projection(
-            diff, package="network", profile=profile, section_types=section_types
-        )
+        result = diff_projection(diff, package="network", profile=profile, section_types=section_types)
         assert result["changed"]["lan"]["ipaddr"] == {"old": "192.168.1.1", "new": "10.0.0.1"}
 
     def test_secret_new_option_never_exposes_value(self, profile):
@@ -311,9 +305,7 @@ class TestDiffProjection:
             },
         }
         section_types = {"wg0": "interface"}
-        result = diff_projection(
-            diff, package="network", profile=profile, section_types=section_types
-        )
+        result = diff_projection(diff, package="network", profile=profile, section_types=section_types)
         new_wg0 = result["new"]["wg0"]
         assert new_wg0["private_key"] == {"changed": True}
         assert "brandnewsecret" not in str(new_wg0)
@@ -333,9 +325,7 @@ class TestDiffProjection:
                 "in_sync": False,
             },
         }
-        result = diff_projection(
-            diff, package="custom", profile=profile, section_types={"custom": "custom_type"}
-        )
+        result = diff_projection(diff, package="custom", profile=profile, section_types={"custom": "custom_type"})
         assert result["new"]["custom"]["novel_option"] == {"changed": True}
         assert "secret_value" not in str(result["new"])
 

@@ -1,18 +1,17 @@
 """
-Unit tests for the openwrt_ubus local execution module.
+Unit tests for the uci_ubus local execution module.
 
 All tests mock subprocess.run. No ubus calls are made.
 """
 
 import json
 import subprocess
-from unittest.mock import MagicMock
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from salt.exceptions import CommandExecutionError
 
-import saltext.openwrt_ubus.modules.uci_local as uci_mod
+import saltext.uci_ubus.modules.uci_local as uci_mod
 
 
 @pytest.fixture(autouse=True)
@@ -24,7 +23,7 @@ def patch_dunders(monkeypatch):
 @pytest.fixture
 def mock_subprocess():
     """Provide a mock for subprocess.run."""
-    with patch("saltext.openwrt_ubus.modules.uci_local.subprocess.run") as mock_run:
+    with patch("saltext.uci_ubus.modules.uci_local.subprocess.run") as mock_run:
         yield mock_run
 
 
@@ -112,9 +111,7 @@ class TestGet:
 
 class TestConfigs:
     def test_returns_list(self, mock_subprocess):
-        mock_subprocess.return_value = _make_result(
-            stdout=json.dumps({"configs": ["network", "system", "dhcp"]})
-        )
+        mock_subprocess.return_value = _make_result(stdout=json.dumps({"configs": ["network", "system", "dhcp"]}))
         result = uci_mod.configs()
         assert result == ["network", "system", "dhcp"]
         mock_subprocess.assert_called_once_with(
@@ -286,9 +283,7 @@ class TestState:
 
 class TestSystemBoard:
     def test_returns_board_data(self, mock_subprocess):
-        mock_subprocess.return_value = _make_result(
-            stdout=json.dumps({"model": "GL-MT3000", "hostname": "autan"})
-        )
+        mock_subprocess.return_value = _make_result(stdout=json.dumps({"model": "GL-MT3000", "hostname": "autan"}))
         result = uci_mod.system_board()
         assert result["model"] == "GL-MT3000"
         mock_subprocess.assert_called_once_with(

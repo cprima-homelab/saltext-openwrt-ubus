@@ -1,5 +1,5 @@
 """
-Integration tests for openwrt_ubus UCI operations against a live container.
+Integration tests for uci_ubus UCI operations against a live container.
 
 Each testcorpus case exercises a distinct UCI data model pattern:
     before.uci  →  ubus call uci.*  →  after.uci
@@ -14,8 +14,7 @@ Prerequisite:
 import pytest
 import yaml
 
-from tests.integration.openwrt.conftest import TESTCORPUS_TESTS
-from tests.integration.openwrt.conftest import read_container_config
+from tests.integration.openwrt.conftest import TESTCORPUS_TESTS, read_container_config
 
 # (case_name, expect_changed)
 TESTCORPUS_CASES = [
@@ -45,9 +44,7 @@ class TestRpcTransport:
         result = ubus_client.call("system", "board")
         assert "hostname" in result
 
-    def test_uci_get_testcorpus(
-        self, ubus_client, openwrt_container
-    ):  # pylint: disable=unused-argument
+    def test_uci_get_testcorpus(self, ubus_client, openwrt_container):  # pylint: disable=unused-argument
         result = ubus_client.call("uci", "get", {"config": "testcorpus"})
         assert "values" in result
 

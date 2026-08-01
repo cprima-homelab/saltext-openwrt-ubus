@@ -1,7 +1,5 @@
 # 11 -- rpcd ACL Model
 
-> Last reviewed against: v0.4.0
->
 > **ACL tightened**: `uci: ["*"]` replaced with explicit package list
 > matching the scope registry (network, system, dhcp, wireless,
 > firewall, dropbear, salt-openwrt). Operators must reinstall the
@@ -276,7 +274,7 @@ Salt Master (proxy minion)                    OpenWrt Device
 
 ```yaml
 proxy:
-  proxytype: openwrt_ubus_jsonrpc
+  proxytype: uci_ubus_jsonrpc
   host: 10.35.24.1
   password: secret
   timeout: 30            # HTTP request timeout (seconds)

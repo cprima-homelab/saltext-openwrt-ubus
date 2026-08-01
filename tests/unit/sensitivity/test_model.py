@@ -5,14 +5,16 @@ MatchCriteria, SensitivityProfile.
 
 import pytest
 
-from saltext.openwrt_ubus.sensitivity.model import TAINT_RANK
-from saltext.openwrt_ubus.sensitivity.model import Classification
-from saltext.openwrt_ubus.sensitivity.model import ClassificationRule
-from saltext.openwrt_ubus.sensitivity.model import MatchCriteria
-from saltext.openwrt_ubus.sensitivity.model import Policy
-from saltext.openwrt_ubus.sensitivity.model import SensitivityProfile
-from saltext.openwrt_ubus.sensitivity.model import Surface
-from saltext.openwrt_ubus.sensitivity.model import max_taint
+from saltext.uci_ubus.sensitivity.model import (
+    TAINT_RANK,
+    Classification,
+    ClassificationRule,
+    MatchCriteria,
+    Policy,
+    SensitivityProfile,
+    Surface,
+    max_taint,
+)
 
 
 class TestClassification:
@@ -51,9 +53,7 @@ class TestTaintRank:
         assert max_taint([Classification.PUBLIC, Classification.SECRET]) == Classification.SECRET
 
     def test_max_taint_internal_unknown(self):
-        assert (
-            max_taint([Classification.INTERNAL, Classification.UNKNOWN]) == Classification.UNKNOWN
-        )
+        assert max_taint([Classification.INTERNAL, Classification.UNKNOWN]) == Classification.UNKNOWN
 
     def test_max_taint_empty_defaults_to_public(self):
         assert max_taint([]) == Classification.PUBLIC
@@ -117,7 +117,7 @@ class TestSensitivityProfile:
         return SensitivityProfile.load_builtin()
 
     def test_load_builtin_has_name(self, builtin):
-        assert builtin.name == "saltext-openwrt-ubus/default"
+        assert builtin.name == "saltext-uci-ubus/default"
 
     def test_load_builtin_has_version(self, builtin):
         assert builtin.version == "2"
@@ -192,9 +192,7 @@ class TestSensitivityProfile:
         assert merged.classify("wireless", "wifi-iface", "key") == Classification.SECRET
 
     def test_overlay_updates_name_and_version(self, builtin):
-        other = SensitivityProfile(
-            name="my/profile", version="2", rules=[], policies=dict(builtin.policies)
-        )
+        other = SensitivityProfile(name="my/profile", version="2", rules=[], policies=dict(builtin.policies))
         merged = builtin.overlay(other)
         assert merged.name == "my/profile"
         assert merged.version == "2"

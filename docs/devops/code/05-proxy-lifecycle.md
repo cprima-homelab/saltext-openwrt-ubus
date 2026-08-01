@@ -1,7 +1,5 @@
 # 05 -- Proxy Lifecycle
 
-> Last reviewed against: v0.4.0
-
 How the two proxy modules manage connections, sessions, and the
 relationship between proxy and state module.
 
@@ -11,10 +9,10 @@ relationship between proxy and state module.
 |------|-------|-----------|
 | `proxy/ubus_jsonrpc.py` | 233 | HTTPS JSON-RPC |
 | `proxy/uci_ssh.py` | 221 | SSH |
-| `utils/rpc.py` | 192 | Pure Python JSON-RPC client |
-| `utils/ssh.py` | 112 | Pure Python SSH runner |
+| `_internal/rpc.py` | 192 | Pure Python JSON-RPC client |
+| `_internal/ssh.py` | 112 | Pure Python SSH runner |
 
-All paths relative to `src/saltext/openwrt_ubus/`.
+All paths relative to `src/saltext/uci_ubus/`.
 
 ## Proxy interface
 
@@ -45,7 +43,7 @@ both sharing the same rpcd session.
 The `UbusRpcClient` tracks session expiration:
 
 ```python
-# utils/rpc.py:114-140
+# _internal/rpc.py:114-140
 def login(self):
     result = self._raw_request("call", [NULL_SESSION, "session", "login", login_params])
     data = result["result"][1]
@@ -57,7 +55,7 @@ def login(self):
 Before every call, the client checks if the session will expire soon:
 
 ```python
-# utils/rpc.py:147-150
+# _internal/rpc.py:147-150
 def _ensure_session(self):
     if self._session is None or time.monotonic() >= self._session_expires:
         self.login()
@@ -194,8 +192,8 @@ These override the salt-master's host grains so `grains["os"]` returns
 
 ```
 State module
-  └─ calls __salt__["openwrt_ubus.get"]()
-       └─ calls __proxy__["openwrt_ubus_jsonrpc.call"]()
+  └─ calls __salt__["uci_ubus.get"]()
+       └─ calls __proxy__["uci_ubus_jsonrpc.call"]()
             └─ calls DETAILS["client"].call()           (UbusRpcClient)
                  ├─ UbusError (code 6: permission denied)  ← rpcd ACL
                  ├─ JsonRpcError (-32002: access denied)   ← mapped to UbusError
@@ -209,7 +207,7 @@ caller but don't kill the proxy.
 JSON-RPC error `-32002` is special-cased:
 
 ```python
-# utils/rpc.py:176-183
+# _internal/rpc.py:176-183
 if "error" in result:
     err = result["error"]
     if err.get("code") == -32002:

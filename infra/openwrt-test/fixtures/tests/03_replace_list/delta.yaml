@@ -1,5 +1,5 @@
 description: "Replace tag list on named camera (add third element)"
-function: openwrt_ubus.managed
+function: uci_ubus.managed
 kwargs:
   config: testcorpus
   sections:

@@ -7,7 +7,7 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools_scm]
-write_to = "src/saltext/openwrt_ubus/version.py"
+write_to = "src/saltext/uci_ubus/version.py"
 write_to_template = "__version__ = \"{version}\"\n"
 
 [project]
@@ -52,14 +52,14 @@ changelog = ["towncrier==25.8.0"]
 dev = [
     "nox[uv]>=2024.3,!=2025.05.01",
     "pre-commit>=2.21.0",
+    "ruff>=0.4",
 ]
 # These dependencies are used in automations. It can be helpful
 # to have them installed in the dev venv, e.g. for editor integration.
 # When initializing the dev env using the included automation, pass
 # `--extras` to install them automatically.
 dev_extra = [
-    "black==26.1.0",
-    "isort==8.0.0",
+    "ruff>=0.4",
     "coverage==7.13.4",
 ]
 docs = [
@@ -76,7 +76,7 @@ docs = [
 ]
 docsauto = ["sphinx-autobuild"]
 lint = [
-    "pylint>=4.0.4",  # unpinned: pylint 4.0.4 conflicts with isort 8.0.0 in dev_extra
+    "pylint>=4.0.4",
 ]
 tests = [
     "pytest>=7.2.0",
@@ -87,12 +87,13 @@ tests = [
 ]
 
 [project.entry-points."salt.loader"]
-"saltext.openwrt-ubus" = "saltext.openwrt_ubus"
+"saltext.uci-ubus" = "saltext.uci_ubus"
 
 [dependency-groups]
 dev = [
     "paramiko>=5.0.0",
     "python-dotenv>=1.2.2",
+    "ruff>=0.4",
 ]
 
 [tool.uv]
@@ -110,7 +111,7 @@ where = ["src"]
 exclude = ["tests"]
 
 [tool.setuptools.package-data]
-"saltext.openwrt_ubus.sensitivity" = ["*.yaml"]
+"saltext.uci_ubus.sensitivity" = ["*.yaml"]
 
 [tool.distutils.bdist_wheel]
 # Use this option if your package is pure-python
@@ -124,24 +125,15 @@ group = "root"
 source_dir = "docs"
 build_dir = "build/sphinx"
 
-[tool.black]
-line-length = 100
-
-[tool.isort]
-force_single_line = true
-skip = ["src/saltext/openwrt_ubus/__init__.py"]
-profile = "black"
-line_length = 100
-
 [tool.towncrier]
-package = "saltext.openwrt_ubus"
+package = "saltext.uci_ubus"
 filename = "CHANGELOG.md"
 template = "changelog/.template.jinja"
 directory = "changelog/"
 start_string = "# Changelog\n"
 underlines = ["", "", ""]
 title_format = "## {version} ({project_date})"
-issue_format = "[#{issue}](https://github.com/cprima-homelab/saltext-openwrt-ubus/issues/{issue})"
+issue_format = "[#{issue}](https://github.com/cprima-homelab/saltext-uci/issues/{issue})"
 
 [[tool.towncrier.type]]
 directory = "breaking"
@@ -177,31 +169,3 @@ showcontent = true
 directory = "security"
 name = "Security"
 showcontent = true
-
-# While we currently don't use ruff for linting, it's helpful to include
-# these settings in case a user has setup ruff in their editor environment.
-[tool.ruff]
-builtins = [
-    "__opts__",
-    "__salt__",
-    "__pillar__",
-    "__grains__",
-    "__context__",
-    "__runner__",
-    "__ret__",
-    "__env__",
-    "__low__",
-    "__states__",
-    "__lowstate__",
-    "__running__",
-    "__active_provider_name__",
-    "__master_opts__",
-    "__jid_event__",
-    "__instance_id__",
-    "__salt_system_encoding__",
-    "__proxy__",
-    "__serializers__",
-    "__reg__",
-    "__executors__",
-    "__events__",
-]

@@ -1,4 +1,4 @@
-``saltext-openwrt-ubus``: Integrate Salt with OpenWrt via ubus
+``saltext-uci-ubus``: Integrate Salt with OpenWrt via ubus
 ================================================================
 
 Salt extension for OpenWrt configuration management via ubus
@@ -19,7 +19,7 @@ Salt extension for OpenWrt configuration management via ubus
   ref/states/index
   ref/proxy/index
   ref/grains/index
-  ref/utils/index
+  ref/_internal/index
 
 .. toctree::
   :maxdepth: 2

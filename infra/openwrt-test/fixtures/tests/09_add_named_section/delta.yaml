@@ -1,5 +1,5 @@
 description: "Add a new named camera section"
-function: openwrt_ubus.add
+function: uci_ubus.add
 kwargs:
   config: testcorpus
   type_: camera

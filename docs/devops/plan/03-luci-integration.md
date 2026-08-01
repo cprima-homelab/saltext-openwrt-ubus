@@ -1,7 +1,5 @@
 # 03 -- LuCI Integration (not yet implemented)
 
-> Last reviewed against: v0.4.0
-
 ## Goal
 
 Make Salt-staged UCI changes visible in LuCI's "Unsaved Changes" view,

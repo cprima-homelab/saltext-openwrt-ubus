@@ -24,9 +24,7 @@ if tuple(map(int, metadata.version("nox").split("."))) >= (2024, 3):
 # Python versions to test against
 PYTHON_VERSIONS = ("3", "3.10")
 # Be verbose when running under a CI context
-CI_RUN = (
-    os.environ.get("JENKINS_URL") or os.environ.get("CI") or os.environ.get("DRONE") is not None
-)
+CI_RUN = os.environ.get("JENKINS_URL") or os.environ.get("CI") or os.environ.get("DRONE") is not None
 PIP_INSTALL_SILENT = CI_RUN is False
 SKIP_REQUIREMENTS_INSTALL = os.environ.get("SKIP_REQUIREMENTS_INSTALL", "0") == "1"
 EXTRA_REQUIREMENTS_INSTALL = os.environ.get("EXTRA_REQUIREMENTS_INSTALL")
@@ -212,7 +210,7 @@ def tests(session):
             "-o",
             str(COVERAGE_REPORT_PROJECT),
             "--omit=tests/*",
-            "--include=src/saltext/openwrt_ubus/*",
+            "--include=src/saltext/uci_ubus/*",
         )
         # Generate report for tests code coverage
         session.run(
@@ -220,18 +218,16 @@ def tests(session):
             "xml",
             "-o",
             str(COVERAGE_REPORT_TESTS),
-            "--omit=src/saltext/openwrt_ubus/*",
+            "--omit=src/saltext/uci_ubus/*",
             "--include=tests/*",
         )
         try:
-            session.run(
-                "coverage", "report", "--show-missing", "--include=src/saltext/openwrt_ubus/*"
-            )
+            session.run("coverage", "report", "--show-missing", "--include=src/saltext/uci_ubus/*")
             # If you also want to display the code coverage report on the CLI
             # for the tests, comment the call above and uncomment the line below
             # session.run(
             #    "coverage", "report", "--show-missing",
-            #    "--include=src/saltext/openwrt_ubus/*,tests/*"
+            #    "--include=src/saltext/uci_ubus/*,tests/*"
             # )
         finally:
             # Move the coverage DB to artifacts/coverage in order for it to be archived by CI
@@ -423,9 +419,7 @@ def _get_docs_env(session):
                 # Ensure docs build works on Apple Silicon, where the default
                 # Homebrew lib path is not autodiscovered.
                 # Needs `brew install enchant`.
-                env["PYENCHANT_LIBRARY_PATH"] = str(
-                    next(Path("/opt/homebrew/lib").glob("libenchant*.dylib"))
-                )
+                env["PYENCHANT_LIBRARY_PATH"] = str(next(Path("/opt/homebrew/lib").glob("libenchant*.dylib")))
             except StopIteration:
                 session.warn(
                     "Failed to autodiscover enchant library. Ensure it's installed (e.g. brew install enchant). "
@@ -521,12 +515,8 @@ def docs_crosslink_info(session):
     try:
         mapping_entry = intersphinx_mapping[session.posargs[0]]
     except IndexError:
-        session.error(
-            f"You need to pass at least one argument whose value must be one of: {intersphinx_mapping_list}"
-        )
+        session.error(f"You need to pass at least one argument whose value must be one of: {intersphinx_mapping_list}")
     except KeyError:
         session.error(f"Only acceptable values for first argument are: {intersphinx_mapping_list}")
-    session.run(
-        "python", "-m", "sphinx.ext.intersphinx", mapping_entry[0].rstrip("/") + "/objects.inv"
-    )
+    session.run("python", "-m", "sphinx.ext.intersphinx", mapping_entry[0].rstrip("/") + "/objects.inv")
     os.chdir(str(REPO_ROOT))

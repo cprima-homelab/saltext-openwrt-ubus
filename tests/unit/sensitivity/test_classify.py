@@ -4,10 +4,8 @@ Unit tests for classify_export().
 
 import pytest
 
-from saltext.openwrt_ubus.sensitivity.classify import classify_export
-from saltext.openwrt_ubus.sensitivity.model import Classification
-from saltext.openwrt_ubus.sensitivity.model import SensitivityProfile
-from saltext.openwrt_ubus.sensitivity.model import max_taint
+from saltext.uci_ubus.sensitivity.classify import classify_export
+from saltext.uci_ubus.sensitivity.model import Classification, SensitivityProfile, max_taint
 
 
 @pytest.fixture(scope="module")

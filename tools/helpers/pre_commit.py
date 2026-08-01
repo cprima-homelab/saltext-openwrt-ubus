@@ -1,14 +1,10 @@
 import re
 
 from . import prompt
-from .cmd import ProcessExecutionError
-from .cmd import git
-from .cmd import local
+from .cmd import ProcessExecutionError, git, local
 from .git import list_untracked
 
-PRE_COMMIT_TEST_REGEX = re.compile(
-    r"^(?P<test>[^\n]+?)\.{4,}.*(?P<resolution>Failed|Passed|Skipped)$"
-)
+PRE_COMMIT_TEST_REGEX = re.compile(r"^(?P<test>[^\n]+?)\.{4,}.*(?P<resolution>Failed|Passed|Skipped)$")
 NON_IDEMPOTENT_HOOKS = (
     "trim trailing whitespace",
     "mixed line ending",
@@ -18,9 +14,8 @@ NON_IDEMPOTENT_HOOKS = (
     "Salt extensions docstrings auto-fixes",
     "Rewrite the test suite",
     "Rewrite Code to be Py3.",
-    "isort",
-    "black",
-    "blacken-docs",
+    "ruff-check",
+    "ruff-format",
 )
 
 
@@ -85,9 +80,7 @@ def run_pre_commit(venv, retries=2):
                     return _run_pre_commit_loop(retries_left - 1)
                 raise
 
-    prompt.status(
-        "Running pre-commit hooks against all files. This can take a minute, please be patient"
-    )
+    prompt.status("Running pre-commit hooks against all files. This can take a minute, please be patient")
 
     try:
         _run_pre_commit_loop(retries)

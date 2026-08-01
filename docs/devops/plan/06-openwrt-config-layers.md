@@ -1,7 +1,5 @@
 # 06 -- OpenWrt Configuration Layers
 
-> Last reviewed against: v0.4.0
-
 ## Overview
 
 OpenWrt's configuration system is a stack of daemons and libraries,

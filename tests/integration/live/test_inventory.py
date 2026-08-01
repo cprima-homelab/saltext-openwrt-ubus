@@ -20,10 +20,7 @@ import datetime
 
 import pytest
 
-from saltext.openwrt_ubus.sensitivity import SensitivityProfile
-from saltext.openwrt_ubus.sensitivity import assert_grains_safe
-from saltext.openwrt_ubus.sensitivity import classify_export
-from saltext.openwrt_ubus.sensitivity import grains_projection
+from saltext.uci_ubus.sensitivity import SensitivityProfile, assert_grains_safe, classify_export, grains_projection
 from tests.integration.live.conftest import read_device_config
 
 # Packages that carry migration-relevant configuration on any OpenWrt router.
@@ -65,9 +62,7 @@ class TestGet:
         assert isinstance(result, dict)
         assert len(result) > 0
 
-    def test_all_sections_carry_metadata(
-        self, uci_module, available_configs
-    ):  # pylint: disable=unused-argument
+    def test_all_sections_carry_metadata(self, uci_module, available_configs):  # pylint: disable=unused-argument
         # Spot-check network — every section must have _type, _anonymous, _index.
         result = uci_module.get("network")
         for name, section in result.items():
@@ -142,7 +137,7 @@ class TestConfigEvidence:
         if pkg not in available_configs:
             pytest.skip(f"package '{pkg}' not present on this device")
         prov = uci_module.config_evidence(pkg)["provenance"]
-        assert prov["collector"] == "saltext-openwrt-ubus"
+        assert prov["collector"] == "saltext-uci-ubus"
         assert prov["transport"] == "ubus-jsonrpc"
         assert isinstance(prov["collector_version"], str)
 
@@ -157,14 +152,10 @@ class TestClassifyAndProject:  # pylint: disable=redefined-outer-name
         if "wireless" not in available_configs:
             pytest.skip("wireless package not present on this device")
         payload = uci_module.config_evidence("wireless")["payload"]
-        wifi_ifaces = [
-            (name, sec) for name, sec in payload.items() if sec.get("_type") == "wifi-iface"
-        ]
+        wifi_ifaces = [(name, sec) for name, sec in payload.items() if sec.get("_type") == "wifi-iface"]
         for name, sec in wifi_ifaces:
             if "key" in sec:
-                assert (
-                    sec["key"] is None
-                ), f"wifi-iface {name!r} key must be null in evidence payload"
+                assert sec["key"] is None, f"wifi-iface {name!r} key must be null in evidence payload"
 
     def test_wireguard_private_key_null_if_present(self, uci_module, available_configs):
         if "network" not in available_configs:
@@ -172,9 +163,7 @@ class TestClassifyAndProject:  # pylint: disable=redefined-outer-name
         payload = uci_module.config_evidence("network")["payload"]
         for name, sec in payload.items():
             if sec.get("_type") == "interface" and "private_key" in sec:
-                assert (
-                    sec["private_key"] is None
-                ), f"WireGuard interface {name!r} private_key must be null in evidence"
+                assert sec["private_key"] is None, f"WireGuard interface {name!r} private_key must be null in evidence"
 
     def test_grains_projection_passes_invariant(self, uci_module, available_configs):
         if "wireless" not in available_configs:
@@ -192,9 +181,7 @@ class TestClassifyAndProject:  # pylint: disable=redefined-outer-name
         payload = uci_module.config_evidence(pkg)["payload"]
         for name, sec in payload.items():
             if isinstance(sec, dict) and not name.startswith("_"):
-                assert (
-                    "_sensitivity" in sec
-                ), f"section {name!r} in {pkg!r} evidence payload missing _sensitivity"
+                assert "_sensitivity" in sec, f"section {name!r} in {pkg!r} evidence payload missing _sensitivity"
 
 
 # ---------------------------------------------------------------------------
@@ -255,7 +242,7 @@ class TestRuntimeEvidence:
     @pytest.mark.parametrize("domain", ["network", "system", "services"])
     def test_provenance(self, uci_module, domain):
         prov = uci_module.runtime_evidence(domain)["provenance"]
-        assert prov["collector"] == "saltext-openwrt-ubus"
+        assert prov["collector"] == "saltext-uci-ubus"
         assert prov["transport"] == "ubus-jsonrpc"
 
     def test_invalid_domain_raises(self, uci_module):
