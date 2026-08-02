@@ -34,7 +34,8 @@ import logging
 import shlex
 import subprocess
 
-from saltext.uci_ssh._internal.ssh import SshCommandError, SshRunner
+from saltext.uci_ssh._internal.ssh import SshCommandError
+from saltext.uci_ssh._internal.ssh import SshRunner
 
 log = logging.getLogger(__name__)
 

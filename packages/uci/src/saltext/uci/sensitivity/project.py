@@ -18,7 +18,8 @@ while preserving actionable classification data.
 from __future__ import annotations
 
 from saltext.uci.sensitivity.contracts import data_contract
-from saltext.uci.sensitivity.model import Classification, Surface
+from saltext.uci.sensitivity.model import Classification
+from saltext.uci.sensitivity.model import Surface
 
 _COMPACT_HIDE = frozenset({Classification.PUBLIC.value, Classification.INTERNAL.value})
 
@@ -202,8 +203,12 @@ def diff_projection(
     result["new"] = _project_diff_changes(
         diff_result.get("new", {}), package=package, section_types=section_types, profile=profile
     )
-    result["removed"] = _project_diff_raw_sections(diff_result.get("removed", {}), package=package, profile=profile)
-    result["reordered"] = _project_diff_raw_sections(diff_result.get("reordered", {}), package=package, profile=profile)
+    result["removed"] = _project_diff_raw_sections(
+        diff_result.get("removed", {}), package=package, profile=profile
+    )
+    result["reordered"] = _project_diff_raw_sections(
+        diff_result.get("reordered", {}), package=package, profile=profile
+    )
     result["summary"] = diff_result.get("summary", {})
 
     return result

@@ -5,7 +5,9 @@ Unit tests for classify_export().
 import pytest
 
 from saltext.uci.sensitivity.classify import classify_export
-from saltext.uci.sensitivity.model import Classification, SensitivityProfile, max_taint
+from saltext.uci.sensitivity.model import Classification
+from saltext.uci.sensitivity.model import SensitivityProfile
+from saltext.uci.sensitivity.model import max_taint
 
 
 @pytest.fixture(scope="module")

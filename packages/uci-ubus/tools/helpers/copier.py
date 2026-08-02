@@ -105,9 +105,7 @@ def finish_task(msg, success, err_exit=False, extra=None):
     if success:
         prompt.pprint(f"\n    ✓ {msg}", bold=True, bg=prompt.DARKGREEN, stream=sys.stderr)
     elif success is None:
-        prompt.pprint(
-            f"\n    ✓ {msg}", bold=True, fg=prompt.YELLOW, bg=prompt.DARKGREEN, stream=sys.stderr
-        )
+        prompt.pprint(f"\n    ✓ {msg}", bold=True, fg=prompt.YELLOW, bg=prompt.DARKGREEN, stream=sys.stderr)
         success = True
     else:
         prompt.warn(f"    ✗ {msg}", extra)

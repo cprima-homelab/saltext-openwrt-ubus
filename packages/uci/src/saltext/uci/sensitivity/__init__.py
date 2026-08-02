@@ -16,23 +16,21 @@ Quick-start::
 """
 
 from saltext.uci.sensitivity.classify import classify_export
-from saltext.uci.sensitivity.contracts import DataContract, DataKind, data_contract
-from saltext.uci.sensitivity.model import (
-    TAINT_RANK,
-    Classification,
-    Policy,
-    PolicyDecision,
-    SensitivityProfile,
-    Surface,
-    max_taint,
-)
-from saltext.uci.sensitivity.project import (
-    assert_grains_safe,
-    diff_projection,
-    evidence_projection,
-    grains_projection,
-    project,
-)
+from saltext.uci.sensitivity.contracts import DataContract
+from saltext.uci.sensitivity.contracts import DataKind
+from saltext.uci.sensitivity.contracts import data_contract
+from saltext.uci.sensitivity.model import TAINT_RANK
+from saltext.uci.sensitivity.model import Classification
+from saltext.uci.sensitivity.model import Policy
+from saltext.uci.sensitivity.model import PolicyDecision
+from saltext.uci.sensitivity.model import SensitivityProfile
+from saltext.uci.sensitivity.model import Surface
+from saltext.uci.sensitivity.model import max_taint
+from saltext.uci.sensitivity.project import assert_grains_safe
+from saltext.uci.sensitivity.project import diff_projection
+from saltext.uci.sensitivity.project import evidence_projection
+from saltext.uci.sensitivity.project import grains_projection
+from saltext.uci.sensitivity.project import project
 
 __all__ = [
     "Classification",

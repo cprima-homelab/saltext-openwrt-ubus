@@ -43,7 +43,8 @@ Enforcement: tests fail CI if any function in the required set lacks a contract.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+from dataclasses import field
 from enum import Enum
 
 

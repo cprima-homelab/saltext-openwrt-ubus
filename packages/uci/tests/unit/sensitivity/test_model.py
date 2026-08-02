@@ -5,16 +5,14 @@ MatchCriteria, SensitivityProfile.
 
 import pytest
 
-from saltext.uci.sensitivity.model import (
-    TAINT_RANK,
-    Classification,
-    ClassificationRule,
-    MatchCriteria,
-    Policy,
-    SensitivityProfile,
-    Surface,
-    max_taint,
-)
+from saltext.uci.sensitivity.model import TAINT_RANK
+from saltext.uci.sensitivity.model import Classification
+from saltext.uci.sensitivity.model import ClassificationRule
+from saltext.uci.sensitivity.model import MatchCriteria
+from saltext.uci.sensitivity.model import Policy
+from saltext.uci.sensitivity.model import SensitivityProfile
+from saltext.uci.sensitivity.model import Surface
+from saltext.uci.sensitivity.model import max_taint
 
 
 class TestClassification:
@@ -53,7 +51,9 @@ class TestTaintRank:
         assert max_taint([Classification.PUBLIC, Classification.SECRET]) == Classification.SECRET
 
     def test_max_taint_internal_unknown(self):
-        assert max_taint([Classification.INTERNAL, Classification.UNKNOWN]) == Classification.UNKNOWN
+        assert (
+            max_taint([Classification.INTERNAL, Classification.UNKNOWN]) == Classification.UNKNOWN
+        )
 
     def test_max_taint_empty_defaults_to_public(self):
         assert max_taint([]) == Classification.PUBLIC
@@ -192,7 +192,9 @@ class TestSensitivityProfile:
         assert merged.classify("wireless", "wifi-iface", "key") == Classification.SECRET
 
     def test_overlay_updates_name_and_version(self, builtin):
-        other = SensitivityProfile(name="my/profile", version="2", rules=[], policies=dict(builtin.policies))
+        other = SensitivityProfile(
+            name="my/profile", version="2", rules=[], policies=dict(builtin.policies)
+        )
         merged = builtin.overlay(other)
         assert merged.name == "my/profile"
         assert merged.version == "2"

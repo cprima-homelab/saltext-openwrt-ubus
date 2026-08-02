@@ -8,7 +8,10 @@ new data-handling function, add it to _REQUIRED_CONTRACTS and annotate it.
 
 import pytest
 
-from saltext.uci.data_manifest import build_manifest, check_manifest, collect_contracts, derive_crossings
+from saltext.uci.data_manifest import build_manifest
+from saltext.uci.data_manifest import check_manifest
+from saltext.uci.data_manifest import collect_contracts
+from saltext.uci.data_manifest import derive_crossings
 
 # Functions that handle classified data and must be annotated.
 # CI fails if any of these lacks a @data_contract.
@@ -169,7 +172,10 @@ class TestManifest:
         fields = manifest["sensitivity_profile"]["classified_fields"]
         assert len(fields) > 0
         secret_options = [
-            opt for entry in fields if entry["classification"] == "secret" for opt in entry.get("options", [])
+            opt
+            for entry in fields
+            if entry["classification"] == "secret"
+            for opt in entry.get("options", [])
         ]
         assert "private_key" in secret_options
 

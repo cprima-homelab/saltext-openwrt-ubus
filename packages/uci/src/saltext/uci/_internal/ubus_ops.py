@@ -10,8 +10,10 @@ import datetime
 
 from saltext.uci.sensitivity.classify import classify_export
 from saltext.uci.sensitivity.contracts import data_contract
-from saltext.uci.sensitivity.model import SensitivityProfile, Surface
-from saltext.uci.sensitivity.project import diff_projection, project
+from saltext.uci.sensitivity.model import SensitivityProfile
+from saltext.uci.sensitivity.model import Surface
+from saltext.uci.sensitivity.project import diff_projection
+from saltext.uci.sensitivity.project import project
 
 
 def transform_section(data):
@@ -101,7 +103,9 @@ def _detect_match_key(sections):
     # Find options present in ALL sections with scalar (non-list) values
     common = None
     for section in sections:
-        scalars = {k for k, v in section.items() if not k.startswith("_") and not isinstance(v, list)}
+        scalars = {
+            k for k, v in section.items() if not k.startswith("_") and not isinstance(v, list)
+        }
         common = scalars if common is None else common & scalars
     if not common:
         return None
@@ -185,7 +189,11 @@ def config_export(call, config, format="json"):  # pylint: disable=redefined-bui
         cleaned = _strip_metadata(section_data)
         if redact:
             cleaned = {
-                k: (_redact_value(config, section_name, k) if not k.startswith("_") and _is_sensitive(k) else v)
+                k: (
+                    _redact_value(config, section_name, k)
+                    if not k.startswith("_") and _is_sensitive(k)
+                    else v
+                )
                 for k, v in cleaned.items()
             }
         result[section_name] = cleaned
@@ -200,7 +208,11 @@ def config_export(call, config, format="json"):  # pylint: disable=redefined-bui
             cleaned = stripped[0]
             if redact:
                 cleaned = {
-                    k: (_redact_value(config, pillar_name, k) if not k.startswith("_") and _is_sensitive(k) else v)
+                    k: (
+                        _redact_value(config, pillar_name, k)
+                        if not k.startswith("_") and _is_sensitive(k)
+                        else v
+                    )
                     for k, v in cleaned.items()
                 }
             result[pillar_name] = cleaned
@@ -229,7 +241,9 @@ def config_export(call, config, format="json"):  # pylint: disable=redefined-bui
                         mv = None
                     item = {
                         k: (
-                            _redact_value(config, pillar_name, k, match_key=match_key, match_value=mv)
+                            _redact_value(
+                                config, pillar_name, k, match_key=match_key, match_value=mv
+                            )
                             if _is_sensitive(k)
                             else v
                         )
@@ -342,7 +356,9 @@ def config_diff(call, config, sections):
         # Check if this is a reorder (has _anonymous_new items of same _type)
         pruned_type = current.get(section_name, {}).get("_type")
         has_new_of_type = any(
-            v.get("_anonymous_new") and v.get("_type") == pruned_type for v in resolved.values() if isinstance(v, dict)
+            v.get("_anonymous_new") and v.get("_type") == pruned_type
+            for v in resolved.values()
+            if isinstance(v, dict)
         )
         if has_new_of_type:
             reordered[section_name] = dict(current.get(section_name, {}))
@@ -428,7 +444,9 @@ def resolve_sections(config, sections, current):
         if pillar_name.startswith("_") and isinstance(desired, dict) and "_type" in desired:
             if "_items" in desired:
                 # Multi-instance anonymous sections
-                _resolve_multi_instance(config, pillar_name, desired, current, resolved, prune_targets)
+                _resolve_multi_instance(
+                    config, pillar_name, desired, current, resolved, prune_targets
+                )
             else:
                 # Singleton anonymous section lookup
                 target_type = desired["_type"]
@@ -438,7 +456,9 @@ def resolve_sections(config, sections, current):
                     if data.get("_anonymous") and data.get("_type") == target_type
                 ]
                 if len(matches) == 0:
-                    raise ValueError(f"No anonymous section of type '{target_type}' found in {config}")
+                    raise ValueError(
+                        f"No anonymous section of type '{target_type}' found in {config}"
+                    )
                 if len(matches) > 1:
                     raise ValueError(
                         f"Multiple anonymous sections of type '{target_type}' "

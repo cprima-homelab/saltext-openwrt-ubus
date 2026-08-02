@@ -220,7 +220,8 @@ class TestConfigExport:
             if method == "get":
                 return {
                     "values": {
-                        n: {f".{k[1:]}" if k.startswith("_") else k: v for k, v in s.items()} for n, s in state.items()
+                        n: {f".{k[1:]}" if k.startswith("_") else k: v for k, v in s.items()}
+                        for n, s in state.items()
                     }
                 }
             return {}
@@ -270,13 +271,17 @@ class TestConfigExport:
         assert not result
 
     def test_no_viable_match_key_emits_comment(self):
-        result = ubus_ops.config_export(self._mock_call(NO_UNIQUE_KEY_STATE), "firewall", format="json")
+        result = ubus_ops.config_export(
+            self._mock_call(NO_UNIQUE_KEY_STATE), "firewall", format="json"
+        )
         assert "_rules" in result
         assert "_comment" in result["_rules"]
         assert "_match" not in result["_rules"]
 
     def test_composite_match_key(self):
-        result = ubus_ops.config_export(self._mock_call(FORWARDING_STATE), "firewall", format="json")
+        result = ubus_ops.config_export(
+            self._mock_call(FORWARDING_STATE), "firewall", format="json"
+        )
         assert "_forwardings" in result
         match = result["_forwardings"]["_match"]
         assert isinstance(match, list)
@@ -304,7 +309,8 @@ class TestConfigExportAll:
                 state = states[config]
                 return {
                     "values": {
-                        n: {f".{k[1:]}" if k.startswith("_") else k: v for k, v in s.items()} for n, s in state.items()
+                        n: {f".{k[1:]}" if k.startswith("_") else k: v for k, v in s.items()}
+                        for n, s in state.items()
                     }
                 }
             return {}

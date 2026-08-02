@@ -136,7 +136,9 @@ def managed(  # pylint: disable=too-many-return-statements
     # 6. Audit mode -- report drift, never write
     if mode == "audit":
         ret["changes"] = all_changes
-        ret["comment"] = f"{config}: audit mode -- {len(all_changes)} section(s) drifted, no changes applied"
+        ret["comment"] = (
+            f"{config}: audit mode -- {len(all_changes)} section(s) drifted, no changes applied"
+        )
         return ret
 
     # 7. Autoverified / humanreviewed mode -- stage only, do not apply
@@ -278,7 +280,9 @@ def _check_scope(ret, config, allow_experimental):
     pkg_tier = scope.tier(config)
     if pkg_tier is None:
         ret["result"] = False
-        ret["comment"] = f"{config}: not in saltext-uci-ubus scope. Supported packages: {', '.join(scope.supported())}"
+        ret["comment"] = (
+            f"{config}: not in saltext-uci-ubus scope. Supported packages: {', '.join(scope.supported())}"
+        )
         return
     if pkg_tier == "experimental":
         if allow_experimental is None:
@@ -354,8 +358,16 @@ def _stage_changes(ret, config, all_changes, resolved, current):
     """
     try:
         # Split into deletes and updates; process deletes first
-        deletes = {k: v for k, v in all_changes.items() if isinstance(v, dict) and v.get("_action") == "delete"}
-        updates = {k: v for k, v in all_changes.items() if not (isinstance(v, dict) and v.get("_action") == "delete")}
+        deletes = {
+            k: v
+            for k, v in all_changes.items()
+            if isinstance(v, dict) and v.get("_action") == "delete"
+        }
+        updates = {
+            k: v
+            for k, v in all_changes.items()
+            if not (isinstance(v, dict) and v.get("_action") == "delete")
+        }
 
         # 1. Deletions (prune, _absent whole-section, reorder tear-down)
         for section_name in deletes:
@@ -417,7 +429,9 @@ def _commit_or_apply(ret, config, all_changes, apply_rollback):
         # to /tmp/.uci/ (reviewable via 'uci changes'), JSON-RPC stages in
         # the rpcd session (kept alive by the proxy minion).
         if _is_json_rpc():
-            ret["comment"] = f"{config}: {len(all_changes)} section(s) staged in rpcd session (apply with uci.applied)"
+            ret["comment"] = (
+                f"{config}: {len(all_changes)} section(s) staged in rpcd session (apply with uci.applied)"
+            )
         else:
             ret["comment"] = (
                 f"{config}: {len(all_changes)} section(s) staged "
@@ -448,7 +462,9 @@ def _apply_and_confirm(ret, config, all_changes, apply_rollback):
         new_state = __salt__["uci.get"](config)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
-        ret["comment"] = f"Failed to verify {config} after apply: {exc}. Rollback will revert in {apply_rollback}s."
+        ret["comment"] = (
+            f"Failed to verify {config} after apply: {exc}. Rollback will revert in {apply_rollback}s."
+        )
         return
 
     for section_name, section_changes in all_changes.items():
@@ -502,7 +518,9 @@ def _apply_and_confirm(ret, config, all_changes, apply_rollback):
         __salt__["uci.confirm"]()
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
-        ret["comment"] = f"Failed to confirm {config}: {exc}. Rollback will revert in {apply_rollback}s."
+        ret["comment"] = (
+            f"Failed to confirm {config}: {exc}. Rollback will revert in {apply_rollback}s."
+        )
 
 
 def _snapshot_services():

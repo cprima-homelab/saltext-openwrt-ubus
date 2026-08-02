@@ -2,8 +2,7 @@ import tempfile
 from pathlib import Path
 
 from . import prompt
-from .cmd import CommandNotFound
-from .cmd import local
+from .cmd import CommandNotFound, local
 from .copier import discover_project_name
 
 # Should follow the version used for relenv packages, see
@@ -62,9 +61,7 @@ def create_venv(project_root=".", directory=None):
             python = local["python3"]
             version = python("--version").split(" ")[1]
             if not version.startswith(RECOMMENDED_PYVER):
-                raise RuntimeError(
-                    f"No `python{RECOMMENDED_PYVER}` executable found in $PATH, exiting"
-                )
+                raise RuntimeError(f"No `python{RECOMMENDED_PYVER}` executable found in $PATH, exiting")
         python("-m", "venv", VENV_DIRS[0], f"--prompt=saltext-{discover_project_name()}")
     return venv
 

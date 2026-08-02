@@ -4,7 +4,8 @@ Unit tests for the uci state module.
 All tests use mocked execution module calls. No network calls or device writes.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import pytest
 
@@ -133,13 +134,17 @@ class TestAlreadyDesired:
 
 class TestPendingDeltas:
     def test_fails_when_pending_and_no_revert(self, patch_dunders):
-        patch_dunders["uci.changes"] = MagicMock(return_value=[["set", "network.wan.proto", "dhcp"]])
+        patch_dunders["uci.changes"] = MagicMock(
+            return_value=[["set", "network.wan.proto", "dhcp"]]
+        )
         ret = state_mod.managed("test", "network", {"lan": {"proto": "static"}})
         assert ret["result"] is False
         assert "Uncommitted changes exist" in ret["comment"]
 
     def test_reverts_when_revert_pending_true(self, patch_dunders):
-        patch_dunders["uci.changes"] = MagicMock(return_value=[["set", "network.wan.proto", "dhcp"]])
+        patch_dunders["uci.changes"] = MagicMock(
+            return_value=[["set", "network.wan.proto", "dhcp"]]
+        )
         patch_dunders["uci.revert"] = MagicMock()
         patch_dunders["uci.get"] = MagicMock(return_value=NETWORK_STATE)
 
@@ -162,7 +167,9 @@ class TestTestMode:
         patch_dunders["uci.changes"] = MagicMock(return_value=[])
         patch_dunders["uci.get"] = MagicMock(return_value=NETWORK_STATE)
 
-        ret = state_mod.managed("test", "network", {"lan": {"_type": "interface", "ipaddr": "10.35.24.2"}})
+        ret = state_mod.managed(
+            "test", "network", {"lan": {"_type": "interface", "ipaddr": "10.35.24.2"}}
+        )
         assert ret["result"] is None
         assert "would be updated" in ret["comment"]
         assert "lan" in ret["changes"]
@@ -171,7 +178,9 @@ class TestTestMode:
 
     def test_no_revert_in_test_mode(self, patch_dunders, monkeypatch):
         monkeypatch.setattr(state_mod, "__opts__", {"test": True}, raising=False)
-        patch_dunders["uci.changes"] = MagicMock(return_value=[["set", "network.wan.proto", "dhcp"]])
+        patch_dunders["uci.changes"] = MagicMock(
+            return_value=[["set", "network.wan.proto", "dhcp"]]
+        )
         patch_dunders["uci.revert"] = MagicMock()
         patch_dunders["uci.get"] = MagicMock(return_value=NETWORK_STATE)
 
@@ -211,7 +220,9 @@ class TestPartialDiff:
         updated["lan"]["ipaddr"] = "10.35.24.2"
         patch_dunders["uci.get"] = MagicMock(side_effect=[AGENT_ONESHOT, NETWORK_STATE, updated])
         patch_dunders["uci.confirm"] = MagicMock()
-        patch_dunders["uci.service_list"] = MagicMock(side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART])
+        patch_dunders["uci.service_list"] = MagicMock(
+            side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
+        )
 
         ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
         assert ret["result"] is True
@@ -231,7 +242,9 @@ class TestPartialDiff:
         updated["wan"]["dns"] = ["8.8.8.8", "8.8.4.4"]
         patch_dunders["uci.get"] = MagicMock(side_effect=[AGENT_ONESHOT, NETWORK_STATE, updated])
         patch_dunders["uci.confirm"] = MagicMock()
-        patch_dunders["uci.service_list"] = MagicMock(side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART])
+        patch_dunders["uci.service_list"] = MagicMock(
+            side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
+        )
 
         ret = state_mod.managed("test", "network", {"wan": {"dns": ["8.8.8.8", "8.8.4.4"]}})
         assert ret["result"] is True
@@ -248,7 +261,9 @@ class TestSingletonResolution:
         patch_dunders["uci.get"] = MagicMock(return_value=SYSTEM_STATE)
 
         # _system with _type=system should resolve to cfg01e48a
-        ret = state_mod.managed("test", "system", {"_system": {"_type": "system", "hostname": "austru"}})
+        ret = state_mod.managed(
+            "test", "system", {"_system": {"_type": "system", "hostname": "austru"}}
+        )
         assert ret["result"] is True
         assert "already in desired state" in ret["comment"]
 
@@ -264,9 +279,13 @@ class TestSingletonResolution:
         updated["cfg01e48a"]["hostname"] = "newname"
         patch_dunders["uci.get"] = MagicMock(side_effect=[AGENT_ONESHOT, SYSTEM_STATE, updated])
         patch_dunders["uci.confirm"] = MagicMock()
-        patch_dunders["uci.service_list"] = MagicMock(side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART])
+        patch_dunders["uci.service_list"] = MagicMock(
+            side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
+        )
 
-        ret = state_mod.managed("test", "system", {"_system": {"_type": "system", "hostname": "newname"}})
+        ret = state_mod.managed(
+            "test", "system", {"_system": {"_type": "system", "hostname": "newname"}}
+        )
         assert ret["result"] is True
         # Resolved to the actual section name cfg01e48a
         assert "cfg01e48a" in ret["changes"]
@@ -277,7 +296,9 @@ class TestSingletonResolution:
         patch_dunders["uci.changes"] = MagicMock(return_value=[])
         patch_dunders["uci.get"] = MagicMock(return_value=SYSTEM_STATE)
 
-        ret = state_mod.managed("test", "system", {"_dnsmasq": {"_type": "dnsmasq", "option": "value"}})
+        ret = state_mod.managed(
+            "test", "system", {"_dnsmasq": {"_type": "dnsmasq", "option": "value"}}
+        )
         assert ret["result"] is False
         assert "No anonymous section of type 'dnsmasq'" in ret["comment"]
 
@@ -321,9 +342,13 @@ class TestSectionCreate:
         }
         patch_dunders["uci.get"] = MagicMock(side_effect=[AGENT_ONESHOT, NETWORK_STATE, updated])
         patch_dunders["uci.confirm"] = MagicMock()
-        patch_dunders["uci.service_list"] = MagicMock(side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART])
+        patch_dunders["uci.service_list"] = MagicMock(
+            side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
+        )
 
-        ret = state_mod.managed("test", "network", {"wan2": {"_type": "interface", "proto": "dhcp"}})
+        ret = state_mod.managed(
+            "test", "network", {"wan2": {"_type": "interface", "proto": "dhcp"}}
+        )
         assert ret["result"] is True
         patch_dunders["uci.add"].assert_called_once_with("network", "interface", name="wan2")
 
@@ -368,7 +393,9 @@ class TestApplyFlow:
         patch_dunders["uci.set"] = MagicMock()
         patch_dunders["uci.apply"] = MagicMock()
         patch_dunders["uci.confirm"] = MagicMock()
-        patch_dunders["uci.service_list"] = MagicMock(side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART])
+        patch_dunders["uci.service_list"] = MagicMock(
+            side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
+        )
 
         ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
         assert ret["result"] is True
@@ -405,7 +432,9 @@ class TestApplyFlow:
         patch_dunders["uci.set"] = MagicMock()
         patch_dunders["uci.apply"] = MagicMock()
         patch_dunders["uci.confirm"] = MagicMock()
-        patch_dunders["uci.service_list"] = MagicMock(side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART])
+        patch_dunders["uci.service_list"] = MagicMock(
+            side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
+        )
 
         state_mod.managed(
             "test",
@@ -428,7 +457,9 @@ class TestApplyFlow:
         patch_dunders["uci.set"] = MagicMock()
         patch_dunders["uci.apply"] = MagicMock()
         patch_dunders["uci.confirm"] = MagicMock()
-        patch_dunders["uci.service_list"] = MagicMock(side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART])
+        patch_dunders["uci.service_list"] = MagicMock(
+            side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
+        )
 
         ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
         assert ret["result"] is True
@@ -448,7 +479,9 @@ class TestApplyFlow:
         patch_dunders["uci.get"] = MagicMock(side_effect=[AGENT_ONESHOT, NETWORK_STATE, updated])
         patch_dunders["uci.set"] = MagicMock()
         patch_dunders["uci.apply"] = MagicMock()
-        patch_dunders["uci.service_list"] = MagicMock(side_effect=[SERVICES_RUNNING, SERVICES_PARTIAL_DOWN])
+        patch_dunders["uci.service_list"] = MagicMock(
+            side_effect=[SERVICES_RUNNING, SERVICES_PARTIAL_DOWN]
+        )
 
         ret = state_mod.managed("test", "network", {"lan": {"ipaddr": "10.35.24.2"}})
         assert ret["result"] is False
@@ -659,7 +692,9 @@ class TestApplied:
         patch_dunders["uci.get"] = MagicMock(return_value=AGENT_ONESHOT)
         patch_dunders["uci.apply"] = MagicMock()
         patch_dunders["uci.confirm"] = MagicMock()
-        patch_dunders["uci.service_list"] = MagicMock(side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART])
+        patch_dunders["uci.service_list"] = MagicMock(
+            side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
+        )
 
         ret = state_mod.applied("test", config="network")
         assert ret["result"] is True
@@ -693,7 +728,9 @@ class TestApplied:
         mock_time.sleep = MagicMock()
         patch_dunders["uci.get"] = MagicMock(return_value=AGENT_ONESHOT)
         patch_dunders["uci.apply"] = MagicMock()
-        patch_dunders["uci.service_list"] = MagicMock(side_effect=[SERVICES_RUNNING, SERVICES_PARTIAL_DOWN])
+        patch_dunders["uci.service_list"] = MagicMock(
+            side_effect=[SERVICES_RUNNING, SERVICES_PARTIAL_DOWN]
+        )
 
         ret = state_mod.applied("test", config="network")
         assert ret["result"] is False
@@ -744,7 +781,9 @@ class TestApplied:
         """ubus status 5 (No data) means nothing to apply -- no snapshot/poll."""
         patch_dunders["uci.get"] = MagicMock(return_value=AGENT_ONESHOT)
         patch_dunders["uci.service_list"] = MagicMock(return_value=SERVICES_RUNNING)
-        patch_dunders["uci.apply"] = MagicMock(side_effect=RuntimeError("ubus call failed: status 5 (No data)"))
+        patch_dunders["uci.apply"] = MagicMock(
+            side_effect=RuntimeError("ubus call failed: status 5 (No data)")
+        )
 
         ret = state_mod.applied("test")
         assert ret["result"] is True
@@ -757,7 +796,9 @@ class TestApplied:
         mock_time.sleep = MagicMock()
         patch_dunders["uci.get"] = MagicMock(return_value=AGENT_ONESHOT)
         patch_dunders["uci.apply"] = MagicMock()
-        patch_dunders["uci.service_list"] = MagicMock(side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART])
+        patch_dunders["uci.service_list"] = MagicMock(
+            side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
+        )
         patch_dunders["uci.confirm"] = MagicMock(side_effect=RuntimeError("confirm failed"))
 
         ret = state_mod.applied("test", config="network")
@@ -772,7 +813,9 @@ class TestApplied:
         patch_dunders["uci.get"] = MagicMock(return_value=AGENT_ONESHOT)
         patch_dunders["uci.apply"] = MagicMock()
         patch_dunders["uci.confirm"] = MagicMock()
-        patch_dunders["uci.service_list"] = MagicMock(side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART])
+        patch_dunders["uci.service_list"] = MagicMock(
+            side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
+        )
 
         ret = state_mod.applied("test", config="network", rollback=180)
         assert ret["result"] is True
@@ -788,7 +831,9 @@ class TestApplied:
         patch_dunders["uci.get"] = MagicMock(return_value=agent)
         patch_dunders["uci.apply"] = MagicMock()
         patch_dunders["uci.confirm"] = MagicMock()
-        patch_dunders["uci.service_list"] = MagicMock(side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART])
+        patch_dunders["uci.service_list"] = MagicMock(
+            side_effect=[SERVICES_RUNNING, SERVICES_AFTER_RESTART]
+        )
 
         ret = state_mod.applied("test", config="network")
         assert ret["result"] is True
@@ -1273,9 +1318,15 @@ class TestStageChanges:
     def test_deletes_before_adds(self, patch_dunders):
         """Deletions are processed before additions (for reorder)."""
         call_order = []
-        patch_dunders["uci.delete"] = MagicMock(side_effect=lambda *a, **kw: call_order.append(("delete", a)))
-        patch_dunders["uci.add"] = MagicMock(side_effect=lambda *a, **kw: (call_order.append(("add", a)), "cfg_new")[1])
-        patch_dunders["uci.set"] = MagicMock(side_effect=lambda *a, **kw: call_order.append(("set", a)))
+        patch_dunders["uci.delete"] = MagicMock(
+            side_effect=lambda *a, **kw: call_order.append(("delete", a))
+        )
+        patch_dunders["uci.add"] = MagicMock(
+            side_effect=lambda *a, **kw: (call_order.append(("add", a)), "cfg_new")[1]
+        )
+        patch_dunders["uci.set"] = MagicMock(
+            side_effect=lambda *a, **kw: call_order.append(("set", a))
+        )
 
         resolved = {
             "_new_rule_0": {
@@ -1325,7 +1376,9 @@ class TestPackageScope:
         """Experimental package without opt-in fails with guidance."""
         patch_dunders["pillar.get"] = MagicMock(return_value=False)
 
-        ret = state_mod.managed("test", "firewall", {"_defaults": {"_type": "defaults", "input": "ACCEPT"}})
+        ret = state_mod.managed(
+            "test", "firewall", {"_defaults": {"_type": "defaults", "input": "ACCEPT"}}
+        )
         assert ret["result"] is False
         assert "experimental support" in ret["comment"]
         assert "allow_experimental=True" in ret["comment"]

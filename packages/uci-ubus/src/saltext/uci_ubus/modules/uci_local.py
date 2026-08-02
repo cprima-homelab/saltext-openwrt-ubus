@@ -19,7 +19,6 @@ import subprocess
 
 import salt.utils.path
 from salt.exceptions import CommandExecutionError
-
 from saltext.uci._internal import ubus_ops
 
 log = logging.getLogger(__name__)

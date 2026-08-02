@@ -81,7 +81,9 @@ class TestGet:
         mock_call.return_value = {"value": "static"}
         result = uci_mod.get("network", "lan", "proto")
         assert result == "static"
-        mock_call.assert_called_once_with("uci", "get", {"config": "network", "section": "lan", "option": "proto"})
+        mock_call.assert_called_once_with(
+            "uci", "get", {"config": "network", "section": "lan", "option": "proto"}
+        )
 
     def test_anonymous_section_metadata(self, mock_call):
         mock_call.return_value = {
@@ -319,7 +321,9 @@ class TestState:
         mock_call.assert_called_once_with("uci", "state", {"config": "network"})
 
     def test_single_section(self, mock_call):
-        mock_call.return_value = {"values": {".type": "interface", ".name": "lan", "proto": "static"}}
+        mock_call.return_value = {
+            "values": {".type": "interface", ".name": "lan", "proto": "static"}
+        }
         result = uci_mod.state("network", "lan")
         assert result["_type"] == "interface"
         mock_call.assert_called_once_with("uci", "state", {"config": "network", "section": "lan"})

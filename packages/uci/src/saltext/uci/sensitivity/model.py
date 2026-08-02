@@ -87,7 +87,9 @@ class MatchCriteria:
         if self.package is not None and self.package != package:
             return False
         if self.section_type is not None:
-            types = self.section_type if isinstance(self.section_type, list) else [self.section_type]
+            types = (
+                self.section_type if isinstance(self.section_type, list) else [self.section_type]
+            )
             if section_type not in types:
                 return False
         if self.option is not None:
@@ -129,7 +131,9 @@ class SensitivityProfile:
     def policy(self, classification: Classification, surface: Surface) -> Policy:
         return self.policies[classification][surface]
 
-    def evaluate(self, package: str, section_type: str, option: str, surface: Surface) -> PolicyDecision:
+    def evaluate(
+        self, package: str, section_type: str, option: str, surface: Surface
+    ) -> PolicyDecision:
         cl = self.classify(package, section_type, option)
         return PolicyDecision(cl, self.policy(cl, surface))
 

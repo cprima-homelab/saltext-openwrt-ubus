@@ -8,12 +8,9 @@ import platform
 import shlex
 import shutil
 import subprocess
-import sys
 from contextlib import contextmanager
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Union
 
 
 class CommandNotFound(RuntimeError):

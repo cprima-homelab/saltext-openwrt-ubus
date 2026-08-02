@@ -23,15 +23,15 @@ repos:
     hooks:
       - id: check-cli-examples
         name: Check CLI examples on execution modules
-        entry: python .pre-commit-hooks/check-cli-examples.py
+        entry: python packages/uci-ssh/.pre-commit-hooks/check-cli-examples.py
         language: python
-        files: ^src/saltext/uci_ssh/modules/.*\.py$
+        files: ^packages/uci-ssh/src/saltext/uci_ssh/modules/.*\.py$
 
   - repo: local
     hooks:
       - id: check-docs
         name: Check rST doc files exist for modules/states
-        entry: python .pre-commit-hooks/make-autodocs.py
+        entry: python packages/uci-ssh/.pre-commit-hooks/make-autodocs.py
         language: python
         pass_filenames: false
 
@@ -42,7 +42,7 @@ repos:
       - id: salt-rewrite
         alias: rewrite-docstrings
         name: Salt extensions docstrings auto-fixes
-        files: ^src/saltext/uci_ssh/.*\.py$
+        files: ^packages/uci-ssh/src/saltext/uci_ssh/.*\.py$
         args: [--silent]
 
   - repo: https://github.com/saltstack/salt-rewrite
@@ -52,7 +52,7 @@ repos:
       - id: salt-rewrite
         alias: rewrite-tests
         name: Rewrite the test suite
-        files: ^tests/.*\.py$
+        files: ^packages/uci-ssh/tests/.*\.py$
         args: [--silent, -E, fix_docstrings]
 
   - repo: https://github.com/asottile/pyupgrade
@@ -63,30 +63,33 @@ repos:
         args: [
           --py310-plus,
         ]
-        exclude: src/saltext/uci_ssh/version.py
+        exclude: packages/uci-ssh/src/saltext/uci_ssh/version.py
 
   - repo: https://github.com/PyCQA/isort
     rev: a333737ed43df02b18e6c95477ea1b285b3de15a  # 8.0.1
     hooks:
       - id: isort
         args: [
-          --py 310,
+          --py, '310',
+          --resolve-all-configs,
         ]
-        exclude: src/saltext/uci_ssh/(__init__|version).py
+        files: ^packages/uci-ssh/
+        exclude: packages/uci-ssh/src/saltext/uci_ssh/(__init__|version).py
 
   - repo: https://github.com/psf/black
     rev: 87928e6d6761a4a6d22250e1fee5601b3998086e  # 26.5.1
     hooks:
       - id: black
         args: [-l 100]
-        exclude: src/saltext/uci_ssh/version.py
+        files: ^packages/uci-ssh/
+        exclude: packages/uci-ssh/src/saltext/uci_ssh/version.py
 
   - repo: https://github.com/adamchainz/blacken-docs
     rev: fda77690955e9b63c6687d8806bafd56a526e45f  # 1.20.0
     hooks:
       - id: blacken-docs
         args: [--skip-errors]
-        files: ^(docs/.*\.rst|src/saltext/uci_ssh/.*\.py)$
+        files: ^(packages/uci-ssh/docs/.*\.rst|packages/uci-ssh/src/saltext/uci_ssh/.*\.py)$
         additional_dependencies:
           - black==26.5.1
   # <---- Formatting -----------------------------------------------------------------------------
@@ -99,7 +102,8 @@ repos:
         alias: bandit-salt
         name: Run bandit against the code base
         args: [--silent, -lll, --skip, B701]
-        exclude: src/saltext/uci_ssh/version.py
+        files: ^packages/uci-ssh/
+        exclude: packages/uci-ssh/src/saltext/uci_ssh/version.py
 
   - repo: https://github.com/PyCQA/bandit
     rev: 92ae8b82fb422a639f0ed8d99e96cea769594e08  # 1.9.4
@@ -108,7 +112,7 @@ repos:
         alias: bandit-tests
         name: Run bandit against the test suite
         args: [--silent, -lll, --skip, B701]
-        files: ^tests/.*
+        files: ^packages/uci-ssh/tests/.*
   # <---- Security -------------------------------------------------------------------------------
 
   # ----- Code Analysis ------------------------------------------------------------------------->
@@ -119,8 +123,8 @@ repos:
         alias: lint-src
         name: Lint Source Code
         language: python
-        entry: nox -e lint-code-pre-commit --
-        files: ^((setup|noxfile)|src/.*)\.py$
+        entry: python packages/uci-ssh/.pre-commit-hooks/run-nox-lint.py lint-code-pre-commit
+        files: ^packages/uci-ssh/((setup|noxfile)|src/.*)\.py$
         require_serial: true
         additional_dependencies:
           - nox==2026.4.10
@@ -130,8 +134,8 @@ repos:
         alias: lint-tests
         name: Lint Tests
         language: python
-        entry: nox -e lint-tests-pre-commit --
-        files: ^tests/.*\.py$
+        entry: python packages/uci-ssh/.pre-commit-hooks/run-nox-lint.py lint-tests-pre-commit
+        files: ^packages/uci-ssh/tests/.*\.py$
         require_serial: true
         additional_dependencies:
           - nox==2026.4.10

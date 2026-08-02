@@ -29,9 +29,7 @@ def salt_call_cli(minion):  # pragma: no cover
 
 
 @pytest.fixture(scope="module")
-def salt_ssh_cli(
-    master, salt_ssh_roster_file, sshd_config_dir, known_hosts_file
-):  # pylint: disable=unused-argument; pragma: no cover
+def salt_ssh_cli(master, salt_ssh_roster_file, sshd_config_dir, known_hosts_file):  # pylint: disable=unused-argument; pragma: no cover
     return master.salt_ssh_cli(
         timeout=180,
         roster_file=salt_ssh_roster_file,

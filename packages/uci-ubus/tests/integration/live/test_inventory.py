@@ -19,8 +19,8 @@ are supported, see tests/integration/live/conftest.py:
 import datetime
 
 import pytest
-
 from saltext.uci.sensitivity import SensitivityProfile, assert_grains_safe, classify_export, grains_projection
+
 from tests.integration.live.conftest import read_device_config
 
 # Packages that carry migration-relevant configuration on any OpenWrt router.

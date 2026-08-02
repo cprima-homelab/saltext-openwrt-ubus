@@ -8,7 +8,9 @@ Projections (project.py) decide what to expose per surface.
 from __future__ import annotations
 
 from saltext.uci.sensitivity.contracts import data_contract
-from saltext.uci.sensitivity.model import Classification, SensitivityProfile, max_taint
+from saltext.uci.sensitivity.model import Classification
+from saltext.uci.sensitivity.model import SensitivityProfile
+from saltext.uci.sensitivity.model import max_taint
 
 
 @data_contract(
@@ -53,7 +55,9 @@ def classify_export(
             result[sec_name] = _classify_multi(sec_data, package=package, profile=profile)
         else:
             section_type = sec_data.get("_type", "")
-            classified, _ = _classify_section(sec_data, package=package, section_type=section_type, profile=profile)
+            classified, _ = _classify_section(
+                sec_data, package=package, section_type=section_type, profile=profile
+            )
             result[sec_name] = classified
     return result
 
@@ -64,7 +68,9 @@ def _classify_multi(container: dict, *, package: str, profile: SensitivityProfil
     item_taints: list[Classification] = []
 
     for item in container.get("_items", []):
-        classified_item, taint = _classify_section(item, package=package, section_type=section_type, profile=profile)
+        classified_item, taint = _classify_section(
+            item, package=package, section_type=section_type, profile=profile
+        )
         classified_items.append(classified_item)
         item_taints.append(taint)
 
@@ -90,7 +96,9 @@ def _classify_section(
             cl = profile.classify(package, section_type, key)
             fields[key] = cl.value
 
-    taint = max_taint(Classification(v) for v in fields.values()) if fields else Classification.PUBLIC
+    taint = (
+        max_taint(Classification(v) for v in fields.values()) if fields else Classification.PUBLIC
+    )
 
     classified = {**section, "_sensitivity": {"taint": taint.value, "fields": fields}}
     return classified, taint

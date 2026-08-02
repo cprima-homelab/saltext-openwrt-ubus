@@ -18,7 +18,7 @@ repos:
     hooks:
       - id: no-co-authored-by
         name: Reject Co-Authored-By in previous commit
-        entry: bash .pre-commit-hooks/check-no-coauthored.sh
+        entry: bash packages/uci-ubus/.pre-commit-hooks/check-no-coauthored.sh
         language: system
         always_run: true
         pass_filenames: false
@@ -35,15 +35,15 @@ repos:
     hooks:
       - id: check-cli-examples
         name: Check CLI examples on execution modules
-        entry: python .pre-commit-hooks/check-cli-examples.py
+        entry: python packages/uci-ubus/.pre-commit-hooks/check-cli-examples.py
         language: python
-        files: ^src/saltext/uci_ubus/modules/.*\.py$
+        files: ^packages/uci-ubus/src/saltext/uci_ubus/modules/.*\.py$
 
   - repo: local
     hooks:
       - id: check-docs
         name: Check rST doc files exist for modules/states
-        entry: python .pre-commit-hooks/make-autodocs.py
+        entry: python packages/uci-ubus/.pre-commit-hooks/make-autodocs.py
         language: python
         pass_filenames: false
 
@@ -54,7 +54,7 @@ repos:
       - id: salt-rewrite
         alias: rewrite-docstrings
         name: Salt extensions docstrings auto-fixes
-        files: ^src/saltext/uci_ubus/.*\.py$
+        files: ^packages/uci-ubus/src/saltext/uci_ubus/.*\.py$
         args: [--silent]
 
   - repo: https://github.com/saltstack/salt-rewrite
@@ -64,7 +64,7 @@ repos:
       - id: salt-rewrite
         alias: rewrite-tests
         name: Rewrite the test suite
-        files: ^tests/.*\.py$
+        files: ^packages/uci-ubus/tests/.*\.py$
         args: [--silent, -E, fix_docstrings]
 
   - repo: https://github.com/asottile/pyupgrade
@@ -75,14 +75,16 @@ repos:
         args: [
           --py310-plus,
         ]
-        exclude: src/saltext/uci_ubus/version.py
+        exclude: packages/uci-ubus/src/saltext/uci_ubus/version.py
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.16.0
     hooks:
       - id: ruff-check
         args: [--fix]
+        files: ^packages/uci-ubus/
       - id: ruff-format
+        files: ^packages/uci-ubus/
   # <---- Formatting -----------------------------------------------------------------------------
 
   # ----- Security ------------------------------------------------------------------------------>
@@ -93,7 +95,8 @@ repos:
         alias: bandit-salt
         name: Run bandit against the code base
         args: [--silent, -lll, --skip, B701]
-        exclude: src/saltext/uci_ubus/version.py
+        files: ^packages/uci-ubus/
+        exclude: packages/uci-ubus/src/saltext/uci_ubus/version.py
 
   - repo: https://github.com/PyCQA/bandit
     rev: 765f00d3f202f83f61d03f882f80a2d5142d81f8  # 1.9.3
@@ -102,7 +105,7 @@ repos:
         alias: bandit-tests
         name: Run bandit against the test suite
         args: [--silent, -lll, --skip, B701]
-        files: ^tests/.*
+        files: ^packages/uci-ubus/tests/.*
   # <---- Security -------------------------------------------------------------------------------
 
   # ----- Code Analysis ------------------------------------------------------------------------->
@@ -113,8 +116,8 @@ repos:
         alias: lint-src
         name: Lint Source Code
         language: python
-        entry: nox -e lint-code-pre-commit --
-        files: ^((setup|noxfile)|src/.*)\.py$
+        entry: python packages/uci-ubus/.pre-commit-hooks/run-nox-lint.py lint-code-pre-commit
+        files: ^packages/uci-ubus/((setup|noxfile)|src/.*)\.py$
         require_serial: true
         additional_dependencies:
           - nox==2026.2.9
@@ -124,8 +127,8 @@ repos:
         alias: lint-tests
         name: Lint Tests
         language: python
-        entry: nox -e lint-tests-pre-commit --
-        files: ^tests/.*\.py$
+        entry: python packages/uci-ubus/.pre-commit-hooks/run-nox-lint.py lint-tests-pre-commit
+        files: ^packages/uci-ubus/tests/.*\.py$
         require_serial: true
         additional_dependencies:
           - nox==2026.2.9

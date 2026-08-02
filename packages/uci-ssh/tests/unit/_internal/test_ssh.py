@@ -5,11 +5,13 @@ All tests mock subprocess.run. No SSH connections are made.
 """
 
 import subprocess
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
+from unittest.mock import patch
 
 import pytest
 
-from saltext.uci_ssh._internal.ssh import SshCommandError, SshRunner
+from saltext.uci_ssh._internal.ssh import SshCommandError
+from saltext.uci_ssh._internal.ssh import SshRunner
 
 
 @pytest.fixture

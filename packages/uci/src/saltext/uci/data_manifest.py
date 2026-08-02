@@ -66,7 +66,9 @@ import sys
 
 import yaml
 
-from saltext.uci.sensitivity.model import Classification, SensitivityProfile, Surface
+from saltext.uci.sensitivity.model import Classification
+from saltext.uci.sensitivity.model import SensitivityProfile
+from saltext.uci.sensitivity.model import Surface
 
 _ANNOTATED_MODULES = [
     "saltext.uci.sensitivity.classify",
@@ -189,14 +191,18 @@ def collect_profile_fields(profile=None) -> dict:
     policies = {}
     for cl in Classification:
         surface_policies = profile.policies.get(cl, {})
-        policies[cl.value] = {surf.value: surface_policies[surf].value for surf in Surface if surf in surface_policies}
+        policies[cl.value] = {
+            surf.value: surface_policies[surf].value for surf in Surface if surf in surface_policies
+        }
 
     classified_fields = []
     for rule in profile.rules:
         m = rule.match
         options = m.option if isinstance(m.option, list) else ([m.option] if m.option else [])
         section_types = (
-            m.section_type if isinstance(m.section_type, list) else ([m.section_type] if m.section_type else [])
+            m.section_type
+            if isinstance(m.section_type, list)
+            else ([m.section_type] if m.section_type else [])
         )
         entry: dict = {"classification": rule.classification.value, "options": options}
         if m.package:
