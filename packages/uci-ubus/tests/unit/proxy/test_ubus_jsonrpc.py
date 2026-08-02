@@ -96,7 +96,9 @@ class TestInit:
             username="salt-agent",
             password="secret",
             port=443,
+            scheme=None,
             verify_ssl=False,
+            server_name=None,
             timeout=30,
             session_timeout=300,
         )
@@ -124,8 +126,10 @@ class TestInit:
             host="10.35.24.1",
             username="salt-agent",
             password="secret",
-            port=443,
+            port=None,
+            scheme=None,
             verify_ssl=False,
+            server_name=None,
             timeout=30,
             session_timeout=300,
         )
@@ -174,8 +178,10 @@ class TestInit:
             host="10.0.0.1",
             username="salt-agent",
             password="p",
-            port=443,
+            port=None,
+            scheme=None,
             verify_ssl=False,
+            server_name=None,
             timeout=30,
             session_timeout=600,
         )
