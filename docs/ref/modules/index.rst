@@ -9,7 +9,6 @@ _________________
 .. autosummary::
     :toctree:
 
-    openwrt
     ubus_jsonrpc
     uci_local
     uci_ssh
