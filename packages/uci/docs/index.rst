@@ -9,6 +9,7 @@ Core UCI data model, diffing, and state logic for OpenWrt device management -- t
   :hidden:
 
   topics/installation
+  topics/sensitivity
 
 .. toctree::
   :maxdepth: 2

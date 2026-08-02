@@ -24,7 +24,7 @@ handles_secrets : bool | None
 
 emits_secrets : bool | None
     True  — function output may contain secret values (intermediate only;
-            output data type must itself be secret_capable=True).
+    output data type must itself be secret_capable=True).
     False — function guarantees its output contains no secret values.
     None  — unknown; the manifest check will emit a WARN for this function.
 
