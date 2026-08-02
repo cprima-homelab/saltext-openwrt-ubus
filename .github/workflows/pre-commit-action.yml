@@ -53,6 +53,15 @@ jobs:
           # subdirectory ("FatalError: git failed") since it wasn't
           # designed to run from anywhere but a repo root.
 
+      - name: Debug git state
+        run: |
+          echo "HOME=$HOME"
+          cat "$HOME/.gitconfig" || echo "no .gitconfig"
+          pwd
+          git --version
+          git rev-parse --show-toplevel
+          git status
+
       # Each package has its own .pre-commit-config.yaml; run all files for
       # its own tree rather than trying to split a repo-wide changed-files
       # list by package. Simpler and correct, at the cost of always doing a
