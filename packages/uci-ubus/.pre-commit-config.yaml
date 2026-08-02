@@ -16,13 +16,12 @@ repos:
   # ----- Policy --------------------------------------------------------------------------------->
   - repo: local
     hooks:
-      - id: no-co-authored-by
-        name: Reject Co-Authored-By in previous commit
-        entry: bash packages/uci-ubus/.pre-commit-hooks/check-no-coauthored.sh
+      - id: strip-coauthored-by
+        name: Strip Co-Authored-By trailers from commit messages
+        description: Org policy is no AI authorship attribution in commits.
+        entry: bash packages/uci-ubus/.pre-commit-hooks/strip-coauthored-by.sh
         language: system
-        always_run: true
-        pass_filenames: false
-        stages: [pre-commit]
+        stages: [commit-msg]
   # <---- Policy ----------------------------------------------------------------------------------
 
   # ----- Formatting ---------------------------------------------------------------------------->

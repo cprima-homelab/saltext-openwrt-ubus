@@ -13,6 +13,17 @@ repos:
       - id: end-of-file-fixer      # Ensure files end with a newline.
       - id: check-ast              # Check whether files parse as valid Python.
 
+  # ----- Policy --------------------------------------------------------------------------------->
+  - repo: local
+    hooks:
+      - id: strip-coauthored-by
+        name: Strip Co-Authored-By trailers from commit messages
+        description: Org policy is no AI authorship attribution in commits.
+        entry: bash packages/uci-ssh/.pre-commit-hooks/strip-coauthored-by.sh
+        language: system
+        stages: [commit-msg]
+  # <---- Policy ----------------------------------------------------------------------------------
+
   # ----- Formatting ---------------------------------------------------------------------------->
   - repo: https://github.com/saltstack/pre-commit-remove-import-headers
     rev: e79f595c0df31b8cb152c53993ce7c3c64f07cd4  # 1.1.0
