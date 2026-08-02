@@ -26,13 +26,18 @@ jobs:
         working-directory: packages/${{ matrix.package }}
 
     steps:
+      # Checkout first -- packages/<name> doesn't exist inside the
+      # container until the repo is cloned, and the job-level
+      # working-directory default applies to every step including this
+      # one's predecessors, so anything that needs to chdir into it must
+      # come after.
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+
       - name: Install System Deps
         run: |
           apt-get update
           apt-get install -y enchant-2 git gcc make zlib1g-dev libc-dev libffi-dev g++ libxml2 libxml2-dev libxslt-dev libcurl4-openssl-dev libssl-dev libgnutls28-dev
-          git config --global --add safe.directory "$(pwd)"
-
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Install Pre-Commit
         run: |
