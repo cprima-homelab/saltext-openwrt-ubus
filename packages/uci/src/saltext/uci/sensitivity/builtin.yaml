@@ -98,6 +98,22 @@ rules:
          last_member_interval]
     classification: internal
 
+  # network: static routes (route/route6)
+  - match:
+      section_type: [route, route6]
+      option: [interface, target, netmask, gateway, metric, mtu, table, source, onlink]
+    classification: internal
+
+  # network: switch (VLAN-capable switch config) and switch_vlan
+  - match:
+      section_type: switch
+      option: [enable, enable_vlan, reset]
+    classification: internal
+  - match:
+      section_type: switch_vlan
+      option: [device, vlan, ports]
+    classification: internal
+
   # wireless: wifi-device
   - match:
       section_type: wifi-device
