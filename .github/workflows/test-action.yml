@@ -12,11 +12,16 @@ jobs:
 
     strategy:
       fail-fast: false
-      max-parallel: 2
+      max-parallel: 3
       matrix:
+        package: [uci, uci-ubus, uci-ssh]
         include:
           - {salt-version: "3006.21", python-version: "3.10"}
           - {salt-version: "3007.13", python-version: "3.10"}
+
+    defaults:
+      run:
+        working-directory: packages/${{ matrix.package }}
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
@@ -53,27 +58,27 @@ jobs:
         if: always()
         id: codecov-flags
         run: |
-          echo "flags=$(python -c "import sys; print('{},{},salt_{}'.format('${{ runner.os }}'.replace('-latest', ''), 'py{}{}'.format(*sys.version_info), '_'.join(str(v) for v in '${{ matrix.salt-version }}'.replace('==', '_').split('.'))))")" >> "$GITHUB_OUTPUT"
+          echo "flags=$(python -c "import sys; print('{},{},{},salt_{}'.format('${{ runner.os }}'.replace('-latest', ''), '${{ matrix.package }}', 'py{}{}'.format(*sys.version_info), '_'.join(str(v) for v in '${{ matrix.salt-version }}'.replace('==', '_').split('.'))))")" >> "$GITHUB_OUTPUT"
 
       - name: Upload Project Code Coverage
         uses: codecov/codecov-action@0561704f0f02c16a585d4c7555e57fa2e44cf909  # v5.5.2
         with:
-          files: artifacts/coverage-project.xml
+          files: packages/${{ matrix.package }}/artifacts/coverage-project.xml
           disable_search: true
           fail_ci_if_error: false
           flags: ${{ steps.codecov-flags.outputs.flags }},project
-          name: ${{ runner.os }}-Py${{ matrix.python-version }}-Salt${{ matrix.salt-version }}-project
+          name: ${{ matrix.package }}-${{ runner.os }}-Py${{ matrix.python-version }}-Salt${{ matrix.salt-version }}-project
           use_oidc: true
           version: v10.4.0
 
       - name: Upload Tests Code Coverage
         uses: codecov/codecov-action@0561704f0f02c16a585d4c7555e57fa2e44cf909  # v5.5.2
         with:
-          files: artifacts/coverage-tests.xml
+          files: packages/${{ matrix.package }}/artifacts/coverage-tests.xml
           disable_search: true
           fail_ci_if_error: false
           flags: ${{ steps.codecov-flags.outputs.flags }},tests
-          name: ${{ runner.os }}-Py${{ matrix.python-version }}-Salt${{ matrix.salt-version }}-tests
+          name: ${{ matrix.package }}-${{ runner.os }}-Py${{ matrix.python-version }}-Salt${{ matrix.salt-version }}-tests
           use_oidc: true
           version: v10.4.0
 
@@ -81,19 +86,19 @@ jobs:
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
         with:
-          name: runtests-${{ runner.os }}-py${{ matrix.python-version }}-Salt${{ matrix.salt-version }}.log
-          path: artifacts/runtests-*.log
+          name: runtests-${{ matrix.package }}-${{ runner.os }}-py${{ matrix.python-version }}-Salt${{ matrix.salt-version }}.log
+          path: packages/${{ matrix.package }}/artifacts/runtests-*.log
 
       - name: Set Exit Status
         if: always()
         run: |
           mkdir exitstatus
-          echo "${{ job.status }}" > exitstatus/${{ github.job }}-Py${{ matrix.python-version }}-Salt${{ matrix.salt-version }}
+          echo "${{ job.status }}" > exitstatus/${{ github.job }}-${{ matrix.package }}-Py${{ matrix.python-version }}-Salt${{ matrix.salt-version }}
 
       - name: Upload Exit Status
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
         with:
-          name: exitstatus-${{ github.job }}-Py${{ matrix.python-version }}-Salt${{ matrix.salt-version }}
-          path: exitstatus
+          name: exitstatus-${{ github.job }}-${{ matrix.package }}-Py${{ matrix.python-version }}-Salt${{ matrix.salt-version }}
+          path: packages/${{ matrix.package }}/exitstatus
           if-no-files-found: error

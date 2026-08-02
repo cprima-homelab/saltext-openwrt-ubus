@@ -16,6 +16,15 @@ jobs:
     container:
       image: 'docker.io/library/python:3.10.19-slim-bookworm@sha256:eae406f018dd9c05687bdd6c13fe47443945c78e7c3320d57a5b3dfecc5d08b2'
 
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [uci, uci-ubus, uci-ssh]
+
+    defaults:
+      run:
+        working-directory: packages/${{ matrix.package }}
+
     steps:
       - name: Install System Deps
         run: |
@@ -31,26 +40,24 @@ jobs:
           pip install pre-commit
           pre-commit install --install-hooks
 
-      - name: Check ALL Files On Branch
-        if: github.event_name != 'pull_request' || fromJSON(inputs.changed-files)['pre-commit'] == 'true'
+      # Each package has its own .pre-commit-config.yaml; run all files for
+      # its own tree rather than trying to split a repo-wide changed-files
+      # list by package. Simpler and correct, at the cost of always doing a
+      # full run instead of an incremental one on PRs.
+      - name: Check ALL Files
         run: |
           pre-commit run --show-diff-on-failure --color=always --all-files
-
-      - name: Check Changed Files On PR
-        if: github.event_name == 'pull_request' && fromJSON(inputs.changed-files)['repo'] == 'true'
-        run: |
-          pre-commit run --show-diff-on-failure --color=always --files ${{ fromJSON(inputs.changed-files)['repo_files'] }}
 
       - name: Set Exit Status
         if: always()
         run: |
           mkdir exitstatus
-          echo "${{ job.status }}" > exitstatus/${{ github.job }}
+          echo "${{ job.status }}" > exitstatus/${{ github.job }}-${{ matrix.package }}
 
       - name: Upload Exit Status
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
         with:
-          name: exitstatus-${{ github.job }}
-          path: exitstatus
+          name: exitstatus-${{ github.job }}-${{ matrix.package }}
+          path: packages/${{ matrix.package }}/exitstatus
           if-no-files-found: error

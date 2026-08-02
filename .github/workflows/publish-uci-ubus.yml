@@ -3,7 +3,11 @@ name: Publish to PyPI
 on:
   push:
     tags:
-      - "v*"
+      - "uci-ubus-v*"
+
+defaults:
+  run:
+    working-directory: packages/uci-ubus
 
 jobs:
   build:
@@ -30,7 +34,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: dist
-          path: dist/
+          path: packages/uci-ubus/dist/
 
   publish:
     needs: build

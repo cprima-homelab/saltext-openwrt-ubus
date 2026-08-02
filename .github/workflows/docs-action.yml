@@ -9,6 +9,15 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
 
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [uci, uci-ubus, uci-ssh]
+
+    defaults:
+      run:
+        working-directory: packages/${{ matrix.package }}
+
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
@@ -40,19 +49,19 @@ jobs:
       - name: Upload built docs as artifact
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
         with:
-          name: html-docs
-          path: docs/_build/html
+          name: html-docs-${{ matrix.package }}
+          path: packages/${{ matrix.package }}/docs/_build/html
 
       - name: Set Exit Status
         if: always()
         run: |
           mkdir exitstatus
-          echo "${{ job.status }}" > exitstatus/${{ github.job }}
+          echo "${{ job.status }}" > exitstatus/${{ github.job }}-${{ matrix.package }}
 
       - name: Upload Exit Status
         if: always()
         uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f  # v6.0.0
         with:
-          name: exitstatus-${{ github.job }}
-          path: exitstatus
+          name: exitstatus-${{ github.job }}-${{ matrix.package }}
+          path: packages/${{ matrix.package }}/exitstatus
           if-no-files-found: error

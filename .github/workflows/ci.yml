@@ -86,6 +86,13 @@ jobs:
   deploy-docs:
     name: Deploy Docs
     uses: ./.github/workflows/deploy-docs-action.yml
+    # TODO: deploy-docs-action.yml deploys a single named artifact to one
+    # GitHub Pages site -- it can't yet represent all 3 packages' docs.
+    # Pointed at uci-ubus (the most complete docs today) as a stopgap;
+    # proper multi-package doc site layout (subdirectories per package,
+    # or a combined index) is unsolved and tracked separately.
+    with:
+      artifact-name: html-docs-uci-ubus
     # Only build doc deployments from the default branch of the repo and never for PRs,
     # unless the triggering event was the release PR being merged.
     if: >-

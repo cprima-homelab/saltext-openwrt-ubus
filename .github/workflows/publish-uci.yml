@@ -1,0 +1,48 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "uci-v*"
+
+defaults:
+  run:
+    working-directory: packages/uci
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - run: python -m pip install build --user
+      - name: Build wheel and sdist
+        run: |
+          # See packages/uci-ubus/.github workflow comment (identical
+          # rationale, same monorepo): use python -m build with a looser
+          # setuptools constraint instead of uv build.
+          echo "setuptools<77" > "$RUNNER_TEMP/build-constraints.txt"
+          PIP_CONSTRAINT="$RUNNER_TEMP/build-constraints.txt" python -m build --outdir dist/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: packages/uci/dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # required for OIDC trusted publishing — no PyPI token secret needed
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
