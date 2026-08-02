@@ -25,27 +25,30 @@ jobs:
       run:
         working-directory: packages/${{ matrix.package }}
 
-    # Container jobs bind-mount the workspace; intermediate directories in
-    # packages/<name>'s path can report different device IDs, which makes
-    # git's upward search for .git think it hit a filesystem boundary and
-    # stop ("Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM
-    # not set)") even though .git is right there one level up. This is the
-    # documented fix, not a workaround for a real filesystem boundary.
-    env:
-      GIT_DISCOVERY_ACROSS_FILESYSTEM: "1"
-
     steps:
-      # Checkout first -- packages/<name> doesn't exist inside the
-      # container until the repo is cloned, and the job-level
-      # working-directory default applies to every step including this
-      # one's predecessors, so anything that needs to chdir into it must
-      # come after.
+      # This base image has no git. actions/checkout falls back to a
+      # tarball download via the REST API when git isn't on PATH -- which
+      # never creates a .git directory at all, so anything git-aware
+      # (pre-commit included) fails later with "not a git repository",
+      # not because of a permissions/discovery issue but because there
+      # genuinely is no .git to find. Install git before checkout, not
+      # after. working-directory: . overrides the job default, since
+      # packages/<name> doesn't exist yet at this point.
+      - name: Install git
+        working-directory: .
+        run: |
+          apt-get update
+          apt-get install -y git
+
+      # packages/<name> doesn't exist inside the container until the repo
+      # is cloned, and the job-level working-directory default applies to
+      # every step -- so checkout must come before anything that chdirs
+      # into it.
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
       - name: Install System Deps
         run: |
-          apt-get update
-          apt-get install -y enchant-2 git gcc make zlib1g-dev libc-dev libffi-dev g++ libxml2 libxml2-dev libxslt-dev libcurl4-openssl-dev libssl-dev libgnutls28-dev
+          apt-get install -y enchant-2 gcc make zlib1g-dev libc-dev libffi-dev g++ libxml2 libxml2-dev libxslt-dev libcurl4-openssl-dev libssl-dev libgnutls28-dev
           git config --global --add safe.directory '*'
 
       - name: Install Pre-Commit
@@ -57,13 +60,6 @@ jobs:
           # git hook script into .git/hooks/ and fails from a monorepo
           # subdirectory since it wasn't designed to run from anywhere but
           # a repo root.
-
-      - name: Debug git state
-        run: |
-          echo "GIT_DISCOVERY_ACROSS_FILESYSTEM=$GIT_DISCOVERY_ACROSS_FILESYSTEM"
-          git rev-parse --show-toplevel
-          echo "raw git worked, now trying python subprocess like pre-commit does"
-          python -c "import subprocess, os; print(subprocess.run(['git','rev-parse','--show-toplevel'], capture_output=True, text=True, env=os.environ))"
 
       # Each package has its own .pre-commit-config.yaml; run all files for
       # its own tree rather than trying to split a repo-wide changed-files
