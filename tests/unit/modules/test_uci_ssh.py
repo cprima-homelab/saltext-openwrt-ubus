@@ -1,5 +1,5 @@
 """
-Unit tests for the uci_ubus SSH execution module.
+Unit tests for the uci SSH execution module.
 
 All tests use mocked proxy calls. No network calls or device writes.
 """
@@ -24,7 +24,7 @@ def patch_dunders(monkeypatch):
 def mock_call(patch_dunders):
     """Provide a mock for the proxy's call function."""
     call_fn = MagicMock()
-    patch_dunders["uci_ubus_ssh.call"] = call_fn
+    patch_dunders["uci_ssh.call"] = call_fn
     return call_fn
 
 

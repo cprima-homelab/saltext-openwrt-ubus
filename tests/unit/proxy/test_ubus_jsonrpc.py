@@ -1,5 +1,5 @@
 """
-Unit tests for the uci_ubus proxy module.
+Unit tests for the uci proxy module.
 
 All tests use a mocked RPC client. No network calls are made.
 """

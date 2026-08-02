@@ -1,7 +1,7 @@
 """
 Salt execution module for OpenWrt configuration via ubus over SSH.
 
-Requires the ``uci_ubus_ssh`` proxy module to be configured and
+Requires the ``uci_ssh`` proxy module to be configured and
 running. Delegates all ubus calls through the proxy's ``call()``
 function, which runs ``ubus call`` over SSH and returns parsed JSON --
 the same structured data as the JSON-RPC adapter.
@@ -18,8 +18,8 @@ from saltext.uci_ubus._internal import ubus_ops
 
 log = logging.getLogger(__name__)
 
-__virtualname__ = "uci_ubus"
-__proxyenabled__ = ["uci_ubus_ssh"]
+__virtualname__ = "uci"
+__proxyenabled__ = ["uci_ssh"]
 
 __func_alias__ = {
     "set_": "set",
@@ -30,14 +30,14 @@ __func_alias__ = {
 def __virtual__():
     if "proxy" not in __opts__:
         return False, "Not a proxy minion"
-    if __opts__.get("proxy", {}).get("proxytype") != "uci_ubus_ssh":
-        return False, "proxytype is not uci_ubus_ssh"
+    if __opts__.get("proxy", {}).get("proxytype") != "uci_ssh":
+        return False, "proxytype is not uci_ssh"
     return __virtualname__
 
 
 def _call(ubus_object, ubus_method, params=None):
     """Forward a ubus call through the proxy module."""
-    return __proxy__["uci_ubus_ssh.call"](ubus_object, ubus_method, params)
+    return __proxy__["uci_ssh.call"](ubus_object, ubus_method, params)
 
 
 # --- Read operations ---
@@ -55,9 +55,9 @@ def get(config, section=None, option=None):
 
     .. code-block:: bash
 
-        salt router uci_ubus.get network
-        salt router uci_ubus.get network lan
-        salt router uci_ubus.get network lan proto
+        salt router uci.get network
+        salt router uci.get network lan
+        salt router uci.get network lan proto
     """
     return ubus_ops.get(_call, config, section, option)
 
@@ -70,7 +70,7 @@ def configs():
 
     .. code-block:: bash
 
-        salt router uci_ubus.configs
+        salt router uci.configs
     """
     return ubus_ops.configs(_call)
 
@@ -83,7 +83,7 @@ def changes(config):
 
     .. code-block:: bash
 
-        salt router uci_ubus.changes network
+        salt router uci.changes network
     """
     return ubus_ops.changes(_call, config)
 
@@ -93,7 +93,7 @@ def config_export(config, format="json"):  # pylint: disable=redefined-builtin
     Export live UCI config as a grouped sections dict.
 
     Transforms the device config into the format consumed by
-    ``uci_ubus.managed()``. Anonymous sections are emitted as
+    ``uci.managed()``. Anonymous sections are emitted as
     singleton (``_<type>``) or multi-instance (``_<type>s`` with
     ``_match`` and ``_items``).
 
@@ -104,8 +104,8 @@ def config_export(config, format="json"):  # pylint: disable=redefined-builtin
 
     .. code-block:: bash
 
-        salt router uci_ubus.config_export network
-        salt router uci_ubus.config_export network format=pillar
+        salt router uci.config_export network
+        salt router uci.config_export network format=pillar
     """
     return ubus_ops.config_export(_call, config, format=format)
 
@@ -118,8 +118,8 @@ def config_export_all(format="json"):  # pylint: disable=redefined-builtin
 
     .. code-block:: bash
 
-        salt router uci_ubus.config_export_all
-        salt router uci_ubus.config_export_all format=pillar
+        salt router uci.config_export_all
+        salt router uci.config_export_all format=pillar
     """
     return ubus_ops.config_export_all(_call, format=format)
 
@@ -135,7 +135,7 @@ def config_diff(config, sections):
 
     .. code-block:: bash
 
-        salt router uci_ubus.config_diff network sections='{"lan": {"ipaddr": "10.0.0.2"}}'
+        salt router uci.config_diff network sections='{"lan": {"ipaddr": "10.0.0.2"}}'
     """
     return ubus_ops.config_diff(_call, config, sections)
 
@@ -151,7 +151,7 @@ def set_(config, section, values):
 
     .. code-block:: bash
 
-        salt router uci_ubus.set network lan '{"proto": "static"}'
+        salt router uci.set network lan '{"proto": "static"}'
     """
     return ubus_ops.set_(_call, config, section, values)
 
@@ -164,7 +164,7 @@ def add(config, type_, name=None, values=None):
 
     .. code-block:: bash
 
-        salt router uci_ubus.add network interface name=wan2
+        salt router uci.add network interface name=wan2
     """
     return ubus_ops.add(_call, config, type_, name, values)
 
@@ -177,8 +177,8 @@ def delete(config, section, option=None):
 
     .. code-block:: bash
 
-        salt router uci_ubus.delete network wan2
-        salt router uci_ubus.delete network lan dns
+        salt router uci.delete network wan2
+        salt router uci.delete network lan dns
     """
     return ubus_ops.delete(_call, config, section, option)
 
@@ -194,8 +194,8 @@ def apply_(rollback=90):  # pylint: disable=redefined-outer-name
 
     .. code-block:: bash
 
-        salt router uci_ubus.apply
-        salt router uci_ubus.apply rollback=120
+        salt router uci.apply
+        salt router uci.apply rollback=120
     """
     return ubus_ops.apply_(_call, rollback)
 
@@ -208,7 +208,7 @@ def confirm():
 
     .. code-block:: bash
 
-        salt router uci_ubus.confirm
+        salt router uci.confirm
     """
     return ubus_ops.confirm(_call)
 
@@ -221,7 +221,7 @@ def rollback():
 
     .. code-block:: bash
 
-        salt router uci_ubus.rollback
+        salt router uci.rollback
     """
     return ubus_ops.rollback(_call)
 
@@ -234,7 +234,7 @@ def revert(config):
 
     .. code-block:: bash
 
-        salt router uci_ubus.revert network
+        salt router uci.revert network
     """
     return ubus_ops.revert(_call, config)
 
@@ -247,7 +247,7 @@ def commit(config):
 
     .. code-block:: bash
 
-        salt router uci_ubus.commit network
+        salt router uci.commit network
     """
     return ubus_ops.commit(_call, config)
 
@@ -260,8 +260,8 @@ def state(config, section=None):
 
     .. code-block:: bash
 
-        salt router uci_ubus.state network
-        salt router uci_ubus.state network lan
+        salt router uci.state network
+        salt router uci.state network lan
     """
     return ubus_ops.state(_call, config, section)
 
@@ -277,7 +277,7 @@ def system_board():
 
     .. code-block:: bash
 
-        salt router uci_ubus.system_board
+        salt router uci.system_board
     """
     return ubus_ops.system_board(_call)
 
@@ -290,7 +290,7 @@ def system_info():
 
     .. code-block:: bash
 
-        salt router uci_ubus.system_info
+        salt router uci.system_info
     """
     return ubus_ops.system_info(_call)
 
@@ -303,7 +303,7 @@ def network_dump():
 
     .. code-block:: bash
 
-        salt router uci_ubus.network_dump
+        salt router uci.network_dump
     """
     return ubus_ops.network_dump(_call)
 
@@ -319,7 +319,7 @@ def service_list(verbose=False):
 
     .. code-block:: bash
 
-        salt router uci_ubus.service_list
-        salt router uci_ubus.service_list verbose=True
+        salt router uci.service_list
+        salt router uci.service_list verbose=True
     """
     return ubus_ops.service_list(_call, verbose)

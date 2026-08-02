@@ -1,5 +1,5 @@
-``uci_ubus_ssh``
-================
+``uci_ssh``
+===========
 
 .. automodule:: saltext.uci_ubus.proxy.uci_ssh
     :members:

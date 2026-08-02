@@ -1,5 +1,5 @@
 """
-Integration tests for uci_ubus UCI operations against a live container.
+Integration tests for uci UCI operations against a live container.
 
 Each testcorpus case exercises a distinct UCI data model pattern:
     before.uci  →  ubus call uci.*  →  after.uci

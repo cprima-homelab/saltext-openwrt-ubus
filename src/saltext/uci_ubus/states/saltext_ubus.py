@@ -21,13 +21,13 @@ log = logging.getLogger(__name__)
 POLL_INTERVAL = 3  # seconds between service polls
 SAFETY_MARGIN_FRACTION = 4  # use rollback // 4 as margin, min 10s
 
-__virtualname__ = "uci_ubus"
-__proxyenabled__ = ["uci_ubus_jsonrpc", "uci_ubus_ssh"]
+__virtualname__ = "uci"
+__proxyenabled__ = ["uci_ubus_jsonrpc", "uci_ssh"]
 
 
 def __virtual__():
-    if "uci_ubus.get" not in __salt__:
-        return False, "The 'uci_ubus' execution module is not available"
+    if "uci.get" not in __salt__:
+        return False, "The 'uci' execution module is not available"
     return __virtualname__
 
 
@@ -63,7 +63,7 @@ def managed(  # pylint: disable=too-many-return-statements
     .. code-block:: yaml
 
         network_config:
-          uci_ubus.managed:
+          uci.managed:
             - config: network
             - sections:
                 lan:
@@ -221,7 +221,7 @@ def applied(name, config=None, rollback=None):
 
     # 4. Apply with rollback timer
     try:
-        __salt__["uci_ubus.apply"](rollback=rollback)
+        __salt__["uci.apply"](rollback=rollback)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         # ubus status 5 = "No data" means nothing to apply
         if "status 5" in str(exc) or "No data" in str(exc):
@@ -244,7 +244,7 @@ def applied(name, config=None, rollback=None):
 
     # 6. Confirm -- cancel rollback timer, changes permanent
     try:
-        __salt__["uci_ubus.confirm"]()
+        __salt__["uci.confirm"]()
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = f"Failed to confirm {label}: {exc}. Rollback will revert in {rollback}s."
@@ -260,7 +260,7 @@ def applied(name, config=None, rollback=None):
 def _get_agent_mode():
     """Read salt-openwrt config from the device. Returns (enabled, mode, rollback_timeout)."""
     try:
-        agent = __salt__["uci_ubus.get"]("salt-openwrt", "global")
+        agent = __salt__["uci.get"]("salt-openwrt", "global")
     except Exception:  # pylint: disable=broad-exception-caught
         log.debug("salt-openwrt config not found, defaulting to oneshot mode")
         return True, "oneshot", 120
@@ -300,7 +300,7 @@ def _is_json_rpc():
 def _check_pending(ret, config, revert_pending):
     """Check for pending deltas, optionally reverting them."""
     try:
-        pending = __salt__["uci_ubus.changes"](config)
+        pending = __salt__["uci.changes"](config)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = f"Failed to check pending changes for {config}: {exc}"
@@ -312,19 +312,19 @@ def _check_pending(ret, config, revert_pending):
             ret["comment"] = (
                 f"Uncommitted changes exist for {config}. "
                 f"Set revert_pending=True to discard them, or "
-                f"revert manually with uci_ubus.revert. "
+                f"revert manually with uci.revert. "
                 f"Pending: {pending}"
             )
             return pending
         if not __opts__["test"]:
-            __salt__["uci_ubus.revert"](config)
+            __salt__["uci.revert"](config)
     return pending
 
 
 def _read_and_resolve(ret, config, sections):
     """Read current config and resolve anonymous sections."""
     try:
-        current = __salt__["uci_ubus.get"](config)
+        current = __salt__["uci.get"](config)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = f"Failed to read {config}: {exc}"
@@ -359,7 +359,7 @@ def _stage_changes(ret, config, all_changes, resolved, current):
 
         # 1. Deletions (prune, _absent whole-section, reorder tear-down)
         for section_name in deletes:
-            __salt__["uci_ubus.delete"](config, section_name)
+            __salt__["uci.delete"](config, section_name)
 
         # 2. Creates and updates
         for section_name, section_changes in updates.items():
@@ -384,25 +384,25 @@ def _stage_changes(ret, config, all_changes, resolved, current):
 
                 if desired.get("_anonymous_new"):
                     # Anonymous: add without name, get generated name back
-                    result = __salt__["uci_ubus.add"](config, type_)
+                    result = __salt__["uci.add"](config, type_)
                     generated = result if isinstance(result, str) else result.get("section", result)
                     if values:
-                        __salt__["uci_ubus.set"](config, generated, values)
+                        __salt__["uci.set"](config, generated, values)
                     for opt in absent_opts:
-                        __salt__["uci_ubus.delete"](config, generated, opt)
+                        __salt__["uci.delete"](config, generated, opt)
                 else:
                     # Named: add with name
-                    __salt__["uci_ubus.add"](config, type_, name=section_name)
+                    __salt__["uci.add"](config, type_, name=section_name)
                     if values:
-                        __salt__["uci_ubus.set"](config, section_name, values)
+                        __salt__["uci.set"](config, section_name, values)
                     for opt in absent_opts:
-                        __salt__["uci_ubus.delete"](config, section_name, opt)
+                        __salt__["uci.delete"](config, section_name, opt)
             else:
                 # Existing section: set changed values, delete absent options
                 if values:
-                    __salt__["uci_ubus.set"](config, section_name, values)
+                    __salt__["uci.set"](config, section_name, values)
                 for opt in absent_opts:
-                    __salt__["uci_ubus.delete"](config, section_name, opt)
+                    __salt__["uci.delete"](config, section_name, opt)
 
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
@@ -417,14 +417,12 @@ def _commit_or_apply(ret, config, all_changes, apply_rollback):
         # to /tmp/.uci/ (reviewable via 'uci changes'), JSON-RPC stages in
         # the rpcd session (kept alive by the proxy minion).
         if _is_json_rpc():
-            ret["comment"] = (
-                f"{config}: {len(all_changes)} section(s) staged in rpcd session (apply with uci_ubus.applied)"
-            )
+            ret["comment"] = f"{config}: {len(all_changes)} section(s) staged in rpcd session (apply with uci.applied)"
         else:
             ret["comment"] = (
                 f"{config}: {len(all_changes)} section(s) staged "
                 f"(review with 'uci changes {config}', "
-                f"then apply with uci_ubus.applied)"
+                f"then apply with uci.applied)"
             )
     else:
         _apply_and_confirm(ret, config, all_changes, apply_rollback)
@@ -439,7 +437,7 @@ def _apply_and_confirm(ret, config, all_changes, apply_rollback):
     snapshot = _snapshot_services()
 
     try:
-        __salt__["uci_ubus.apply"](rollback=apply_rollback)
+        __salt__["uci.apply"](rollback=apply_rollback)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = f"Failed to apply {config}: {exc}"
@@ -447,7 +445,7 @@ def _apply_and_confirm(ret, config, all_changes, apply_rollback):
 
     # Verify UCI values were written correctly
     try:
-        new_state = __salt__["uci_ubus.get"](config)
+        new_state = __salt__["uci.get"](config)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = f"Failed to verify {config} after apply: {exc}. Rollback will revert in {apply_rollback}s."
@@ -501,7 +499,7 @@ def _apply_and_confirm(ret, config, all_changes, apply_rollback):
         return
 
     try:
-        __salt__["uci_ubus.confirm"]()
+        __salt__["uci.confirm"]()
     except Exception as exc:  # pylint: disable=broad-exception-caught
         ret["result"] = False
         ret["comment"] = f"Failed to confirm {config}: {exc}. Rollback will revert in {apply_rollback}s."
@@ -515,7 +513,7 @@ def _snapshot_services():
     instances only. Services with no running instances are skipped.
     """
     try:
-        services = __salt__["uci_ubus.service_list"]()
+        services = __salt__["uci.service_list"]()
     except Exception:  # pylint: disable=broad-exception-caught
         log.debug("Could not snapshot services, skipping health check")
         return {}
@@ -553,7 +551,7 @@ def _wait_for_services(snapshot, rollback):
         time.sleep(POLL_INTERVAL)
 
         try:
-            services = __salt__["uci_ubus.service_list"]()
+            services = __salt__["uci.service_list"]()
         except Exception:  # pylint: disable=broad-exception-caught
             log.debug("service_list poll failed, will retry")
             if time.monotonic() >= deadline:

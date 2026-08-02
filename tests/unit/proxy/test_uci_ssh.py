@@ -1,5 +1,5 @@
 """
-Unit tests for the uci_ubus SSH proxy module.
+Unit tests for the uci SSH proxy module.
 
 All tests mock the SshRunner. No SSH connections are made.
 """
@@ -75,7 +75,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "uci_ubus_ssh",
+                "proxytype": "uci_ssh",
                 "host": "10.38.20.1",
                 "ssh_key": "/root/.ssh/id_ed25519",
                 "username": "root",
@@ -107,7 +107,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "uci_ubus_ssh",
+                "proxytype": "uci_ssh",
                 "host": "10.38.20.1",
                 "ssh_key": "/root/.ssh/openwrt_ed25519",
             }
@@ -140,7 +140,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "uci_ubus_ssh",
+                "proxytype": "uci_ssh",
                 "host": "10.38.20.1",
                 "ssh_key": "/root/.ssh/openwrt_ed25519",
             }
@@ -162,7 +162,7 @@ class TestInit:
         custom_options = ["StrictHostKeyChecking=yes"]
         opts = {
             "proxy": {
-                "proxytype": "uci_ubus_ssh",
+                "proxytype": "uci_ssh",
                 "host": "10.38.20.1",
                 "ssh_key": "/root/.ssh/id_rsa",
                 "ssh_options": custom_options,
@@ -186,7 +186,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "uci_ubus_ssh",
+                "proxytype": "uci_ssh",
                 "host": "10.38.20.1",
                 "ssh_key": "/root/.ssh/id_ed25519",
                 "ssh_multiplex": False,
@@ -206,7 +206,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "uci_ubus_ssh",
+                "proxytype": "uci_ssh",
                 "host": "10.38.20.1",
                 "ssh_key": "/root/.ssh/id_ed25519",
                 "control_persist": 300,
@@ -220,7 +220,7 @@ class TestInit:
     def test_missing_host_raises(self):
         opts = {
             "proxy": {
-                "proxytype": "uci_ubus_ssh",
+                "proxytype": "uci_ssh",
                 "ssh_key": "/root/.ssh/id_ed25519",
             }
         }
@@ -230,7 +230,7 @@ class TestInit:
     def test_missing_ssh_key_raises(self):
         opts = {
             "proxy": {
-                "proxytype": "uci_ubus_ssh",
+                "proxytype": "uci_ssh",
                 "host": "10.38.20.1",
             }
         }
@@ -245,7 +245,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "uci_ubus_ssh",
+                "proxytype": "uci_ssh",
                 "host": "10.38.20.1",
                 "ssh_key": "/root/.ssh/id_ed25519",
             }
@@ -262,7 +262,7 @@ class TestInit:
 
         opts = {
             "proxy": {
-                "proxytype": "uci_ubus_ssh",
+                "proxytype": "uci_ssh",
                 "host": "10.38.20.1",
                 "ssh_key": "/root/.ssh/id_ed25519",
             }

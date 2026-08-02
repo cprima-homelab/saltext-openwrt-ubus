@@ -1,5 +1,5 @@
 """
-Unit tests for the uci_ubus execution module.
+Unit tests for the uci execution module.
 
 All tests use mocked proxy calls. No network calls or device writes.
 """

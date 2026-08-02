@@ -10,7 +10,7 @@ as the JSON-RPC adapter.
 
     # /srv/salt/pillar/router.sls
     proxy:
-      proxytype: uci_ubus_ssh
+      proxytype: uci_ssh
       host: 10.35.24.1
       # username: root                          (default)
       # port: 22                                (default)
@@ -45,8 +45,8 @@ _DEFAULT_SSH_OPTIONS = [
     "PubkeyAcceptedAlgorithms=+ssh-rsa",
 ]
 
-__virtualname__ = "uci_ubus_ssh"
-__proxyenabled__ = ["uci_ubus_ssh"]
+__virtualname__ = "uci_ssh"
+__proxyenabled__ = ["uci_ssh"]
 
 DETAILS = {}
 
@@ -61,7 +61,7 @@ def init(opts):
     proxy_conf = opts["proxy"]
     for key in ("host", "ssh_key"):
         if key not in proxy_conf:
-            raise ValueError(f"uci_ubus_ssh: required pillar key '{key}' is missing")
+            raise ValueError(f"uci_ssh: required pillar key '{key}' is missing")
     ssh_options = proxy_conf.get("ssh_options", list(_DEFAULT_SSH_OPTIONS))
     ssh_key = proxy_conf["ssh_key"]
     ssh_options = [f"IdentityFile={ssh_key}"] + ssh_options
@@ -84,7 +84,7 @@ def init(opts):
     DETAILS["runner"] = runner
     DETAILS["grains_cache"] = _fetch_grains(runner)
     DETAILS["initialized"] = True
-    log.info("uci_ubus_ssh proxy initialized for %s", proxy_conf["host"])
+    log.info("uci_ssh proxy initialized for %s", proxy_conf["host"])
 
 
 def alive(opts):  # pylint: disable=unused-argument
@@ -117,7 +117,7 @@ def shutdown(opts):  # pylint: disable=unused-argument
     if runner:
         runner.close_master()
     DETAILS.clear()
-    log.info("uci_ubus_ssh proxy shut down")
+    log.info("uci_ssh proxy shut down")
 
 
 def grains():
