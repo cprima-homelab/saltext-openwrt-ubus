@@ -25,6 +25,15 @@ jobs:
       run:
         working-directory: packages/${{ matrix.package }}
 
+    # Container jobs bind-mount the workspace; intermediate directories in
+    # packages/<name>'s path can report different device IDs, which makes
+    # git's upward search for .git think it hit a filesystem boundary and
+    # stop ("Stopping at filesystem boundary (GIT_DISCOVERY_ACROSS_FILESYSTEM
+    # not set)") even though .git is right there one level up. This is the
+    # documented fix, not a workaround for a real filesystem boundary.
+    env:
+      GIT_DISCOVERY_ACROSS_FILESYSTEM: "1"
+
     steps:
       # Checkout first -- packages/<name> doesn't exist inside the
       # container until the repo is cloned, and the job-level
@@ -37,10 +46,6 @@ jobs:
         run: |
           apt-get update
           apt-get install -y enchant-2 git gcc make zlib1g-dev libc-dev libffi-dev g++ libxml2 libxml2-dev libxslt-dev libcurl4-openssl-dev libssl-dev libgnutls28-dev
-          # A single literal safe.directory path isn't reliable once git
-          # is invoked from a subdirectory (packages/<name>) rather than
-          # the checkout root -- wildcard is the standard workaround for
-          # container jobs (ephemeral container, no real ownership risk).
           git config --global --add safe.directory '*'
 
       - name: Install Pre-Commit
@@ -50,17 +55,8 @@ jobs:
           # `pre-commit run` installs hook environments on demand -- no
           # need for `pre-commit install --install-hooks`, which writes a
           # git hook script into .git/hooks/ and fails from a monorepo
-          # subdirectory ("FatalError: git failed") since it wasn't
-          # designed to run from anywhere but a repo root.
-
-      - name: Debug git state
-        run: |
-          echo "HOME=$HOME"
-          cat "$HOME/.gitconfig" || echo "no .gitconfig"
-          pwd
-          git --version
-          git rev-parse --show-toplevel
-          git status
+          # subdirectory since it wasn't designed to run from anywhere but
+          # a repo root.
 
       # Each package has its own .pre-commit-config.yaml; run all files for
       # its own tree rather than trying to split a repo-wide changed-files
