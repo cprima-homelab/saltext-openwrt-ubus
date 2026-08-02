@@ -11,6 +11,10 @@ root = "../.."
 write_to = "src/saltext/uci_ssh/version.py"
 write_to_template = "__version__ = \"{version}\"\n"
 tag_regex = '^uci-ssh-v(?P<version>.*)$'
+# All 3 packages' tags can point at the same commit -- tag_regex only
+# parses whatever tag `git describe` already picked, it doesn't select
+# among co-located tags. --match constrains git describe itself.
+git_describe_command = ["git", "describe", "--dirty", "--tags", "--long", "--match", "uci-ssh-v*"]
 
 [project]
 name = "saltext.uci-ssh"
