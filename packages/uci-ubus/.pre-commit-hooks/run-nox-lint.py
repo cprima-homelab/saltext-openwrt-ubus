@@ -15,8 +15,4 @@ PREFIX = "packages/uci-ubus/"
 session = sys.argv[1]
 paths = [a[len(PREFIX) :] if a.startswith(PREFIX) else a for a in sys.argv[2:]]
 
-raise SystemExit(
-    subprocess.call(
-        ["nox", "--noxfile", "packages/uci-ubus/noxfile.py", "-e", session, "--", *paths]
-    )
-)
+raise SystemExit(subprocess.call(["nox", "--noxfile", "packages/uci-ubus/noxfile.py", "-e", session, "--", *paths]))
